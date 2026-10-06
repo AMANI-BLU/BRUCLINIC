@@ -1,0 +1,72 @@
+.patients-page { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.filters-bar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+
+.patient-cell { display: flex; align-items: center; gap: 0.75rem; }
+.patient-name { font-weight: 600; font-size: 0.875rem; }
+.patient-sub  { font-size: 0.72rem; color: var(--clr-text-muted); margin-top: 0.1rem; }
+
+.id-code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  background: rgba(59, 130, 246, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--clr-primary-300);
+}
+
+.action-btns { display: flex; gap: 0.375rem; }
+
+/* Modal */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.modal-title { font-size: 1.15rem; font-weight: 700; font-family: var(--font-heading); }
+.modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
+
+/* Patient View */
+.patient-view { margin-top: 0.5rem; }
+
+.pv-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: 1.25rem;
+}
+
+.pv-avatar {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--clr-primary-500), var(--clr-accent-500));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.pv-name { font-size: 1.3rem; font-weight: 800; font-family: var(--font-heading); }
+.pv-id { font-size: 0.8rem; color: var(--clr-text-muted); margin-top: 0.1rem; }
+
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.pv-item {
+  background: rgba(29, 78, 216, 0.04);
+  border: 1px solid rgba(59, 130, 246, 0.08);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+
+.pv-label { font-size: 0.72rem; font-weight: 600; color: var(--clr-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+.pv-value { font-size: 0.875rem; color: var(--clr-text-primary); font-weight: 500; }

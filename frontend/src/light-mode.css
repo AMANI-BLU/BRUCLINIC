@@ -1,0 +1,95 @@
+/* ============================================================
+   BruClinic – Light Mode Component Overrides
+   Applied globally via [data-theme="light"]
+   ============================================================ */
+
+/* ── Cards ── */
+[data-theme="light"] .card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(29, 78, 216, 0.1);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+[data-theme="light"] .card:hover {
+  border-color: rgba(29, 78, 216, 0.22);
+  box-shadow: 0 4px 24px rgba(29, 78, 216, 0.1);
+}
+
+/* ── Tables ── */
+[data-theme="light"] .table-wrapper {
+  background: rgba(255,255,255,0.9);
+  border-color: rgba(29,78,216,0.1);
+}
+[data-theme="light"] thead tr { background: rgba(29,78,216,0.04); }
+[data-theme="light"] thead th  { color: #64748b; }
+[data-theme="light"] tbody tr:hover { background: rgba(29,78,216,0.03); }
+[data-theme="light"] tbody tr { border-bottom-color: rgba(29,78,216,0.05); }
+
+/* ── Stat cards ── */
+[data-theme="light"] .stat-card {
+  background: rgba(255,255,255,0.9);
+  border-color: rgba(29,78,216,0.12);
+  box-shadow: 0 2px 12px rgba(15,23,42,0.06);
+}
+
+/* ── Modal ── */
+[data-theme="light"] .modal-overlay { background: rgba(15,23,42,0.5); }
+[data-theme="light"] .modal {
+  background: #fff;
+  border-color: rgba(29,78,216,0.2);
+  box-shadow: 0 20px 60px rgba(15,23,42,0.15);
+}
+
+/* ── Pill tabs ── */
+[data-theme="light"] .pill-tabs {
+  background: #f0f4fa;
+  border-color: rgba(29,78,216,0.12);
+}
+[data-theme="light"] .pill-tab:not(.active):hover {
+  background: rgba(29,78,216,0.06);
+  color: #1d4ed8;
+}
+
+/* ── Inputs in light mode ── */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: #f8faff;
+  border-color: rgba(29,78,216,0.15);
+  color: #0f172a;
+}
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
+  border-color: #2563eb;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+[data-theme="light"] select option { background: #fff; color: #0f172a; }
+
+/* ── ID code ── */
+[data-theme="light"] .id-code {
+  background: rgba(29,78,216,0.06);
+  color: #1d4ed8;
+  border-color: rgba(29,78,216,0.15);
+}
+
+/* ── Btn secondary ── */
+[data-theme="light"] .btn-secondary {
+  background: #f0f4fa;
+  border-color: rgba(29,78,216,0.15);
+  color: #334155;
+}
+[data-theme="light"] .btn-secondary:hover {
+  background: #e0eaff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+/* ── Dashboard hero ── */
+[data-theme="light"] .hero-banner {
+  background: linear-gradient(135deg, #1a2d5a 0%, #1e3a6e 50%, #152847 100%);
+}
+
+/* ── Scrollbar light ── */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(29,78,216,0.2); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
