@@ -1,235 +1,213 @@
 import { useClinic } from '../../context/ClinicContext';
-import { MONTHLY_VISITS, DIAGNOSIS_DISTRIBUTION } from '../../data/mockData';
 import {
-  Users, Stethoscope, HeartPulse, Pill, FlaskConical,
-  CreditCard, TrendingUp,
-  Building2, ShieldCheck, Activity
+  Activity,
+  Building2,
+  ChevronRight,
+  CreditCard,
+  FlaskConical,
+  HeartPulse,
+  Pill,
+  Stethoscope,
+  Users,
 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import './AdminDashboard.css';
+
+type DepartmentTone = 'info' | 'success' | 'danger' | 'warning' | 'primary' | 'secondary';
 
 export default function AdminDashboard() {
-  const { patients, doctors, medicines, queue, erCases, labOrders, pharmacyOrders } = useClinic();
+  const { patients, doctors, records, medicines, queue, erCases, labOrders, pharmacyOrders } = useClinic();
 
-  const activeDocs = doctors.filter(d => d.available).length;
-  const criticalER = erCases.filter(c => c.acuity === 'Red').length;
-  const pendingRx = pharmacyOrders.filter(p => p.status === 'Pending').length;
-  const pendingLab = labOrders.filter(l => l.status !== 'Completed').length;
-  const lowStock = medicines.filter(m => m.stock <= m.minStock).length;
+  const activeDocs = doctors.filter((doctor) => doctor.available).length;
+  const criticalER = erCases.filter((caseItem) => caseItem.acuity === 'Red').length;
+  const pendingRx = pharmacyOrders.filter((order) => order.status === 'Pending').length;
+  const pendingLab = labOrders.filter((order) => order.status !== 'Completed').length;
+  const lowStock = medicines.filter((medicine) => medicine.stock <= medicine.minStock).length;
 
-  const STATS = [
-    { label: 'Registered Patients', val: patients.length, icon: Users, color: '#3b82f6', sub: '+18 this week' },
-    { label: 'OPD & ER Staff on Duty', val: `${activeDocs}/${doctors.length}`, icon: Stethoscope, color: '#10b981', sub: 'Fully staffed' },
-    { label: 'Active Emergency Cases', val: erCases.length, icon: HeartPulse, color: '#ef4444', sub: `${criticalER} Red Priority` },
-    { label: 'Pending Prescriptions', val: pendingRx, icon: Pill, color: '#f59e0b', sub: 'In pharmacy queue' },
-    { label: 'Pending Lab Tests', val: pendingLab, icon: FlaskConical, color: '#8b5cf6', sub: 'Turnaround ~35m' },
-    { label: 'Card Room Queue', val: queue.length, icon: CreditCard, color: '#0ea5e9', sub: 'Real-time tokens' },
+  const monthlyVisits = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index));
+    const month = date.toLocaleString('en', { month: 'short' });
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return { month, visits: records.filter(record => record.visitDate?.startsWith(key)).length };
+  });
+  const diagnosisCounts = records.reduce<Record<string, number>>((counts, record) => {
+    const diagnosis = record.diagnosis?.trim();
+    if (diagnosis) counts[diagnosis] = (counts[diagnosis] || 0) + 1;
+    return counts;
+  }, {});
+  const diagnosisData = Object.entries(diagnosisCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+    .map(([name, value], index) => ({ name, value, color: ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1'][index] }));
+
+  const kpis = [
+    { label: 'Patients', value: patients.length, detail: 'Database total', icon: Users, tone: 'info' },
+    { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: 'Coverage today', icon: Stethoscope, tone: 'success' },
+    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} red priority`, icon: HeartPulse, tone: 'danger' },
+    { label: 'Prescriptions', value: pendingRx, detail: 'Pharmacy queue', icon: Pill, tone: 'warning' },
+    { label: 'Lab Tests', value: pendingLab, detail: 'Open orders', icon: FlaskConical, tone: 'primary' },
+    { label: 'Queue Tokens', value: queue.length, detail: 'Real-time tokens', icon: CreditCard, tone: 'secondary' },
+  ] as const;
+
+  const departments: Array<{
+    name: string;
+    status: string;
+    metric: string;
+    value: string | number;
+    secondary: string;
+    secondaryValue: string | number;
+    icon: typeof Users;
+    tone: DepartmentTone;
+  }> = [
+    {
+      name: 'Reception & Cards', status: 'Normal', metric: 'Checked-in patients', value: queue.length,
+      secondary: 'Registered cards', secondaryValue: patients.length, icon: CreditCard, tone: 'info',
+    },
+    {
+      name: 'OPD & Triage', status: 'Active', metric: 'Doctor consultation',
+      value: queue.filter((item) => item.stage === 'Doctor Consultation').length,
+      secondary: 'Nurse triage queue', secondaryValue: queue.filter((item) => item.stage === 'Nurse Triage').length,
+      icon: Stethoscope, tone: 'success',
+    },
+    {
+      name: 'Emergency (ER)', status: criticalER > 0 ? 'High Acuity' : 'Normal', metric: 'Active cases',
+      value: erCases.length, secondary: 'Red priority cases', secondaryValue: criticalER,
+      icon: HeartPulse, tone: 'danger',
+    },
+    {
+      name: 'Pharmacy', status: lowStock > 0 ? `${lowStock} low stock` : 'Stock OK',
+      metric: 'Pending prescriptions', value: pendingRx, secondary: 'Tracked medicines', secondaryValue: medicines.length,
+      icon: Pill, tone: 'warning',
+    },
+    {
+      name: 'Laboratory', status: 'Active', metric: 'Diagnostic orders', value: labOrders.length,
+      secondary: 'Pending verification', secondaryValue: pendingLab, icon: FlaskConical, tone: 'primary',
+    },
+    {
+      name: 'Administration', status: 'Normal', metric: 'Medical professionals', value: doctors.length,
+      secondary: 'On-duty doctors', secondaryValue: activeDocs, icon: Building2, tone: 'secondary',
+    },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header Banner */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(14, 27, 54, 0.95) 0%, rgba(20, 39, 78, 0.88) 50%, rgba(13, 24, 48, 0.95) 100%)',
-        border: '1px solid rgba(59, 130, 246, 0.28)',
-        borderRadius: 16,
-        padding: '1.75rem 2rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        {/* Ambient background glow */}
-        <div style={{
-          position: 'absolute', top: -30, right: -20, width: 260, height: 260,
-          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.18) 0%, transparent 70%)',
-          pointerEvents: 'none', filter: 'blur(35px)'
-        }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '0.3rem 0.75rem', borderRadius: 99,
-              background: 'rgba(37, 99, 235, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)',
-              color: '#60a5fa', fontSize: '0.74rem', fontWeight: 700,
-              letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.65rem'
-            }}>
-              <ShieldCheck size={14} /> System Administrator &amp; Medical Director View
-            </div>
-            <h1 style={{
-              fontSize: '1.85rem', fontWeight: 900, fontFamily: 'var(--font-heading)',
-              color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.35rem'
-            }}>
-              Hospital Executive Overview
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 600 }}>Borana University Health Services</span>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>•</span>
-              <span>Multi-department Clinical Coordination</span>
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '0.45rem 0.95rem', borderRadius: 99,
-              background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)',
-              color: '#34d399', fontSize: '0.8rem', fontWeight: 700
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
-              6 Departments Operational
-            </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '0.45rem 0.95rem', borderRadius: 99,
-              background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 600
-            }}>
-              <Building2 size={14} style={{ color: '#60a5fa' }} /> Main Campus Facility
-            </div>
-          </div>
+    <div className="admin-dashboard">
+      <div className="content-header admin-content-header py-1 mb-2">
+        <div className="container-fluid px-0">
+          <h1 className="m-0" style={{ fontSize: '1.25rem', fontWeight: 700 }}>Executive Overview</h1>
+          <p className="admin-page-subtitle mb-0" style={{ fontSize: '0.8rem' }}>Clinic operations and unit status</p>
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-        {STATS.map((s, i) => {
-          const Icon = s.icon;
-          return (
-            <div key={i} className="stat-card" style={{ borderColor: `${s.color}33` }}>
-              <div className="stat-icon" style={{ background: `${s.color}1a`, color: s.color }}>
-                <Icon size={22} />
-              </div>
-              <div>
-                <div className="stat-value">{s.val}</div>
-                <div className="stat-label">{s.label}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)', marginTop: '0.15rem' }}>{s.sub}</div>
+      <section aria-label="Executive key performance indicators">
+        <div className="row admin-kpi-grid">
+          {kpis.map(({ label, value, detail, icon: Icon, tone }) => (
+            <div className="col-xl-2 col-lg-4 col-md-6" key={label}>
+              <div className={`small-box bg-${tone} admin-kpi-box`}>
+                <div className="inner">
+                  <h3>{value}</h3>
+                  <p>{label}</p>
+                  <small>{detail}</small>
+                </div>
+                <div className="icon"><Icon aria-hidden="true" /></div>
+                <div className="small-box-footer admin-kpi-footer">
+                  <span>View details</span><ChevronRight aria-hidden="true" />
+                </div>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.25rem' }}>
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <TrendingUp size={18} style={{ color: '#3b82f6' }} /> Patient Volume &amp; Departmental Visits
-            </h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)' }}>2026 Academic Year</span>
+      <section className="row admin-analytics-row" aria-label="Clinical analytics">
+        <div className="col-lg-8">
+          <div className="card card-outline card-primary admin-card admin-chart-card">
+            <div className="card-header">
+              <h3 className="card-title"><Activity size={19} /> Patient Volume &amp; Departmental Visits</h3>
+              <span className="admin-card-period">2026 Academic Year</span>
+            </div>
+            <div className="card-body">
+              <div className="admin-chart-wrap">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyVisits} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="adminVisitsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#007bff" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#007bff" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(108, 117, 125, 0.16)" />
+                    <XAxis dataKey="month" tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
+                    <Area type="monotone" dataKey="visits" stroke="#007bff" strokeWidth={3} fill="url(#adminVisitsGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={230}>
-            <AreaChart data={MONTHLY_VISITS} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="adminGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(59,130,246,0.07)" />
-              <XAxis dataKey="month" tick={{ fill: '#4d6a94', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#4d6a94', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#111e33', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, color: '#fff' }} />
-              <Area type="monotone" dataKey="visits" stroke="#3b82f6" strokeWidth={2.5} fill="url(#adminGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
         </div>
 
-        <div className="card">
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Activity size={18} style={{ color: '#10b981' }} /> Case Category Mix
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={DIAGNOSIS_DISTRIBUTION} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={4} dataKey="value">
-                {DIAGNOSIS_DISTRIBUTION.map((e, idx) => (
-                  <Cell key={idx} fill={e.color} />
+        <div className="col-lg-4">
+          <div className="card card-outline card-info admin-card admin-mix-card">
+            <div className="card-header">
+              <h3 className="card-title"><Activity size={19} /> Case Category Mix</h3>
+            </div>
+            <div className="card-body">
+              <div className="admin-donut-wrap">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={diagnosisData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
+                      {diagnosisData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="admin-mix-legend">
+                {diagnosisData.slice(0, 4).map((entry) => (
+                  <div key={entry.name}><span style={{ backgroundColor: entry.color }} />{entry.name}<strong>{entry.value}</strong></div>
                 ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#111e33', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, color: '#fff' }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.4rem', fontSize: '0.72rem', marginTop: '0.5rem' }}>
-            {DIAGNOSIS_DISTRIBUTION.slice(0, 4).map((d, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color }} />
-                <span>{d.name}: {d.value}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="card card-outline card-secondary admin-card admin-departments-card" aria-label="Active departmental workloads">
+        <div className="card-header">
+          <h3 className="card-title"><Building2 size={19} /> Active Departmental Workloads</h3>
+          <span className="admin-card-period">Live operational snapshot</span>
+        </div>
+        <div className="card-body">
+          <div className="row">
+            {departments.map(({ name, status, metric, value, secondary, secondaryValue, icon: Icon, tone }) => (
+              <div className="col-xl-4 col-md-6" key={name}>
+                <div className={`info-box admin-department-box admin-department-${tone}`}>
+                  <span className={`info-box-icon bg-${tone}`}><Icon aria-hidden="true" /></span>
+                  <div className="info-box-content">
+                    <span className="info-box-text">{name}</span>
+                    <span className="admin-department-status">{status}</span>
+                    <span className="admin-department-metric">{metric} <strong>{value}</strong></span>
+                    <span className="admin-department-metric">{secondary} <strong>{secondaryValue}</strong></span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Department Status Grid */}
-      <div>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Building2 size={18} className="text-primary" /> Active Departmental Workloads
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-          {/* Card Reception */}
-          <div className="card" style={{ borderLeft: '3px solid #0ea5e9' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>Card Room &amp; Reception</span>
-              <span className="badge badge-blue">Normal</span>
-            </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--clr-text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <div>Patients Checked In: <strong>{queue.length}</strong></div>
-              <div>Today Registration Cards: <strong>{patients.length}</strong></div>
-            </div>
-          </div>
-
-          {/* OPD Clinic */}
-          <div className="card" style={{ borderLeft: '3px solid #10b981' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>OPD Consultation &amp; Triage</span>
-              <span className="badge badge-green">Operational</span>
-            </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--clr-text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <div>Waiting for Doctor: <strong>{queue.filter(q => q.stage === 'Doctor Consultation').length}</strong></div>
-              <div>Nurse Triage Queue: <strong>{queue.filter(q => q.stage === 'Nurse Triage').length}</strong></div>
-            </div>
-          </div>
-
-          {/* Emergency */}
-          <div className="card" style={{ borderLeft: '3px solid #ef4444' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>Emergency &amp; Trauma (ER)</span>
-              <span className="badge badge-red">{criticalER > 0 ? 'High Acuity' : 'Normal'}</span>
-            </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--clr-text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <div>Admitted ER Beds: <strong>{erCases.length} / 8</strong></div>
-              <div>Red (Immediate Resus): <strong>{criticalER}</strong></div>
-            </div>
-          </div>
-
-          {/* Pharmacy */}
-          <div className="card" style={{ borderLeft: '3px solid #f59e0b' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>Pharmacy Dispensary</span>
-              <span className="badge badge-amber">{lowStock > 0 ? `${lowStock} Low Stock` : 'Stock OK'}</span>
-            </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--clr-text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <div>Prescriptions Pending: <strong>{pendingRx}</strong></div>
-              <div>Tracked Medicine SKUs: <strong>{medicines.length}</strong></div>
-            </div>
-          </div>
-
-          {/* Laboratory */}
-          <div className="card" style={{ borderLeft: '3px solid #8b5cf6' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>Diagnostic Laboratory</span>
-              <span className="badge badge-violet">Active</span>
-            </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--clr-text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <div>Diagnostic Requests: <strong>{labOrders.length}</strong></div>
-              <div>Pending Verification: <strong>{pendingLab}</strong></div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import InfoBox from '../../components/AdminLTE/InfoBox';
+import { useAuth } from '../../context/AuthContext';
 import type { ERCase, TriageAcuity } from '../../types';
+import { firstError, validateRequired } from '../../utils/validation';
+import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
 import {
-  HeartPulse, AlertTriangle, Activity, Bed,
+  AlertTriangle, Activity, Bed,
   CheckCircle2, Ambulance, ShieldAlert, X
 } from 'lucide-react';
 
@@ -18,13 +22,16 @@ const ER_BAYS = [
 ];
 
 export default function EmergencyDashboard() {
-  const { erCases, addERCase, updateERCase } = useClinic();
+  const { erCases, patients, addERCase, updateERCase } = useClinic();
+  const { currentUser } = useAuth();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // New emergency admission form
   const [newCase, setNewCase] = useState({
+    patientId: '',
     patientName: '',
     age: 22,
     gender: 'Male' as const,
@@ -36,7 +43,7 @@ export default function EmergencyDashboard() {
     hr: 110,
     temp: 37.2,
     spo2: 92,
-    attendingDoctor: 'Dr. Teshome Galgalo',
+    attendingDoctor: '',
     criticalNotes: '',
   });
 
@@ -44,28 +51,45 @@ export default function EmergencyDashboard() {
   const yellowCases = erCases.filter(c => c.acuity === 'Yellow');
   const greenCases = erCases.filter(c => c.acuity === 'Green');
 
-  const handleCreateAdmission = (e: React.FormEvent) => {
+  const handleCreateAdmission = async (e: React.FormEvent) => {
     e.preventDefault();
-    addERCase({
-      patientId: `P${Date.now()}`,
-      patientName: newCase.patientName || 'Emergency Patient',
-      age: Number(newCase.age),
-      gender: newCase.gender,
-      arrivalMethod: newCase.arrivalMethod,
-      acuity: newCase.acuity,
-      chiefComplaint: newCase.chiefComplaint || 'Acute trauma presentation',
-      bedNumber: newCase.bedNumber,
-      vitals: {
-        bloodPressure: newCase.bp,
-        heartRate: Number(newCase.hr),
-        temperature: Number(newCase.temp),
-        spo2: Number(newCase.spo2),
-      },
-      attendingDoctor: newCase.attendingDoctor,
-      status: 'In Treatment',
-      criticalNotes: newCase.criticalNotes,
-    });
-    setModalOpen(false);
+    const error = firstError(...Object.values(validateRequired(newCase, {
+      patientId: 'Patient', chiefComplaint: 'Chief complaint', bedNumber: 'ER bay',
+    })));
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    const patient = patients.find(item => item.id === newCase.patientId);
+    if (!patient) {
+      setFormError('Select a valid patient from the database.');
+      return;
+    }
+    try {
+      await addERCase({
+        patientId: patient.id,
+        patientName: patientFullName(patient),
+        age: Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()),
+        gender: patient.gender,
+        arrivalMethod: newCase.arrivalMethod,
+        acuity: newCase.acuity,
+        chiefComplaint: newCase.chiefComplaint,
+        bedNumber: newCase.bedNumber,
+        vitals: {
+          bloodPressure: newCase.bp,
+          heartRate: Number(newCase.hr),
+          temperature: Number(newCase.temp),
+          spo2: Number(newCase.spo2),
+        },
+        attendingDoctor: currentUser?.name || newCase.attendingDoctor || 'Emergency clinician',
+        status: 'In Treatment',
+        criticalNotes: newCase.criticalNotes,
+      });
+      setFormError(null);
+      setModalOpen(false);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not create the emergency case.');
+    }
   };
 
   const handleUpdateStatus = (id: string, status: ERCase['status']) => {
@@ -77,44 +101,8 @@ export default function EmergencyDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header Banner */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(38, 14, 25, 0.95) 0%, rgba(55, 18, 30, 0.88) 50%, rgba(28, 10, 20, 0.95) 100%)',
-        border: '1px solid rgba(244, 63, 94, 0.3)',
-        borderRadius: 16,
-        padding: '1.75rem 2rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        {/* Ambient background glow */}
-        <div style={{
-          position: 'absolute', top: -30, right: -20, width: 260, height: 260,
-          background: 'radial-gradient(circle, rgba(244, 63, 94, 0.18) 0%, transparent 70%)',
-          pointerEvents: 'none', filter: 'blur(35px)'
-        }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '0.3rem 0.75rem', borderRadius: 99,
-              background: 'rgba(244, 63, 94, 0.18)', border: '1px solid rgba(244, 63, 94, 0.4)',
-              color: '#fb7185', fontSize: '0.74rem', fontWeight: 700,
-              letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.65rem'
-            }}>
-              <HeartPulse size={14} /> Emergency Trauma &amp; Resuscitation Unit (ER)
-            </div>
-            <h1 style={{
-              fontSize: '1.85rem', fontWeight: 900, fontFamily: 'var(--font-heading)',
-              color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.35rem'
-            }}>
-              Emergency Triage &amp; Trauma Bay Management
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500 }}>
-              Real-time acuity triage, active trauma resuscitation tracking, bed occupancy, and fast-track admissions.
-            </p>
-          </div>
+      {/* Emergency action */}
+      <div className="department-action-row">
           <button
             className="btn btn-danger"
             style={{ boxShadow: '0 0 16px rgba(239,68,68,0.4)', padding: '0.7rem 1.4rem' }}
@@ -122,54 +110,14 @@ export default function EmergencyDashboard() {
           >
             <ShieldAlert size={16} /> Fast-Track ER Admission
           </button>
-        </div>
       </div>
 
       {/* ER Acuity KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-        <div className="stat-card" style={{ borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.05)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>
-            <ShieldAlert size={22} />
-          </div>
-          <div>
-            <div className="stat-value" style={{ color: '#ef4444' }}>{redCases.length}</div>
-            <div className="stat-label">RED: Immediate Resuscitation</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>Continuous monitoring required</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.05)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-            <AlertTriangle size={22} />
-          </div>
-          <div>
-            <div className="stat-value" style={{ color: '#f59e0b' }}>{yellowCases.length}</div>
-            <div className="stat-label">YELLOW: Emergent / Urgent</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>Assessed within 15 minutes</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(16,185,129,0.4)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.2)', color: '#10b981' }}>
-            <Activity size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{greenCases.length}</div>
-            <div className="stat-label">GREEN: Non-Urgent Minor</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>Stable walking patients</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(59,130,246,0.4)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(59,130,246,0.2)', color: '#3b82f6' }}>
-            <Bed size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{ER_BAYS.length - erCases.length} / {ER_BAYS.length}</div>
-            <div className="stat-label">Available ER Bays</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>{erCases.length} Occupied currently</div>
-          </div>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+        <InfoBox tone="danger" icon={<ShieldAlert size={22} />} value={redCases.length} label="RED: Immediate Resuscitation" detail="Continuous monitoring required" />
+        <InfoBox tone="warning" icon={<AlertTriangle size={22} />} value={yellowCases.length} label="YELLOW: Emergent / Urgent" detail="Assessed within 15 minutes" />
+        <InfoBox tone="success" icon={<Activity size={22} />} value={greenCases.length} label="GREEN: Non-Urgent Minor" detail="Stable walking patients" />
+        <InfoBox tone="info" icon={<Bed size={22} />} value={`${ER_BAYS.length - erCases.length} / ${ER_BAYS.length}`} label="Available ER Bays" detail={`${erCases.length} occupied currently`} />
       </div>
 
       {/* ER Trauma Bays Visual Grid */}
@@ -178,7 +126,7 @@ export default function EmergencyDashboard() {
           <Bed size={18} className="text-primary" /> ER Trauma &amp; Observation Bays Map
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
           {ER_BAYS.map((bay) => {
             const occupant = erCases.find(c => c.bedNumber.includes(bay.id));
             const isOccupied = !!occupant;
@@ -221,7 +169,7 @@ export default function EmergencyDashboard() {
                 {isOccupied ? (
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--clr-text-primary)' }}>
-                      {occupant.patientName}
+                      {patientNameFor(patients, occupant.patientId, occupant.patientName)}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-secondary)', marginTop: '0.2rem' }}>
                       {occupant.chiefComplaint}
@@ -278,8 +226,8 @@ export default function EmergencyDashboard() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>{c.patientName}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>{c.age} yrs · {c.gender}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>{patientNameFor(patients, c.patientId, c.patientName)}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>{patientCodeFor(patients, c.patientId)} · {c.age} yrs · {c.gender}</div>
                     </td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
@@ -327,25 +275,29 @@ export default function EmergencyDashboard() {
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ShieldAlert size={18} style={{ color: '#ef4444' }} /> Rapid Fast-Track ER Admission
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.96rem' }}>
+                <ShieldAlert size={16} style={{ color: '#ef4444' }} /> ER Admission
               </h2>
-              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setModalOpen(false)}>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setModalOpen(false)}
+                aria-label="Close dialog"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleCreateAdmission}>
+              {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="form-grid" style={{ marginBottom: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Patient Full Name *</label>
-                  <input
-                    required
-                    value={newCase.patientName}
-                    onChange={(e) => setNewCase({ ...newCase, patientName: e.target.value })}
-                    placeholder="Enter patient name"
-                  />
+                  <label className="form-label">Patient record *</label>
+                  <select required value={newCase.patientId} onChange={(e) => setNewCase({ ...newCase, patientId: e.target.value })}>
+                    <option value="">Select a patient</option>
+                    {patients.map(patient => <option key={patient.id} value={patient.id}>{patientFullName(patient)} · {patientCodeFor(patients, patient.id)}</option>)}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Estimated Age</label>
@@ -404,7 +356,7 @@ export default function EmergencyDashboard() {
               {/* Vitals */}
               <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '1rem', marginBottom: '1rem' }}>
                 <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Activity size={15} /> Immediate ER Vitals
+                  <Activity size={15} /> Vitals
                 </h4>
                 <div className="form-grid">
                   <div className="form-group">

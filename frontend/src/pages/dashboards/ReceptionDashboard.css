@@ -1,0 +1,313 @@
+.reception-dashboard {
+  --reception-blue: #2563eb;
+  --reception-cyan: #0891b2;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reception-actions {
+  gap: 0.5rem;
+}
+
+.reception-kpi-grid { margin-inline: -7.5px; }
+.reception-kpi-grid > [class*="col-"] { padding-inline: 7.5px; }
+.reception-kpi-grid .small-box {
+  min-height: 128px;
+  margin-bottom: 1rem;
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.reception-kpi-grid .small-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.17);
+}
+.reception-kpi-grid .small-box .inner { padding: 1.15rem 1.25rem; }
+.reception-kpi-grid .small-box h3 { font-size: 2rem; font-weight: 700; margin-bottom: 0.35rem; }
+.reception-kpi-grid .small-box p { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.15rem; }
+.reception-kpi-grid .small-box small { font-size: 0.72rem; opacity: 0.88; }
+.reception-kpi-grid .small-box .icon { top: 0.8rem; right: 1rem; }
+.reception-kpi-grid .small-box .icon svg { width: 58px; height: 58px; opacity: 0.23; stroke-width: 1.5; }
+.reception-kpi-grid .small-box-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 1.25rem; text-align: left; font-size: 0.72rem; }
+.reception-kpi-grid .small-box-footer svg { width: 15px; height: 15px; }
+
+.reception-panel {
+  padding: 0 !important;
+  border: 1px solid var(--clr-border) !important;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.06) !important;
+}
+
+.reception-card-header {
+  min-height: 74px;
+  padding: 1rem 1.25rem !important;
+  background: transparent;
+  border-bottom-color: var(--clr-border) !important;
+}
+
+.reception-card-header h3 {
+  color: var(--clr-text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+.reception-card-body { padding: 1.25rem !important; }
+
+.reception-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr));
+  gap: 0.85rem;
+}
+
+/* ── Admin-style Patient Cards in Reception ── */
+.reception-patient-card.admin-department-box {
+  background: var(--clr-surface-2, var(--clr-bg-surface, #ffffff));
+  border: 1px solid var(--clr-border);
+  border-left: 3.5px solid var(--clr-primary-500, #007bff);
+  border-radius: 0.25rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
+  min-height: 116px;
+  margin-bottom: 0;
+  display: flex;
+  position: relative;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  overflow: hidden;
+}
+
+.reception-patient-card.admin-department-box:hover {
+  border-color: var(--clr-primary-400);
+  box-shadow: 0 0.35rem 0.85rem rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.reception-patient-card .info-box-icon {
+  align-items: center;
+  display: flex;
+  flex: 0 0 4.1rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  justify-content: center;
+  margin: 0.6rem;
+  min-height: 4.1rem;
+  width: 4.1rem;
+  border-radius: 0.25rem;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.reception-patient-card .info-box-icon.bg-info {
+  background-color: #17a2b8 !important;
+  color: #fff !important;
+}
+
+.reception-patient-card .info-box-icon.bg-primary {
+  background-color: #007bff !important;
+  color: #fff !important;
+}
+
+.reception-patient-card .info-box-icon.bg-teal {
+  background-color: #20c997 !important;
+  color: #fff !important;
+}
+
+.reception-patient-card .info-box-content {
+  min-width: 0;
+  padding: 0.65rem 0.65rem 0.65rem 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1 1 auto;
+}
+
+.reception-patient-card .reception-card-header-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.reception-patient-card .info-box-text {
+  color: var(--clr-text-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.reception-patient-card .admin-department-status {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin: 0.2rem 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.reception-patient-card .admin-department-status.status-success {
+  color: var(--clr-success-600, #28a745);
+}
+
+.reception-patient-card .admin-department-status.status-warning {
+  color: #d97706;
+}
+
+.reception-patient-card .admin-department-status.status-danger {
+  color: #dc3545;
+}
+
+.reception-patient-card .admin-department-metric {
+  color: var(--clr-text-muted);
+  display: flex;
+  font-size: 0.69rem;
+  justify-content: space-between;
+  line-height: 1.55;
+  gap: 0.4rem;
+}
+
+.reception-patient-card .admin-department-metric strong {
+  color: var(--clr-text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reception-patient-card .reception-patient-action {
+  margin-top: 0.45rem;
+}
+
+[data-theme='dark'] .reception-patient-card.admin-department-box {
+  background: #1f2937;
+  border-color: #374151;
+  border-left-color: var(--clr-primary-500);
+}
+
+[data-theme='light'] .reception-patient-card.admin-department-box {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  border-left-color: #007bff;
+}
+
+.reception-queue-panel .table-wrapper {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.reception-queue-panel table { min-width: 980px; }
+.reception-queue-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.reception-queue-actions .btn { padding: 0.25rem 0.45rem; font-size: 0.7rem; }
+
+.reception-request-modal {
+  width: min(100%, 540px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.reception-request-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reception-request-header .modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.98rem;
+}
+
+.reception-request-form { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.reception-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.reception-mode-tabs .btn { justify-content: center; }
+
+.reception-modal-section {
+  padding: 0.85rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.3rem;
+  background: var(--clr-bg-hover);
+}
+
+.reception-modal-section .form-grid { margin-bottom: 0; }
+.reception-modal-section .form-group:last-child { margin-bottom: 0; }
+
+.reception-empty-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: -0.15rem 0 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  color: var(--clr-text-muted);
+  font-size: 0.75rem;
+}
+
+.reception-selected-patient {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--clr-primary-400);
+  background: var(--clr-bg-surface);
+}
+
+.reception-selected-patient strong,
+.reception-selected-patient span { display: block; }
+.reception-selected-patient strong { color: var(--clr-text-primary); font-size: 0.82rem; }
+.reception-selected-patient span { margin-top: 0.15rem; color: var(--clr-text-muted); font-size: 0.7rem; }
+
+.reception-allergy-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  color: #dc3545;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.reception-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  color: var(--clr-text-primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.reception-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 575.98px) {
+  .reception-kpi-grid .small-box { min-height: 120px; }
+  .reception-patient-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+  .reception-patient-action {
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .reception-patient-action .btn,
+  .reception-patient-action .badge {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .reception-selected-patient { align-items: flex-start; flex-direction: column; }
+  .reception-allergy-alert { margin-top: 0.25rem; }
+}

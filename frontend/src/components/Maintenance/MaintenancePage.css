@@ -1,0 +1,163 @@
+/* BruClinic — Maintenance screen and admin maintenance banner
+   The screen itself reuses the sign-in classes from Login.css. Only the
+   maintenance-specific content and the admin banner are defined here. */
+
+.maintenance-state {
+  display: flex;
+  flex-direction: column;
+}
+
+.maintenance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  margin-bottom: 0.9rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--clr-amber-500);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.maintenance-message {
+  max-width: 40ch;
+  line-height: 1.65;
+}
+
+.maintenance-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 1.6rem;
+}
+
+.maintenance-actions .login-btn-submit {
+  margin-top: 0;
+}
+
+.maintenance-actions .login-btn-submit:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.maintenance-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--clr-text-secondary);
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.maintenance-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--clr-emerald-500);
+}
+
+.maintenance-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  font-size: 0.72rem;
+  color: var(--clr-text-muted);
+}
+
+.maintenance-contact {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--clr-border);
+  font-size: 0.72rem;
+  color: var(--clr-text-muted);
+}
+
+.maintenance-contact strong {
+  color: var(--clr-text-secondary);
+}
+
+.maintenance-spin {
+  animation: maintenance-spin 0.9s linear infinite;
+}
+
+/* Light mode: keep the amber badge legible on the white panel. */
+[data-theme="light"] .maintenance-badge {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+[data-theme="light"] .maintenance-note {
+  color: #475569;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+/* ── Admin banner while maintenance is on ─────────────────────────── */
+
+.app-maintenance-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+}
+
+.app-maintenance-banner > svg {
+  flex-shrink: 0;
+}
+
+.app-maintenance-banner strong {
+  display: block;
+  margin-bottom: 0.1rem;
+}
+
+.app-maintenance-banner .btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Clinic data error alert ──────────────────────────────────────── */
+
+.clinic-data-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.clinic-data-alert > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.clinic-data-alert strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.clinic-data-alert span {
+  color: var(--clr-text-secondary);
+}
+
+@keyframes maintenance-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maintenance-spin {
+    animation: none;
+  }
+}

@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
 import type { Appointment, AppointmentStatus, AppointmentType, Priority } from '../types';
 import { Plus, Search, X, Edit2, Trash2, CalendarDays, Clock } from 'lucide-react';
+import { firstError, validateDate, validateRequired, validateTime, validateTextLength, sanitizeInput } from '../utils/validation';
+import { patientCodeFor, patientNameFor, patientOptionLabel } from '../utils/patient';
+import ConfirmModal from '../components/ConfirmModal';
 
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  Low: 'badge-blue', Medium: 'badge-amber', High: 'badge-red', Critical: 'badge-red',
+  Low: 'badge-blue', Medium: 'badge-gray', High: 'badge-red', Critical: 'badge-red',
 };
 
 const EMPTY_APPT: Omit<Appointment, 'id'> = {
@@ -20,6 +23,8 @@ export default function Appointments() {
   const [filterStatus, setFilterStatus] = useState<AppointmentStatus | 'All'>('All');
   const [modal, setModal] = useState<{ open: boolean; appt?: Appointment }>({ open: false });
   const [form, setForm] = useState<Omit<Appointment, 'id'>>(EMPTY_APPT);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const filtered = appointments.filter(a => {
     const q = search.toLowerCase();
@@ -28,9 +33,9 @@ export default function Appointments() {
     return matchSearch && matchStatus;
   });
 
-  const openAdd = () => { setForm(EMPTY_APPT); setModal({ open: true }); };
-  const openEdit = (a: Appointment) => { setForm({ ...a }); setModal({ open: true, appt: a }); };
-  const close = () => setModal({ open: false });
+  const openAdd = () => { setForm(EMPTY_APPT); setFormError(null); setModal({ open: true }); };
+  const openEdit = (a: Appointment) => { setForm({ ...a }); setFormError(null); setModal({ open: true, appt: a }); };
+  const close = () => { setFormError(null); setModal({ open: false }); };
 
   const handlePatientChange = (id: string) => {
     const p = patients.find(x => x.id === id);
@@ -42,11 +47,34 @@ export default function Appointments() {
     setForm(f => ({ ...f, doctorId: id, doctorName: d ? `${d.firstName} ${d.lastName}` : '' }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (modal.appt) updateAppointment(modal.appt.id, form);
-    else addAppointment(form);
-    close();
+    const requiredErrors = validateRequired(form, {
+      patientId: 'Patient', patientName: 'Patient', doctorId: 'Doctor', doctorName: 'Doctor',
+      date: 'Date', time: 'Time', reason: 'Reason',
+    });
+    const error = firstError(
+      ...Object.values(requiredErrors),
+      validateDate(form.date, 'Appointment date'),
+      validateTime(form.time, 'Appointment time'),
+      validateTextLength(form.reason, 'Reason', { min: 3, max: 500, required: true }),
+    );
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    const cleanForm = {
+      ...form,
+      reason: sanitizeInput(form.reason),
+      notes: form.notes ? sanitizeInput(form.notes) : undefined,
+    };
+    try {
+      if (modal.appt) await updateAppointment(modal.appt.id, cleanForm);
+      else await addAppointment(cleanForm);
+      close();
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not save this appointment.');
+    }
   };
 
   const handleStatusChange = (id: string, status: AppointmentStatus) => {
@@ -54,7 +82,7 @@ export default function Appointments() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Delete this appointment?')) deleteAppointment(id);
+    setDeleteTargetId(id);
   };
 
   const counts = {
@@ -112,8 +140,8 @@ export default function Appointments() {
             ) : filtered.map(a => (
               <tr key={a.id}>
                 <td>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{a.patientName}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>{a.reason}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{patientNameFor(patients, a.patientId, a.patientName)}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>{patientCodeFor(patients, a.patientId)} · {a.reason}</div>
                 </td>
                 <td style={{ fontSize: '0.875rem' }}>{a.doctorName}</td>
                 <td>
@@ -122,7 +150,7 @@ export default function Appointments() {
                     <Clock size={12} /> {a.time}
                   </div>
                 </td>
-                <td><span className="badge badge-violet">{a.type}</span></td>
+                <td><span className="badge badge-blue">{a.type}</span></td>
                 <td><span className={`badge ${PRIORITY_COLORS[a.priority]}`}>{a.priority}</span></td>
                 <td>
                   <select
@@ -152,26 +180,31 @@ export default function Appointments() {
       {modal.open && (
         <div className="modal-overlay" onClick={close}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {modal.appt ? <><Edit2 size={18} className="text-primary" /> Edit Appointment</> : <><CalendarDays size={18} className="text-primary" /> New Appointment</>}
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.96rem' }}>
+                {modal.appt ? <><Edit2 size={16} className="text-primary" /> Edit Appointment</> : <><CalendarDays size={16} className="text-primary" /> New Appointment</>}
               </h2>
-              <button className="btn btn-secondary btn-sm btn-icon" onClick={close}><X size={16} /></button>
+              <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
             </div>
             <form onSubmit={handleSubmit}>
+              {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="form-grid">
                 <div className="form-group">
                   <label className="form-label">Patient *</label>
                   <select required value={form.patientId} onChange={e => handlePatientChange(e.target.value)}>
                     <option value="">Select patient…</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                    {patients.map(p => <option key={p.id} value={p.id}>{patientOptionLabel(p)}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Doctor *</label>
                   <select required value={form.doctorId} onChange={e => handleDoctorChange(e.target.value)}>
                     <option value="">Select doctor…</option>
-                    {doctors.map(d => <option key={d.id} value={d.id}>{d.firstName} {d.lastName} — {d.specialization}</option>)}
+                    {doctors.length === 0 ? (
+                      <option value="" disabled>No doctors currently registered</option>
+                    ) : (
+                      doctors.map(d => <option key={d.id} value={d.id}>{d.firstName} {d.lastName} — {d.specialization}</option>)
+                    )}
                   </select>
                 </div>
                 <div className="form-group">
@@ -211,6 +244,23 @@ export default function Appointments() {
           </div>
         </div>
       )}
+
+      {/* Delete Appointment Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete Appointment"
+        message="Are you sure you want to delete this scheduled appointment? This action cannot be undone."
+        confirmText="Delete Appointment"
+        variant="danger"
+        icon="trash"
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={async () => {
+          if (deleteTargetId) {
+            await deleteAppointment(deleteTargetId);
+            setDeleteTargetId(null);
+          }
+        }}
+      />
     </div>
   );
 }

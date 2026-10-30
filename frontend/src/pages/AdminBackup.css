@@ -1,0 +1,298 @@
+/* BruClinic — Backup & Restore page */
+
+.backup-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.backup-page-header {
+  align-items: flex-start;
+}
+
+.backup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.backup-card {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.backup-card-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.backup-card-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--clr-text-primary);
+}
+
+.backup-card-head p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--clr-text-muted);
+}
+
+.backup-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--clr-primary-400);
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.backup-icon-warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.backup-icon-ok {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.backup-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  border: 1px solid transparent;
+}
+
+.backup-message svg { flex-shrink: 0; margin-top: 2px; }
+.backup-message.success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.35); color: #10b981; }
+.backup-message.error { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.35); color: #f43f5e; }
+.backup-message.info { background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.3); color: var(--clr-primary-400); }
+
+.backup-table-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.backup-table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--clr-text-secondary);
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.backup-table-row:last-child { border-bottom: 0; }
+
+.backup-table-row span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.backup-table-row code {
+  font-size: 0.68rem;
+  color: var(--clr-text-muted);
+}
+
+.backup-table-row strong { color: var(--clr-text-primary); }
+
+.backup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.backup-option,
+.backup-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.backup-option input,
+.backup-mode input {
+  margin-top: 0.15rem;
+  accent-color: var(--clr-primary-500);
+}
+
+.backup-option strong,
+.backup-mode strong {
+  display: block;
+  color: var(--clr-text-primary);
+  font-size: 0.82rem;
+}
+
+.backup-option small,
+.backup-mode small {
+  display: block;
+  color: var(--clr-text-muted);
+  font-size: 0.72rem;
+  margin-top: 0.1rem;
+}
+
+.backup-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.backup-mode.selected {
+  border-color: var(--clr-primary-400);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.backup-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.backup-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 1.2rem;
+  border: 1.5px dashed var(--clr-border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--clr-text-muted);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.backup-dropzone:hover {
+  border-color: var(--clr-primary-400);
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.backup-dropzone strong {
+  color: var(--clr-text-primary);
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.backup-dropzone span { font-size: 0.72rem; }
+
+.backup-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.backup-warning {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.backup-warning svg { flex-shrink: 0; margin-top: 2px; }
+.backup-warning strong { display: block; font-size: 0.82rem; }
+.backup-warning p { margin: 0.15rem 0 0.5rem; color: var(--clr-text-secondary); }
+.backup-warning code { color: #f59e0b; font-weight: 700; }
+.backup-warning input {
+  max-width: 200px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: var(--clr-bg-card);
+  color: var(--clr-text-primary);
+  font-family: monospace;
+}
+
+.backup-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--clr-text-muted);
+}
+
+.backup-warnings {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.76rem;
+  color: #f59e0b;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.backup-warnings li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  list-style: none;
+}
+
+.backup-history .table-wrapper { margin: 0; }
+
+.backup-kind {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.backup-kind.export { background: rgba(37, 99, 235, 0.12); color: var(--clr-primary-400); }
+.backup-kind.import { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+
+.backup-kind-mode {
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--clr-text-muted);
+}
+
+.backup-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.backup-status.completed { color: #10b981; }
+.backup-status.validated { color: var(--clr-primary-400); }
+.backup-status.failed { color: #f43f5e; }
+
+.backup-empty {
+  padding: 1.25rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--clr-text-muted);
+}
+
+.backup-spin { animation: backup-spin 0.9s linear infinite; }
+
+@keyframes backup-spin {
+  to { transform: rotate(360deg); }
+}

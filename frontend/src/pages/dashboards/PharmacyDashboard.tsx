@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import InfoBox from '../../components/AdminLTE/InfoBox';
 import type { MedicineItem } from '../../types';
+import { validateNumber } from '../../utils/validation';
+import { patientCodeFor, patientNameFor } from '../../utils/patient';
 import {
   Pill, AlertTriangle, Package, CheckCircle2,
   Clock, Search, X, DollarSign, Plus
@@ -9,13 +12,14 @@ import {
 export default function PharmacyDashboard() {
   const {
     pharmacyOrders, dispensePharmacyOrder,
-    medicines, updateMedicineStock
+    medicines, updateMedicineStock, patients
   } = useClinic();
 
   const [search, setSearch] = useState('');
   const [filterPending, setFilterPending] = useState(true);
   const [restockModal, setRestockModal] = useState<MedicineItem | null>(null);
   const [restockAmount, setRestockAmount] = useState(100);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const pendingOrders = pharmacyOrders.filter(p => p.status === 'Pending');
   const dispensedOrders = pharmacyOrders.filter(p => p.status === 'Dispensed');
@@ -34,106 +38,40 @@ export default function PharmacyDashboard() {
     dispensePharmacyOrder(orderId, 'Pharm. Hawi Tadesse');
   };
 
-  const handleRestockSubmit = (e: React.FormEvent) => {
+  const handleRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockModal) return;
-    updateMedicineStock(restockModal.id, Number(restockAmount));
-    setRestockModal(null);
+    const numericError = validateNumber(String(restockAmount), 'Quantity', { min: 1, integer: true });
+    if (numericError) {
+      setFormError(numericError);
+      return;
+    }
+    try {
+      await updateMedicineStock(restockModal.id, Number(restockAmount));
+      setFormError(null);
+      setRestockModal(null);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not update stock.');
+    }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header Banner */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(38, 26, 12, 0.95) 0%, rgba(55, 36, 15, 0.88) 50%, rgba(28, 19, 10, 0.95) 100%)',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
-        borderRadius: 16,
-        padding: '1.75rem 2rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        {/* Ambient background glow */}
-        <div style={{
-          position: 'absolute', top: -30, right: -20, width: 260, height: 260,
-          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, transparent 70%)',
-          pointerEvents: 'none', filter: 'blur(35px)'
-        }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '0.3rem 0.75rem', borderRadius: 99,
-              background: 'rgba(245, 158, 11, 0.18)', border: '1px solid rgba(245, 158, 11, 0.4)',
-              color: '#fbbf24', fontSize: '0.74rem', fontWeight: 700,
-              letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '0.65rem'
-            }}>
-              <Pill size={14} /> Central Pharmacy &amp; Dispensary
-            </div>
-            <h1 style={{
-              fontSize: '1.85rem', fontWeight: 900, fontFamily: 'var(--font-heading)',
-              color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.35rem'
-            }}>
-              Prescription Dispensary &amp; Stock Control
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500 }}>
-              Process live electronic prescriptions from OPD &amp; ER clinicians with automatic inventory deductions.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <span className="badge badge-amber" style={{ padding: '0.45rem 0.95rem', fontSize: '0.8rem', fontWeight: 700 }}>
+      {/* Pharmacy queue status */}
+      <div className="department-action-row">
+          <div className="department-action-control">
+            <span className="badge badge-blue" style={{ padding: '0.45rem 0.95rem', fontSize: '0.8rem', fontWeight: 700 }}>
               <Clock size={14} /> {pendingOrders.length} Prescriptions In Queue
             </span>
           </div>
-        </div>
       </div>
 
       {/* Pharmacy KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-        <div className="stat-card" style={{ borderColor: 'rgba(245,158,11,0.3)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-            <Pill size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{pendingOrders.length}</div>
-            <div className="stat-label">Pending Dispenses</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>From OPD &amp; Emergency</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(244,63,94,0.3)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(244,63,94,0.15)', color: '#f43f5e' }}>
-            <AlertTriangle size={22} />
-          </div>
-          <div>
-            <div className="stat-value" style={{ color: '#f43f5e' }}>{lowStock.length}</div>
-            <div className="stat-label">Low Stock Warnings</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>{outOfStock.length} Completely empty</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(16,185,129,0.3)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{dispensedOrders.length}</div>
-            <div className="stat-label">Dispensed Today</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>Fulfilled prescriptions</div>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderColor: 'rgba(59,130,246,0.3)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}>
-            <DollarSign size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{totalValue.toFixed(0)} ETB</div>
-            <div className="stat-label">Total Drug Inventory</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>{medicines.length} Tracked items</div>
-          </div>
-        </div>
+        <InfoBox tone="info" icon={<Pill size={22} />} value={pendingOrders.length} label="Pending Dispenses" detail="From OPD and Emergency" />
+        <InfoBox tone="danger" icon={<AlertTriangle size={22} />} value={lowStock.length} label="Low Stock Warnings" detail={`${outOfStock.length} completely empty`} />
+        <InfoBox tone="success" icon={<CheckCircle2 size={22} />} value={dispensedOrders.length} label="Dispensed Orders" detail="Fulfilled prescriptions" />
+        <InfoBox tone="primary" icon={<DollarSign size={22} />} value={`${totalValue.toFixed(0)} ETB`} label="Total Drug Inventory" detail={`${medicines.length} tracked items`} />
       </div>
 
       {/* Main Grid: Live Prescriptions & Stock Monitor */}
@@ -181,7 +119,7 @@ export default function PharmacyDashboard() {
                   key={order.id}
                   style={{
                     background: 'var(--clr-bg-surface)',
-                    border: order.status === 'Pending' ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--clr-border)',
+                    border: '1px solid var(--clr-border)',
                     borderRadius: 10,
                     padding: '1.1rem',
                   }}
@@ -189,16 +127,16 @@ export default function PharmacyDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className="badge badge-amber">{order.id}</span>
+                        <span className="badge badge-blue">{order.id}</span>
                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--clr-text-primary)' }}>
-                          {order.patientName}
+                          {patientNameFor(patients, order.patientId, order.patientName)}
                         </span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)', marginTop: 2 }}>
-                        Prescribed by: {order.doctorName} · {order.prescribedAt}
+                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {order.prescribedAt}
                       </div>
                     </div>
-                    <span className={`badge ${order.status === 'Pending' ? 'badge-amber' : 'badge-green'}`}>
+                    <span className={`badge ${order.status === 'Pending' ? 'badge-blue' : 'badge-gray'}`}>
                       {order.status}
                     </span>
                   </div>
@@ -319,7 +257,7 @@ export default function PharmacyDashboard() {
                     <span style={{ fontWeight: 600 }}>{m.name}</span>
                     <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>{m.category} · {m.costPerUnit} ETB/unit</div>
                   </div>
-                  <span className={`badge ${m.stock === 0 ? 'badge-red' : m.stock <= m.minStock ? 'badge-amber' : 'badge-green'}`}>
+                  <span className={`badge ${m.stock === 0 ? 'badge-red' : m.stock <= m.minStock ? 'badge-red' : 'badge-blue'}`}>
                     {m.stock} {m.unit}
                   </span>
                 </div>
@@ -337,12 +275,18 @@ export default function PharmacyDashboard() {
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Plus size={16} className="text-primary" /> Restock Medicine: {restockModal.name}
               </h2>
-              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setRestockModal(null)}>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setRestockModal(null)}
+                aria-label="Close dialog"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleRestockSubmit}>
+              {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Quantity to Add ({restockModal.unit})</label>
                 <input

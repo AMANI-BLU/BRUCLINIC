@@ -5,47 +5,58 @@
 
 /* ── Cards ── */
 [data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(29, 78, 216, 0.1);
+  background: #ffffff !important;
+  border-color: rgba(29, 78, 216, 0.12) !important;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 [data-theme="light"] .card:hover {
-  border-color: rgba(29, 78, 216, 0.22);
+  border-color: rgba(29, 78, 216, 0.22) !important;
   box-shadow: 0 4px 24px rgba(29, 78, 216, 0.1);
 }
 
 /* ── Tables ── */
 [data-theme="light"] .table-wrapper {
-  background: rgba(255,255,255,0.9);
-  border-color: rgba(29,78,216,0.1);
+  background: #ffffff !important;
+  border-color: rgba(29, 78, 216, 0.12) !important;
 }
-[data-theme="light"] thead tr { background: rgba(29,78,216,0.04); }
-[data-theme="light"] thead th  { color: #64748b; }
-[data-theme="light"] tbody tr:hover { background: rgba(29,78,216,0.03); }
-[data-theme="light"] tbody tr { border-bottom-color: rgba(29,78,216,0.05); }
+[data-theme="light"] thead tr { background: rgba(29, 78, 216, 0.04); }
+[data-theme="light"] thead th  { color: #475569; font-weight: 700; }
+[data-theme="light"] tbody tr:hover { background: rgba(29, 78, 216, 0.03); }
+[data-theme="light"] tbody tr { border-bottom-color: rgba(29, 78, 216, 0.07); }
 
 /* ── Stat cards ── */
-[data-theme="light"] .stat-card {
-  background: rgba(255,255,255,0.9);
-  border-color: rgba(29,78,216,0.12);
-  box-shadow: 0 2px 12px rgba(15,23,42,0.06);
+[data-theme="light"] .stat-card:not(.admin-stat) {
+  background: #ffffff !important;
+  border-color: rgba(29, 78, 216, 0.14) !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 
+/* AdminLTE KPI cards keep their semantic colors in light mode. The generic
+   stat-card rule above must not wash these cards out to white, otherwise
+   their white labels and values become unreadable. */
+[data-theme="light"] .app-content .admin-stat-info { background: #17a2b8 !important; }
+[data-theme="light"] .app-content .admin-stat-success { background: #28a745 !important; }
+[data-theme="light"] .app-content .admin-stat-warning { background: #ffc107 !important; }
+[data-theme="light"] .app-content .admin-stat-danger { background: #dc3545 !important; }
+[data-theme="light"] .app-content .admin-stat-primary { background: #007bff !important; }
+[data-theme="light"] .app-content .admin-stat-secondary { background: #6c757d !important; }
+
 /* ── Modal ── */
-[data-theme="light"] .modal-overlay { background: rgba(15,23,42,0.5); }
+[data-theme="light"] .modal-overlay { background: rgba(15, 23, 42, 0.45); }
 [data-theme="light"] .modal {
-  background: #fff;
-  border-color: rgba(29,78,216,0.2);
-  box-shadow: 0 20px 60px rgba(15,23,42,0.15);
+  background: #ffffff !important;
+  border-color: rgba(29, 78, 216, 0.2) !important;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+  color: #0f172a;
 }
 
 /* ── Pill tabs ── */
 [data-theme="light"] .pill-tabs {
-  background: #f0f4fa;
-  border-color: rgba(29,78,216,0.12);
+  background: #f1f5f9;
+  border-color: rgba(29, 78, 216, 0.12);
 }
 [data-theme="light"] .pill-tab:not(.active):hover {
-  background: rgba(29,78,216,0.06);
+  background: rgba(29, 78, 216, 0.06);
   color: #1d4ed8;
 }
 
@@ -53,30 +64,30 @@
 [data-theme="light"] input,
 [data-theme="light"] select,
 [data-theme="light"] textarea {
-  background: #f8faff;
-  border-color: rgba(29,78,216,0.15);
-  color: #0f172a;
+  background: #f8faff !important;
+  border-color: rgba(29, 78, 216, 0.18) !important;
+  color: #0f172a !important;
 }
 [data-theme="light"] input:focus,
 [data-theme="light"] select:focus,
 [data-theme="light"] textarea:focus {
-  border-color: #2563eb;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
-[data-theme="light"] select option { background: #fff; color: #0f172a; }
+[data-theme="light"] select option { background: #ffffff; color: #0f172a; }
 
 /* ── ID code ── */
 [data-theme="light"] .id-code {
-  background: rgba(29,78,216,0.06);
+  background: rgba(29, 78, 216, 0.08);
   color: #1d4ed8;
-  border-color: rgba(29,78,216,0.15);
+  border-color: rgba(29, 78, 216, 0.18);
 }
 
 /* ── Btn secondary ── */
 [data-theme="light"] .btn-secondary {
-  background: #f0f4fa;
-  border-color: rgba(29,78,216,0.15);
+  background: #f1f5f9;
+  border-color: rgba(29, 78, 216, 0.16);
   color: #334155;
 }
 [data-theme="light"] .btn-secondary:hover {
@@ -85,11 +96,6 @@
   color: #1d4ed8;
 }
 
-/* ── Dashboard hero ── */
-[data-theme="light"] .hero-banner {
-  background: linear-gradient(135deg, #1a2d5a 0%, #1e3a6e 50%, #152847 100%);
-}
-
 /* ── Scrollbar light ── */
-[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(29,78,216,0.2); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(29, 78, 216, 0.2); }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #2563eb; }

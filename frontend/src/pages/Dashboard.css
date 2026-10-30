@@ -1,6 +1,37 @@
 /* Dashboard page styles */
 .dashboard { display: flex; flex-direction: column; gap: 1.5rem; }
 
+/* Compact department controls after the larger role-introduction banners were removed. */
+.department-action-row {
+  align-items: center;
+  background: var(--clr-bg-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.15rem 0.45rem rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: flex-end;
+  min-height: 3.25rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.department-action-control {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+  .department-action-row,
+  .department-action-control {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .department-action-control > * {
+    max-width: 100%;
+  }
+}
+
 /* ══════════════════════════════════════
    HERO BANNER
 ══════════════════════════════════════ */

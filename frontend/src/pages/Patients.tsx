@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
 import type { Patient, Gender, BloodGroup, PatientType } from '../types';
 import { Search, Trash2, Edit2, Eye, X, UserPlus, Users } from 'lucide-react';
+import { firstError, validateDate, validateEmail, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
+import ConfirmModal from '../components/ConfirmModal';
 import './Patients.css';
 
 const EMPTY_PATIENT: Omit<Patient, 'id' | 'registeredAt'> = {
@@ -19,39 +22,63 @@ export default function Patients() {
   const [filterType, setFilterType] = useState<PatientType | 'All'>('All');
   const [modal, setModal] = useState<{ mode: ModalMode; patient?: Patient }>({ mode: null });
   const [form, setForm] = useState<Omit<Patient, 'id' | 'registeredAt'>>(EMPTY_PATIENT);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const filtered = patients.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch = `${p.firstName} ${p.lastName} ${p.studentId ?? ''} ${p.staffId ?? ''} ${p.department ?? ''}`.toLowerCase().includes(q);
     const matchType = filterType === 'All' || p.patientType === filterType;
-    return matchSearch && matchType;
+    return patientMatchesSearch(p, search) && matchType;
   });
 
-  const openAdd = () => { setForm(EMPTY_PATIENT); setModal({ mode: 'add' }); };
-  const openEdit = (p: Patient) => { setForm({ ...p }); setModal({ mode: 'edit', patient: p }); };
+  const openAdd = () => {
+    setForm({ ...EMPTY_PATIENT, allergies: [], chronicConditions: [] });
+    setFormError(null);
+    setModal({ mode: 'add' });
+  };
+  const openEdit = (p: Patient) => { setForm({ ...p }); setFormError(null); setModal({ mode: 'edit', patient: p }); };
   const openView = (p: Patient) => setModal({ mode: 'view', patient: p });
-  const close = () => setModal({ mode: null });
+  const close = () => { setFormError(null); setModal({ mode: null }); };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (modal.mode === 'add') addPatient(form);
-    else if (modal.mode === 'edit' && modal.patient) updatePatient(modal.patient.id, form);
-    close();
+    const requiredErrors = validateRequired(form, {
+      firstName: 'First name', lastName: 'Last name', dateOfBirth: 'Date of birth', phone: 'Phone',
+    });
+    const error = firstError(
+      ...Object.values(requiredErrors),
+      validateTextLength(form.firstName, 'First name', { min: 2, max: 100, required: true }),
+      validateTextLength(form.lastName, 'Last name', { min: 2, max: 100, required: true }),
+      validateDate(form.dateOfBirth, 'Date of birth', { allowFuture: false }),
+      validatePhone(form.phone),
+      form.email ? validateEmail(form.email) : undefined,
+      form.emergencyContactPhone ? validatePhone(form.emergencyContactPhone, 'Emergency contact phone') : undefined,
+    );
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    const cleanForm = {
+      ...form,
+      firstName: sanitizeInput(form.firstName),
+      lastName: sanitizeInput(form.lastName),
+      phone: sanitizeInput(form.phone),
+      email: sanitizeInput(form.email),
+      address: sanitizeInput(form.address),
+      department: sanitizeInput(form.department),
+      emergencyContactName: sanitizeInput(form.emergencyContactName),
+      emergencyContactPhone: sanitizeInput(form.emergencyContactPhone),
+    };
+    try {
+      if (modal.mode === 'add') await addPatient(cleanForm);
+      else if (modal.mode === 'edit' && modal.patient) await updatePatient(modal.patient.id, cleanForm);
+      close();
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not save this patient.');
+    }
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Delete this patient record?')) deletePatient(id);
-  };
-
-  const typeColor = (t: PatientType) =>
-    t === 'Student' ? 'badge-blue' : t === 'Staff' ? 'badge-emerald' : 'badge-amber';
-
-  const initials = (p: Patient) =>
-    `${p.firstName[0] ?? ''}${p.lastName[0] ?? ''}`.toUpperCase();
-
-  const avatarBg = (id: string) => {
-    const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9'];
-    return colors[id.charCodeAt(1) % colors.length];
+    setDeleteTargetId(id);
   };
 
   return (
@@ -61,7 +88,7 @@ export default function Patients() {
           <h1 className="page-title"><Users size={26} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />Patients</h1>
           <p className="page-subtitle">{patients.length} registered patients</p>
         </div>
-        <button className="btn btn-primary" id="add-patient-btn" onClick={openAdd}>
+        <button type="button" className="btn btn-primary" id="add-patient-btn" onClick={openAdd}>
           <UserPlus size={16} /> Register Patient
         </button>
       </div>
@@ -79,7 +106,7 @@ export default function Patients() {
         </div>
         <div className="pill-tabs">
           {(['All', 'Student', 'Staff', 'External'] as const).map(t => (
-            <button key={t} className={`pill-tab ${filterType === t ? 'active' : ''}`} onClick={() => setFilterType(t)}>
+            <button type="button" key={t} className={`pill-tab ${filterType === t ? 'active' : ''}`} onClick={() => setFilterType(t)}>
               {t}
             </button>
           ))}
@@ -108,24 +135,24 @@ export default function Patients() {
               <tr key={p.id}>
                 <td>
                   <div className="patient-cell">
-                    <div className="avatar" style={{ background: avatarBg(p.id) }}>{initials(p)}</div>
+                    <div className="avatar" style={{ background: 'var(--clr-primary-500)' }}>{patientInitials(p)}</div>
                     <div>
                       <div className="patient-name">{p.firstName} {p.lastName}</div>
                       <div className="patient-sub">{p.email}</div>
                     </div>
                   </div>
                 </td>
-                <td><code className="id-code">{p.studentId ?? p.staffId ?? p.id}</code></td>
-                <td><span className={`badge ${typeColor(p.patientType)}`}>{p.patientType}</span></td>
+                <td><code className="id-code" title="Patient card number">{patientCode(p)}</code></td>
+                <td><span className={`badge ${patientTypeClass(p.patientType)}`}>{p.patientType}</span></td>
                 <td>{p.department ?? '—'}</td>
                 <td>{p.phone}</td>
                 <td><span className="badge badge-blue">{p.bloodGroup ?? '?'}</span></td>
                 <td>{p.registeredAt}</td>
                 <td>
                   <div className="action-btns">
-                    <button className="btn btn-secondary btn-sm btn-icon" title="View" onClick={() => openView(p)}><Eye size={15} /></button>
-                    <button className="btn btn-secondary btn-sm btn-icon" title="Edit" onClick={() => openEdit(p)}><Edit2 size={15} /></button>
-                    <button className="btn btn-danger btn-sm btn-icon" title="Delete" onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="View" onClick={() => openView(p)}><Eye size={15} /></button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Edit" onClick={() => openEdit(p)}><Edit2 size={15} /></button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" title="Delete" onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
                   </div>
                 </td>
               </tr>
@@ -139,19 +166,20 @@ export default function Patients() {
         <div className="modal-overlay" onClick={close}>
           <div className={`modal ${modal.mode === 'view' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {modal.mode === 'add' ? <><UserPlus size={18} className="text-primary" /> Register New Patient</> :
-                 modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> Edit Patient</> :
-                 <><Eye size={18} className="text-primary" /> Patient Details</>}
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.96rem' }}>
+                {modal.mode === 'add' ? <><UserPlus size={16} className="text-primary" /> New Patient</> :
+                 modal.mode === 'edit' ? <><Edit2 size={16} className="text-primary" /> Edit Patient</> :
+                 <><Eye size={16} className="text-primary" /> Patient Info</>}
               </h2>
-              <button className="btn btn-secondary btn-sm btn-icon" onClick={close}><X size={16} /></button>
+              <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
             </div>
 
             {modal.mode === 'view' && modal.patient ? (
               <PatientView patient={modal.patient} />
             ) : (
               <form onSubmit={handleSubmit}>
-                <div className="form-grid" style={{ marginTop: '1rem' }}>
+                {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
+                <div className="form-grid" style={{ marginTop: '0.5rem' }}>
                   <div className="form-group">
                     <label className="form-label">First Name *</label>
                     <input required value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} placeholder="First name" />
@@ -173,8 +201,8 @@ export default function Patients() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Date of Birth</label>
-                    <input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+                    <label className="form-label">Date of Birth *</label>
+                    <input required type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Blood Group</label>
@@ -230,6 +258,23 @@ export default function Patients() {
           </div>
         </div>
       )}
+
+      {/* Delete Patient Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete Patient Record"
+        message="Are you sure you want to delete this patient record? This action will permanently remove the patient profile and cannot be undone."
+        confirmText="Delete Record"
+        variant="danger"
+        icon="trash"
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={async () => {
+          if (deleteTargetId) {
+            await deletePatient(deleteTargetId);
+            setDeleteTargetId(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -238,10 +283,10 @@ function PatientView({ patient: p }: { patient: Patient }) {
   return (
     <div className="patient-view">
       <div className="pv-header">
-        <div className="pv-avatar">{`${p.firstName[0]}${p.lastName[0]}`.toUpperCase()}</div>
+        <div className="pv-avatar">{patientInitials(p)}</div>
         <div>
-          <h3 className="pv-name">{p.firstName} {p.lastName}</h3>
-          <p className="pv-id">{p.studentId ?? p.staffId ?? p.id}</p>
+          <h3 className="pv-name">{patientFullName(p)}</h3>
+          <p className="pv-id">{patientCode(p)}</p>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
             <span className="badge badge-blue">{p.patientType}</span>
             <span className="badge badge-violet">{p.gender}</span>
@@ -256,8 +301,8 @@ function PatientView({ patient: p }: { patient: Patient }) {
         <PVItem label="Department" value={p.department ?? '—'} />
         <PVItem label="Address" value={p.address} />
         <PVItem label="Registered" value={p.registeredAt} />
-        <PVItem label="Allergies" value={p.allergies?.join(', ') || 'None'} />
-        <PVItem label="Chronic Conditions" value={p.chronicConditions?.join(', ') || 'None'} />
+        <PVItem label="Allergies" value={Array.isArray(p.allergies) ? (p.allergies.join(', ') || 'None') : (p.allergies ? String(p.allergies) : 'None')} />
+        <PVItem label="Chronic Conditions" value={Array.isArray(p.chronicConditions) ? (p.chronicConditions.join(', ') || 'None') : (p.chronicConditions ? String(p.chronicConditions) : 'None')} />
         <PVItem label="Emergency Contact" value={`${p.emergencyContactName} – ${p.emergencyContactPhone}`} />
       </div>
     </div>

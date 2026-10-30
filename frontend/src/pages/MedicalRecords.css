@@ -1,0 +1,178 @@
+.medical-records-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.records-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.records-stats .info-box {
+  min-height: 80px;
+  margin-bottom: 0;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.records-stats .info-box-icon {
+  width: 70px;
+  min-height: 80px;
+  flex: 0 0 70px;
+  border-radius: 0.25rem 0 0 0.25rem;
+}
+
+.records-stats .info-box-content {
+  min-width: 0;
+  justify-content: center;
+  padding: 0.65rem 0.9rem;
+}
+
+.records-stats .info-box-text {
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records-stats .info-box-number { font-size: 1.35rem; line-height: 1.2; }
+
+.records-clear-search {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  display: grid;
+  place-items: center;
+  color: var(--clr-text-muted);
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.records-table th,
+.records-table td { vertical-align: middle; }
+.records-table th { white-space: nowrap; }
+
+.records-patient,
+.records-doctor,
+.records-diagnosis,
+.records-date,
+.records-meta,
+.records-items { display: flex; align-items: center; }
+
+.records-patient { gap: 0.6rem; min-width: 170px; }
+.records-patient .avatar { width: 32px; height: 32px; flex: 0 0 32px; font-size: 0.68rem; }
+.records-patient strong { display: block; color: var(--clr-text-primary); font-size: 0.82rem; }
+.records-meta { flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+.records-meta .id-code, .records-meta .badge { font-size: 0.64rem; }
+
+.records-diagnosis { gap: 0.35rem; color: var(--clr-text-primary); font-weight: 600; }
+.records-diagnosis svg, .records-doctor svg, .records-date svg { flex: 0 0 auto; color: var(--clr-primary-400); }
+.records-table td small, .records-doctor, .records-date { color: var(--clr-text-secondary); font-size: 0.76rem; }
+.records-table td small { display: block; margin-top: 0.2rem; color: var(--clr-text-muted); }
+.records-doctor { gap: 0.35rem; white-space: nowrap; }
+.records-date { gap: 0.3rem; white-space: nowrap; }
+
+.records-followup { display: inline-flex; align-items: center; gap: 0.2rem; margin-top: 0.3rem; }
+.records-items { flex-wrap: wrap; gap: 0.25rem; }
+
+.records-empty { height: 180px; color: var(--clr-text-muted); text-align: center; }
+.records-empty svg, .records-empty strong, .records-empty span { display: block; margin: 0.25rem auto; }
+.records-empty svg { color: var(--clr-primary-400); }
+.records-empty strong { color: var(--clr-text-primary); }
+
+.records-modal { max-height: 92vh; overflow-y: auto; }
+.records-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.records-modal-header .modal-title { display: inline-flex; align-items: center; gap: 0.45rem; }
+
+.records-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.records-form-span-2 { grid-column: 1 / -1; }
+.records-form-grid .form-group { margin: 0; }
+.records-form-grid .form-label span { color: var(--clr-text-muted); font-weight: 400; }
+
+.records-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid var(--clr-border);
+}
+
+.record-detail { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.record-detail-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.record-detail-summary .avatar { width: 46px; height: 46px; flex: 0 0 46px; }
+.record-detail-summary h3 { margin: 0 0 0.25rem; color: var(--clr-text-primary); font-size: 1rem; }
+.record-detail-date { margin-left: auto; text-align: right; }
+
+.record-detail-date span, .record-detail-item span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--clr-text-muted);
+  font-size: 0.7rem;
+}
+
+.record-detail-date strong, .record-detail-item strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--clr-text-primary);
+  font-size: 0.82rem;
+}
+
+.record-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+
+.record-detail-item,
+.record-detail-section {
+  padding: 0.8rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+}
+
+.record-detail-item span svg, .record-detail-section h3 svg { color: var(--clr-primary-400); }
+.record-detail-section h3 { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; color: var(--clr-text-primary); font-size: 0.85rem; }
+.record-detail-section h3 .badge { margin-left: auto; }
+.record-diagnosis-value, .record-notes { margin: 0; color: var(--clr-text-primary); line-height: 1.5; }
+.record-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.6rem; }
+
+.record-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.record-list-row { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0.6rem; border: 1px solid var(--clr-border); border-radius: 0.25rem; background: var(--clr-bg-hover); }
+.record-list-row strong { color: var(--clr-text-primary); font-size: 0.8rem; }
+.record-list-row span { color: var(--clr-text-secondary); font-size: 0.74rem; text-align: right; }
+
+@media (max-width: 900px) {
+  .records-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .records-table-wrapper { overflow-x: auto; }
+  .records-table { min-width: 820px; }
+}
+
+@media (max-width: 575.98px) {
+  .records-stats, .records-form-grid, .record-detail-grid { grid-template-columns: 1fr; }
+  .records-stats .info-box-icon { width: 62px; min-height: 76px; flex-basis: 62px; }
+  .records-form-span-2 { grid-column: auto; }
+  .record-detail-date { margin-left: 0; text-align: left; }
+  .record-detail-summary { align-items: flex-start; flex-wrap: wrap; }
+  .record-list-row { flex-direction: column; gap: 0.2rem; }
+  .record-list-row span { text-align: left; }
+}

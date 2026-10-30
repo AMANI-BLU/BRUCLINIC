@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
+import InfoBox from '../components/AdminLTE/InfoBox';
 import { Search, AlertTriangle, Plus, Minus, Package, TrendingDown } from 'lucide-react';
 
 export default function Pharmacy() {
@@ -37,42 +38,10 @@ export default function Pharmacy() {
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-        <div className="stat-card" style={{ borderColor: 'rgba(244,63,94,0.25)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(244,63,94,0.15)', color: '#f43f5e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlertTriangle size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{lowCount}</div>
-            <div className="stat-label">Low Stock Items</div>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Package size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{outCount}</div>
-            <div className="stat-label">Out of Stock</div>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(16,185,129,0.25)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <TrendingDown size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{totalValue.toFixed(0)} ETB</div>
-            <div className="stat-label">Inventory Value</div>
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderColor: 'rgba(59,130,246,0.25)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Package size={22} />
-          </div>
-          <div>
-            <div className="stat-value">{medicines.length}</div>
-            <div className="stat-label">Total SKUs</div>
-          </div>
-        </div>
+        <InfoBox tone="danger" icon={<AlertTriangle size={22} />} value={lowCount} label="Low Stock Items" />
+        <InfoBox tone="warning" icon={<Package size={22} />} value={outCount} label="Out of Stock" />
+        <InfoBox tone="success" icon={<TrendingDown size={22} />} value={`${totalValue.toFixed(0)} ETB`} label="Inventory Value" />
+        <InfoBox tone="info" icon={<Package size={22} />} value={medicines.length} label="Total SKUs" />
       </div>
 
       {/* Filters */}

@@ -570,3 +570,219 @@
 [data-theme="light"] .login-security-notice {
   color: #64748b;
 }
+
+/* AdminLTE v3 login skin */
+.login-page-container {
+  background: #f4f6f9;
+  padding: 2.5rem 1.25rem;
+}
+.login-glow-orb { display: none; }
+.login-card-wrapper {
+  max-width: 980px;
+  border: 0;
+  border-radius: 0.3rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.14);
+}
+.login-left-panel {
+  background: #343a40;
+  border-right: 0;
+  padding: 2rem;
+}
+.login-brand-logo { width: 54px; height: 54px; box-shadow: none; border-color: rgba(255,255,255,0.75); }
+.login-brand-name { background: none; -webkit-text-fill-color: #fff; color: #fff; font-size: 1.45rem; }
+.login-brand-sub { color: rgba(255,255,255,0.72); }
+.login-brand-motto { color: #80bdff; }
+.login-actors-intro h3 { color: #fff; }
+.login-actors-intro p { color: rgba(255,255,255,0.62); }
+.login-actor-card { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.13); border-radius: 0.25rem; box-shadow: none; }
+.login-actor-card:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); transform: none; box-shadow: none; }
+.login-actor-card.active { background: #007bff; border-color: #007bff; box-shadow: none; }
+.actor-title { color: #fff; }
+.actor-name { color: rgba(255,255,255,0.58); }
+.login-left-footer { border-top-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.58); }
+.login-right-panel { background: #fff; padding: 2.5rem; }
+.login-form-title { color: #343a40; font-size: 1.5rem; }
+.login-form-sub { color: #6c757d; }
+.login-selected-badge { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.25rem; box-shadow: none; }
+.login-label { color: #495057; }
+.login-input { background: #fff; border: 1px solid #ced4da; border-radius: 0.25rem; color: #495057; }
+.login-input:focus { background: #fff; border-color: #80bdff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.15); }
+.login-input-icon { color: #6c757d; }
+.login-btn-submit { background: #007bff; border: 1px solid #007bff; border-radius: 0.25rem; box-shadow: none; }
+.login-btn-submit:hover { background: #0069d9; box-shadow: none; transform: none; }
+.login-btn-demo { background: #e9f3ff; border: 1px solid #b8daff; border-radius: 0.25rem; color: #0056b3; box-shadow: none; }
+.login-btn-demo:hover { background: #d5e9ff; border-color: #80bdff; color: #004085; transform: none; box-shadow: none; }
+.login-security-notice { color: #6c757d; }
+.login-theme-toggle { top: 1rem; right: 1rem; background: #fff; border: 1px solid #ced4da; border-radius: 0.25rem; color: #495057; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+.login-theme-toggle:hover { background: #f8f9fa; border-color: #80bdff; color: #007bff; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
+[data-theme="dark"] .login-page-container { background: #111827; }
+[data-theme="dark"] .login-card-wrapper { background: #1f2937; }
+[data-theme="dark"] .login-right-panel { background: #1f2937; }
+[data-theme="dark"] .login-form-title { color: #f8fafc; }
+[data-theme="dark"] .login-form-sub, [data-theme="dark"] .login-label { color: #cbd5e1; }
+[data-theme="dark"] .login-selected-badge { background: #111827; border-color: #374151; }
+[data-theme="dark"] .login-input { background: #111827; border-color: #4b5563; color: #f8fafc; }
+[data-theme="dark"] .login-input:focus { background: #111827; }
+[data-theme="dark"] .login-theme-toggle { background: #1f2937; border-color: #4b5563; color: #cbd5e1; }
+
+/* Clinic environment backdrop: the overlay keeps the AdminLTE login card and
+   credential fields readable while still showing a real healthcare setting. */
+.login-page-container {
+  background-color: #0b1b2e;
+  background-image:
+    linear-gradient(90deg, rgba(4, 18, 35, 0.84) 0%, rgba(4, 18, 35, 0.68) 44%, rgba(4, 18, 35, 0.42) 100%),
+    url('../assets/bg.jpg');
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+.login-card-wrapper {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+[data-theme="light"] .login-page-container {
+  background-color: #dbeafe;
+  background-image:
+    linear-gradient(90deg, rgba(226, 232, 240, 0.72) 0%, rgba(226, 232, 240, 0.56) 44%, rgba(226, 232, 240, 0.32) 100%),
+    url('../assets/bg.jpg');
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+@media (max-width: 900px) {
+  .login-page-container {
+    background-position: 62% center;
+  }
+}
+
+/* Focused AdminLTE-style login: one clear brand panel and one credential form. */
+.login-simple-card {
+  max-width: 760px;
+  min-height: 470px;
+  grid-template-columns: 0.9fr 1fr;
+}
+
+.login-simple-card .login-brand-panel {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem;
+  gap: 2rem;
+  background:
+    linear-gradient(150deg, rgba(52, 58, 64, 0.92), rgba(24, 61, 95, 0.9)),
+    url('../assets/bg.jpg') center / cover;
+}
+
+.login-simple-card .login-brand-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.login-simple-card .login-brand-logo {
+  width: 88px;
+  height: 88px;
+  border-width: 3px;
+}
+
+.login-simple-card .login-brand-name { font-size: 1.85rem; }
+.login-simple-card .login-brand-name,
+.login-simple-card .login-brand-sub {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.login-simple-card .login-brand-sub { font-size: 0.9rem; }
+.login-simple-card .login-brand-motto { display: none; }
+
+.login-simple-card .login-right-panel {
+  justify-content: center;
+}
+
+.login-simple-card .login-form-title {
+  font-size: 1.65rem;
+}
+
+@media (max-width: 900px) {
+  .login-simple-card { min-height: 0; }
+  .login-simple-card .login-brand-panel { padding: 2.5rem 2rem; }
+  .login-simple-card .login-right-panel { padding: 2.5rem 2rem; }
+}
+
+/* Calm entrance animation for the clinic login screen. */
+@keyframes login-background-reveal {
+  from { opacity: 0; transform: scale(1.035); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes login-card-enter {
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes login-brand-enter {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes login-form-enter {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes login-control-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-page-container {
+  position: relative;
+  isolation: isolate;
+  animation: login-background-reveal 1200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-card-wrapper {
+  animation: login-card-enter 900ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-simple-card .login-brand-header {
+  animation: login-brand-enter 820ms 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-simple-card .login-form-header {
+  animation: login-form-enter 820ms 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-simple-card .login-input-group,
+.login-simple-card .login-btn-submit {
+  opacity: 0;
+  animation: login-control-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.login-simple-card .login-input-group:nth-child(1) { animation-delay: 700ms; }
+.login-simple-card .login-input-group:nth-child(2) { animation-delay: 810ms; }
+.login-simple-card .login-btn-submit { animation-delay: 920ms; }
+
+.login-theme-toggle {
+  animation: login-control-enter 650ms 1040ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page-container,
+  .login-card-wrapper,
+  .login-simple-card .login-brand-header,
+  .login-simple-card .login-form-header,
+  .login-simple-card .login-input-group,
+  .login-simple-card .login-btn-submit,
+  .login-theme-toggle {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

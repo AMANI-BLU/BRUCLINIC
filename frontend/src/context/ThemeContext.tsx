@@ -14,7 +14,7 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('bruclinic-theme') as Theme) || 'dark';
+    return (localStorage.getItem('bruclinic-theme') as Theme) || 'light';
   });
 
   useEffect(() => {
