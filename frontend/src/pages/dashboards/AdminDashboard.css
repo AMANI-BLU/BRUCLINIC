@@ -136,10 +136,20 @@
   width: 0.48rem;
 }
 
+.adm-dashboard-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.adm-dashboard-section {
+  margin-bottom: 0;
+}
+
 .admin-kpi-grid {
   margin-left: -0.5rem;
   margin-right: -0.5rem;
-  row-gap: 1rem;
 }
 
 .admin-kpi-grid > [class*='col-'] {
@@ -152,6 +162,7 @@
   box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.1);
   margin-bottom: 0;
   min-height: 140px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -316,11 +327,17 @@
 }
 
 .admin-departments-card .card-body {
-  padding: 1rem;
+  padding: 1.25rem;
 }
 
-.admin-departments-card .row {
-  row-gap: 1rem;
+.admin-departments-grid {
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+}
+
+.admin-departments-grid > [class*='col-'] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .admin-department-box {
@@ -330,6 +347,7 @@
   border-radius: 0.25rem;
   box-shadow: none;
   min-height: 112px;
+  height: 100%;
   margin-bottom: 0;
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }

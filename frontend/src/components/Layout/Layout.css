@@ -209,13 +209,21 @@ body.sidebar-collapse .app-shell .nav-item:hover .app-nav-tooltip {
 .app-header-btn { position: relative; width: 40px; height: 40px; border-radius: 0.25rem; }
 .app-notification .navbar-badge { top: 5px; right: 4px; font-size: 0.55rem; }
 .app-alert-menu { position: relative; }
-.app-notification-dropdown { position: absolute; top: 100%; right: 0; z-index: 1050; width: 320px; max-width: 90vw; margin-top: 6px; overflow: hidden; border: 1px solid var(--clr-border-hi); border-radius: 0.25rem; background: var(--clr-bg-card); box-shadow: var(--shadow-lg); animation: fadeIn 0.15s ease-out; }
+.app-notification-dropdown { position: absolute; top: 100%; right: 0; z-index: 1050; width: 370px; max-width: 92vw; margin-top: 6px; overflow: hidden; border: 1px solid var(--clr-border-hi); border-radius: 0.45rem; background: var(--clr-bg-card); box-shadow: var(--shadow-lg); animation: fadeIn 0.15s ease-out; }
 .app-notification-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--clr-border); background: var(--clr-bg-surface); font-size: 0.8rem; }
 .app-notification-heading strong, .app-notification-list strong { display: flex; align-items: center; gap: 0.4rem; }
-.app-notification-list { max-height: 360px; overflow-y: auto; padding: 0.35rem 0; }
-.app-notification-list .notif-item-hover { display: grid; gap: 0.25rem; padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--clr-border); font-size: 0.72rem; color: var(--clr-text-secondary); }
-.app-notification-list .notif-item-hover strong { color: var(--clr-text-primary); font-size: 0.76rem; }
-.app-notification-empty { display: grid; justify-items: center; gap: 0.35rem; padding: 1.25rem; color: var(--clr-text-muted); font-size: 0.78rem; }
+.app-notification-list { max-height: 380px; overflow-y: auto; padding: 0.25rem 0; }
+.app-notification-item { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--clr-border); text-decoration: none; cursor: pointer; transition: background-color 0.12s ease; }
+.app-notification-item:hover { background-color: var(--clr-bg-hover, rgba(0, 0, 0, 0.04)); }
+.app-notification-item:last-child { border-bottom: none; }
+.app-notification-item-icon { width: 30px; height: 30px; border-radius: 0.35rem; display: grid; place-items: center; flex-shrink: 0; margin-top: 2px; }
+.app-notification-item-content { flex: 1; min-width: 0; }
+.app-notification-item-header { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.15rem; }
+.app-notification-item-title { font-size: 0.77rem; font-weight: 700; color: var(--clr-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-notification-item-msg { font-size: 0.71rem; color: var(--clr-text-secondary); line-height: 1.35; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.app-notification-item-time { font-size: 0.64rem; color: var(--clr-text-muted); flex-shrink: 0; }
+.app-notification-footer { padding: 0.5rem 0.85rem; border-top: 1px solid var(--clr-border); background: var(--clr-bg-surface); text-align: center; }
+.app-notification-empty { display: grid; justify-items: center; gap: 0.35rem; padding: 1.5rem; color: var(--clr-text-muted); font-size: 0.78rem; }
 .app-header-user { cursor: pointer; }
 .app-header-user > .nav-link { display: inline-flex; align-items: center; gap: 0.45rem; padding-inline: 0.5rem; }
 .app-header-avatar { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 50%; color: #fff; font-size: 0.65rem; font-weight: 800; }

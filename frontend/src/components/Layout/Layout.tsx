@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CalendarDays,
   Pill, Stethoscope, BarChart2, Menu, Bell, Settings,
   ChevronRight, LogOut, HeartPulse, ClipboardList, Sun, Moon,
   ShieldCheck, ShieldAlert, Database, Wrench, AlertTriangle, MessageSquare,
-  FlaskConical, CheckCircle2
+  FlaskConical, CheckCircle2, ArrowRight
 } from 'lucide-react';
 import './Layout.css';
 import '../Maintenance/MaintenancePage.css';
@@ -17,6 +17,7 @@ import type { UserRole } from '../../types';
 import ConfirmModal from '../ConfirmModal';
 import PasswordField from '../PasswordField';
 import { apiGet } from '../../api/client';
+import AllNotificationsModal, { type ClinicAlert } from '../AllNotificationsModal';
 
 interface NavItemDef {
   to: string;
@@ -74,6 +75,7 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAllNotificationsModal, setShowAllNotificationsModal] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [actionToast, setActionToast] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
@@ -106,7 +108,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { currentUser, role, logout, idleLockMinutes, unlockSession, token } = useAuth();
-  const { loading: clinicLoading, error: clinicError, erCases, labOrders, medicines, pharmacyOrders, refresh } = useClinic();
+  const { loading: clinicLoading, error: clinicError, erCases, labOrders, medicines, pharmacyOrders, queue, refresh } = useClinic();
   const { enabled: maintenance } = useMaintenance();
 
   const readAlertStorageKey = `bruclinic:read_alert_key_${currentUser?.id || 'guest'}`;
@@ -264,19 +266,197 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role));
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const criticalER = erCases.filter(item => item.acuity === 'Red');
-  const lowStock = medicines.filter(item => item.stock <= item.minStock);
-  const completedLabs = labOrders.filter(item => item.status === 'Completed');
-  const pendingPharmacyOrders = role === 'admin' || role === 'pharmacy'
-    ? pharmacyOrders.filter(item => item.status === 'Pending')
-    : [];
-  const totalAlerts = criticalER.length + lowStock.length + completedLabs.length + pendingPharmacyOrders.length;
-  const alertKey = JSON.stringify({
-    criticalER: criticalER.map(item => item.id).sort(),
-    lowStock: lowStock.map(item => `${item.id}:${item.stock}`).sort(),
-    completedLabs: completedLabs.map(item => item.id).sort(),
-    pendingPharmacyOrders: pendingPharmacyOrders.map(item => item.id).sort(),
-  });
+
+  // ── Role-specific notification filtering ────────────────────
+  const roleNotifications = useMemo<ClinicAlert[]>(() => {
+    const alerts: ClinicAlert[] = [];
+
+    // 1. Emergency Department: Red & Yellow acuity cases
+    if (['admin', 'emergency', 'opd'].includes(role)) {
+      erCases.filter(c => c.acuity === 'Red').forEach(c => {
+        alerts.push({
+          id: `er-red-${c.id}`,
+          category: 'er',
+          categoryLabel: 'Emergency (ER)',
+          priority: 'critical',
+          title: `Code Red ER: ${c.patientName}`,
+          message: `${c.chiefComplaint || 'Acute resuscitation'} · Red Acuity`,
+          time: c.arrivalTime || 'Now',
+          link: '/emergency',
+          icon: HeartPulse,
+        });
+      });
+    }
+
+    if (['admin', 'emergency'].includes(role)) {
+      erCases.filter(c => c.acuity === 'Yellow').forEach(c => {
+        alerts.push({
+          id: `er-yellow-${c.id}`,
+          category: 'er',
+          categoryLabel: 'Emergency (ER)',
+          priority: 'urgent',
+          title: `Urgent ER: ${c.patientName}`,
+          message: `${c.chiefComplaint || 'Needs assessment'} · Yellow Acuity`,
+          time: c.arrivalTime || 'Recent',
+          link: '/emergency',
+          icon: AlertTriangle,
+        });
+      });
+    }
+
+    // 2. OPD Queue: Waiting patients for clinician
+    if (role === 'opd') {
+      const myDoctorQueue = queue.filter(q =>
+        q.stage === 'Doctor Consultation' &&
+        (!q.assignedDoctorId || q.assignedDoctorId === currentUser?.id)
+      );
+      myDoctorQueue.forEach(q => {
+        alerts.push({
+          id: `opd-queue-${q.id}`,
+          category: 'queue',
+          categoryLabel: 'OPD Queue',
+          priority: q.priority === 'Emergency' ? 'critical' : q.priority === 'Urgent' ? 'urgent' : 'normal',
+          title: `Waiting Consultation: ${q.patientName} (Token #${q.tokenNumber})`,
+          message: `${q.chiefComplaint || 'Consultation queue'} · Stage: ${q.stage}`,
+          time: q.registeredTime || 'Today',
+          link: '/opd',
+          icon: Stethoscope,
+        });
+      });
+    } else if (role === 'admin') {
+      const urgentQueue = queue.filter(q => q.priority === 'Emergency' || q.priority === 'Urgent');
+      urgentQueue.forEach(q => {
+        alerts.push({
+          id: `admin-queue-${q.id}`,
+          category: 'queue',
+          categoryLabel: 'Queue Priority',
+          priority: q.priority === 'Emergency' ? 'critical' : 'urgent',
+          title: `Priority Queue: ${q.patientName} (Token #${q.tokenNumber})`,
+          message: `${q.priority} priority arrival · ${q.chiefComplaint || 'Requires doctor review'}`,
+          time: q.registeredTime || 'Today',
+          link: '/opd',
+          icon: Users,
+        });
+      });
+    }
+
+    // 3. Laboratory: Abnormal results and pending orders
+    if (['admin', 'laboratory', 'opd'].includes(role)) {
+      labOrders.filter(l => l.status === 'Completed' && l.isAbnormal).forEach(l => {
+        alerts.push({
+          id: `lab-abnormal-${l.id}`,
+          category: 'lab',
+          categoryLabel: 'Laboratory',
+          priority: 'critical',
+          title: `Abnormal Lab: ${l.patientName}`,
+          message: `${l.testName}: ${l.result || 'Flagged clinically abnormal'}`,
+          time: l.completedAt || 'Recently',
+          link: role === 'opd' ? '/opd' : '/laboratory',
+          icon: FlaskConical,
+        });
+      });
+    }
+
+    if (role === 'opd') {
+      labOrders.filter(l => l.status === 'Completed' && !l.isAbnormal).forEach(l => {
+        alerts.push({
+          id: `lab-ready-${l.id}`,
+          category: 'lab',
+          categoryLabel: 'Laboratory',
+          priority: 'normal',
+          title: `Lab Ready: ${l.patientName} (${l.testName})`,
+          message: `Result ready: ${l.result || 'Completed'}`,
+          time: l.completedAt || 'Recently',
+          link: '/opd',
+          icon: FlaskConical,
+        });
+      });
+    }
+
+    if (['laboratory', 'admin'].includes(role)) {
+      labOrders.filter(l => l.status !== 'Completed').forEach(l => {
+        alerts.push({
+          id: `lab-pending-${l.id}`,
+          category: 'lab',
+          categoryLabel: 'Laboratory',
+          priority: 'urgent',
+          title: `Order to Process: ${l.testName}`,
+          message: `Patient: ${l.patientName} · Prescribed by: ${l.doctorName || 'Clinician'}`,
+          time: 'Pending test',
+          link: '/laboratory',
+          icon: FlaskConical,
+        });
+      });
+    }
+
+    // 4. Pharmacy: Pending orders to dispense & stock warnings
+    if (['pharmacy', 'admin'].includes(role)) {
+      pharmacyOrders.filter(p => p.status === 'Pending').forEach(p => {
+        alerts.push({
+          id: `rx-pending-${p.id}`,
+          category: 'pharmacy',
+          categoryLabel: 'Pharmacy',
+          priority: 'urgent',
+          title: `Pending Prescription: ${p.patientName}`,
+          message: `Doctor: ${p.doctorName || 'Doctor'} · Order #${p.id}`,
+          time: 'Pending dispense',
+          link: '/pharmacy',
+          icon: Pill,
+        });
+      });
+
+      medicines.filter(m => m.stock <= m.minStock).forEach(m => {
+        const isOut = m.stock === 0;
+        alerts.push({
+          id: `stock-${m.id}`,
+          category: 'stock',
+          categoryLabel: 'Pharmacy Stock',
+          priority: isOut ? 'critical' : 'urgent',
+          title: `${isOut ? 'Out of Stock' : 'Low Stock Warning'}: ${m.name}`,
+          message: `${m.stock} ${m.unit || 'units'} left (Min: ${m.minStock})`,
+          time: 'Inventory alert',
+          link: '/pharmacy',
+          icon: Pill,
+        });
+      });
+    }
+
+    // 5. Reception: Check-in, card creation, and urgent arrivals
+    if (role === 'receptionist') {
+      queue.filter(q => q.cardStatus === 'New Card' || q.hasExistingCard === false || q.stage === 'Reception').forEach(q => {
+        alerts.push({
+          id: `rec-card-${q.id}`,
+          category: 'queue',
+          categoryLabel: 'Reception & Cards',
+          priority: q.priority === 'Emergency' ? 'critical' : 'normal',
+          title: `Card Verification: ${q.patientName} (Token #${q.tokenNumber})`,
+          message: `ID/Card assignment needed · Stage: ${q.stage}`,
+          time: q.registeredTime || 'Today',
+          link: '/reception',
+          icon: Users,
+        });
+      });
+
+      queue.filter(q => q.priority === 'Emergency').forEach(q => {
+        alerts.push({
+          id: `rec-urg-${q.id}`,
+          category: 'queue',
+          categoryLabel: 'Reception Urgent',
+          priority: 'critical',
+          title: `Emergency Arrival: ${q.patientName}`,
+          message: `Token #${q.tokenNumber} marked Emergency · Priority transfer needed`,
+          time: q.registeredTime || 'Today',
+          link: '/reception',
+          icon: AlertTriangle,
+        });
+      });
+    }
+
+    return alerts;
+  }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id]);
+
+  const totalAlerts = roleNotifications.length;
+  const alertKey = JSON.stringify(roleNotifications.map(item => item.id).sort());
   const unreadAlerts = alertKey === readAlertKey ? 0 : totalAlerts;
   const handleLogout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
@@ -332,10 +512,10 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             {showNotifications && (
               <div className="app-notification-dropdown">
-                <div className="app-notification-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <div className="app-notification-heading">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <strong><Bell size={14} /> Live Alerts &amp; Notifications</strong>
-                    <span className="badge text-bg-primary">{totalAlerts} active</span>
+                    <span className="badge text-bg-primary">{totalAlerts}</span>
                   </div>
                   {totalAlerts > 0 && (
                     <button
@@ -344,17 +524,66 @@ export default function Layout({ children }: LayoutProps) {
                       style={{ fontSize: '0.72rem', color: 'var(--clr-primary-400)', cursor: 'pointer' }}
                       onClick={() => markAlertsRead(alertKey)}
                     >
-                      Mark all read
+                      Mark read
                     </button>
                   )}
                 </div>
+
                 <div className="app-notification-list">
-                  {criticalER.length > 0 && <div className="notif-item-hover"><strong><HeartPulse size={14} /> Critical ER Cases ({criticalER.length})</strong>{criticalER.slice(0, 3).map(item => <span key={item.id}>{item.patientName} · {item.chiefComplaint.slice(0, 40)}...</span>)}</div>}
-                  {lowStock.length > 0 && <div className="notif-item-hover"><strong><Pill size={14} /> Low Stock Alerts ({lowStock.length})</strong>{lowStock.slice(0, 3).map(item => <span key={item.id}>{item.name} — {item.stock} {item.unit} left</span>)}</div>}
-                  {completedLabs.length > 0 && <div className="notif-item-hover"><strong><FlaskConical size={14} /> Completed Lab Results ({completedLabs.length})</strong>{completedLabs.slice(0, 3).map(item => <span key={item.id}>{item.patientName} · {item.testName}: {item.result || 'Completed'}</span>)}</div>}
-                  {pendingPharmacyOrders.length > 0 && <div className="notif-item-hover"><strong><Pill size={14} /> Pending Pharmacy Prescriptions ({pendingPharmacyOrders.length})</strong>{pendingPharmacyOrders.slice(0, 3).map(item => <span key={item.id}>{item.patientName} · {item.doctorName} · {item.id}</span>)}</div>}
-                  {totalAlerts === 0 && <div className="app-notification-empty"><CheckCircle2 size={20} />No active alerts</div>}
+                  {roleNotifications.length === 0 ? (
+                    <div className="app-notification-empty">
+                      <CheckCircle2 size={22} style={{ color: '#10b981' }} />
+                      <span>No active notifications for {currentUser?.roleTitle || role}</span>
+                    </div>
+                  ) : (
+                    roleNotifications.slice(0, 6).map(alert => {
+                      const IconComponent = alert.icon;
+                      const isCritical = alert.priority === 'critical';
+                      const isUrgent = alert.priority === 'urgent';
+                      const iconBg = isCritical ? 'rgba(239, 68, 68, 0.12)' : isUrgent ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)';
+                      const iconColor = isCritical ? '#dc2626' : isUrgent ? '#d97706' : '#2563eb';
+
+                      return (
+                        <div
+                          key={alert.id}
+                          className="app-notification-item"
+                          onClick={() => {
+                            setShowNotifications(false);
+                            navigate(alert.link);
+                          }}
+                        >
+                          <div className="app-notification-item-icon" style={{ backgroundColor: iconBg, color: iconColor }}>
+                            <IconComponent size={15} />
+                          </div>
+                          <div className="app-notification-item-content">
+                            <div className="app-notification-item-header">
+                              <span className="app-notification-item-title">{alert.title}</span>
+                              {alert.time && <span className="app-notification-item-time">{alert.time}</span>}
+                            </div>
+                            <p className="app-notification-item-msg">{alert.message}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+
+                {roleNotifications.length > 0 && (
+                  <div className="app-notification-footer">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary w-100"
+                      style={{ fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setShowAllNotificationsModal(true);
+                      }}
+                    >
+                      <span>View All Notifications ({roleNotifications.length})</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </li>
@@ -423,6 +652,14 @@ export default function Layout({ children }: LayoutProps) {
         compact
         onClose={() => setLogoutConfirmOpen(false)}
         onConfirm={confirmLogout}
+      />
+      <AllNotificationsModal
+        isOpen={showAllNotificationsModal}
+        onClose={() => setShowAllNotificationsModal(false)}
+        notifications={roleNotifications}
+        onMarkAllRead={() => markAlertsRead(alertKey)}
+        onNavigate={link => navigate(link)}
+        roleTitle={currentUser?.roleTitle || role}
       />
       {sessionLocked && (
         <div role="dialog" aria-modal="true" aria-labelledby="session-lock-title" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9, 18, 35, .94)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 20 }}>

@@ -82,8 +82,8 @@ export default function AdminDashboard() {
       </div>
 
       <div className="adm-dashboard-body">
-        <section aria-label="Executive key performance indicators">
-          <div className="row admin-kpi-grid">
+        <section aria-label="Executive key performance indicators" className="adm-dashboard-section">
+          <div className="row g-3 admin-kpi-grid">
             {kpis.map(({ label, value, detail, icon: Icon, tone }) => (
               <div className="col-xl-2 col-lg-4 col-md-6" key={label}>
                 <div className={`small-box text-bg-${tone} admin-kpi-box`}>
@@ -96,64 +96,66 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section className="row admin-analytics-row" aria-label="Clinical analytics">
-          <div className="col-lg-8">
-            <div className="card card-outline card-primary admin-card admin-chart-card">
-              <div className="card-header">
-                <h3 className="card-title"><Activity size={19} /> Patient Volume &amp; Departmental Visits</h3>
-                <span className="admin-card-period">2026 Academic Year</span>
-              </div>
-              <div className="card-body">
-                <div className="admin-chart-wrap">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyVisits} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="adminVisitsGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#007bff" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#007bff" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,117,125,0.16)" />
-                      <XAxis dataKey="month" tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
-                      <Area type="monotone" dataKey="visits" stroke="#007bff" strokeWidth={3} fill="url(#adminVisitsGradient)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+        <section className="adm-dashboard-section" aria-label="Clinical analytics">
+          <div className="row g-4 admin-analytics-row">
+            <div className="col-lg-8">
+              <div className="card card-outline card-primary admin-card admin-chart-card">
+                <div className="card-header">
+                  <h3 className="card-title"><Activity size={19} /> Patient Volume &amp; Departmental Visits</h3>
+                  <span className="admin-card-period">2026 Academic Year</span>
+                </div>
+                <div className="card-body">
+                  <div className="admin-chart-wrap">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={monthlyVisits} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="adminVisitsGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#007bff" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#007bff" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(108,117,125,0.16)" />
+                        <XAxis dataKey="month" tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: '#6c757d', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
+                        <Area type="monotone" dataKey="visits" stroke="#007bff" strokeWidth={3} fill="url(#adminVisitsGradient)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="col-lg-4">
-            <div className="card card-outline card-info admin-card admin-mix-card">
-              <div className="card-header"><h3 className="card-title"><Activity size={19} /> Case Category Mix</h3></div>
-              <div className="card-body">
-                <div className="admin-donut-wrap">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={diagnosisData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
-                        {diagnosisData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="admin-mix-legend">
-                  {diagnosisData.slice(0, 4).map(e => <div key={e.name}><span style={{ backgroundColor: e.color }} />{e.name}<strong>{e.value}</strong></div>)}
+            <div className="col-lg-4">
+              <div className="card card-outline card-info admin-card admin-mix-card">
+                <div className="card-header"><h3 className="card-title"><Activity size={19} /> Case Category Mix</h3></div>
+                <div className="card-body">
+                  <div className="admin-donut-wrap">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={diagnosisData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
+                          {diagnosisData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background: '#343a40', border: 0, borderRadius: 4, color: '#fff' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="admin-mix-legend">
+                    {diagnosisData.slice(0, 4).map(e => <div key={e.name}><span style={{ backgroundColor: e.color }} />{e.name}<strong>{e.value}</strong></div>)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="card card-outline card-secondary admin-card admin-departments-card" aria-label="Active departmental workloads">
+        <section className="card card-outline card-secondary admin-card admin-departments-card adm-dashboard-section" aria-label="Active departmental workloads">
           <div className="card-header">
             <h3 className="card-title"><Building2 size={19} /> Active Departmental Workloads</h3>
             <span className="admin-card-period">Live operational snapshot</span>
           </div>
           <div className="card-body">
-            <div className="row">
+            <div className="row g-3 admin-departments-grid">
               {departments.map(({ name, status, metric, value, secondary, secondaryValue, icon: Icon, tone }) => (
                 <div className="col-xl-4 col-md-6" key={name}>
                   <div className={`info-box admin-department-box admin-department-${tone}`}>
