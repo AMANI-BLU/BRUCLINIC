@@ -6,7 +6,7 @@ import { patientCode, patientCodeFor, patientFullName, patientMatchesSearch, pat
 import {
   CreditCard, UserPlus, Search, Plus,
   CheckCircle2, Clock, Activity, X,
-  ArrowRight, ShieldAlert, Send, AlertTriangle
+  ArrowRight, ShieldAlert, Send, AlertTriangle, Building2, Phone
 } from 'lucide-react';
 import './ReceptionDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
@@ -257,41 +257,44 @@ export default function ReceptionDashboard() {
         </div>
       </div>
 
-      {/* Quick Card Lookup & Dispatch Widget */}
-      <div className="card reception-panel reception-lookup-panel">
-        <div className="card-header reception-card-header reception-patient-card-header">
-          <div>
-            <h3>
-              <span className="reception-heading-icon"><CreditCard size={17} /></span> Patient cards
-            </h3>
-            <p>
-              Quick patient lookup and OPD dispatch
-            </p>
+      {/* Quick Card Lookup & Dispatch Widget - AdminLTE v3 Card Outline Style */}
+      <div className="card card-outline card-primary shadow-sm mb-4">
+        <div className="card-header py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <span className="reception-heading-icon"><CreditCard size={17} /></span>
+            <div>
+              <h3 className="card-title m-0 fw-bold" style={{ fontSize: '1rem' }}>
+                Patient Cards Directory
+              </h3>
+              <p className="text-muted small m-0">
+                Quick patient card lookup &amp; OPD dispatch
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="search-bar" style={{ maxWidth: 220, height: 32 }}>
-              <Search size={14} className="icon" />
+          <div className="card-tools d-flex align-items-center gap-2 flex-wrap">
+            <div className="input-group input-group-sm" style={{ width: 220 }}>
+              <span className="input-group-text bg-transparent text-muted"><Search size={13} /></span>
               <input
                 type="text"
+                className="form-control"
                 placeholder="Search cards..."
                 value={patientCardSearch}
                 onChange={(e) => setPatientCardSearch(e.target.value)}
-                style={{ fontSize: '0.78rem' }}
               />
             </div>
 
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-primary btn-sm shadow-sm d-inline-flex align-items-center gap-1"
               onClick={() => handleOpenModal('existing')}
             >
-              <Plus size={14} /> Send request
+              <Plus size={14} /> <span>New OPD Request</span>
             </button>
           </div>
         </div>
 
-        <div className="card-body reception-card-body">
+        <div className="card-body p-3">
           <div className="reception-cards-grid">
             {patients
               .filter(p => patientMatchesSearch(p, patientCardSearch))
@@ -299,59 +302,89 @@ export default function ReceptionDashboard() {
               .map(p => {
                 const inQueue = queue.find(q => q.patientId === p.id && q.stage !== 'Completed');
                 const initials = `${p.firstName[0] ?? ''}${p.lastName[0] ?? ''}`.toUpperCase();
-                const tone = p.patientType === 'Student' ? 'info' : p.patientType === 'Staff' ? 'primary' : 'teal';
+                const avatarClass = p.patientType === 'Student' ? 'patient-avatar-student' : p.patientType === 'Staff' ? 'patient-avatar-staff' : 'patient-avatar-external';
+                const hasAllergies = p.allergies && (Array.isArray(p.allergies) ? p.allergies.length > 0 : Boolean(p.allergies));
 
                 return (
-                  <div key={p.id} className="info-box reception-patient-card admin-department-box">
-                    <span className={`info-box-icon bg-${tone}`} title={`${p.firstName} ${p.lastName}`}>
-                      {initials || <CreditCard size={20} />}
-                    </span>
-                    <div className="info-box-content">
-                      <div className="reception-card-header-line">
-                        <span className="info-box-text">
-                          {patientFullName(p)}
-                        </span>
-                        <code className="id-code" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                          {patientCode(p)}
-                        </code>
+                  <div key={p.id} className="patient-contact-card">
+                    {/* Top strip with Category & Patient Code */}
+                    <div className="patient-card-top-bar">
+                      <span className={`badge ${p.patientType === 'Student' ? 'bg-info-subtle text-info border border-info-subtle' : p.patientType === 'Staff' ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-secondary-subtle text-secondary border'}`} style={{ fontSize: '0.72rem', fontWeight: 600 }}>
+                        {p.patientType}
+                      </span>
+                      <code className="text-muted small px-2 py-0 rounded bg-light border font-monospace" style={{ fontSize: '0.72rem' }}>
+                        {patientCode(p)}
+                      </code>
+                    </div>
+
+                    <div className="p-3 d-flex flex-column justify-content-between flex-grow-1">
+                      {/* Avatar & Patient Name */}
+                      <div className="d-flex align-items-center gap-3">
+                        <div className={`patient-avatar-circle ${avatarClass}`}>
+                          {initials || <CreditCard size={18} />}
+                        </div>
+                        <div className="min-w-0 flex-grow-1">
+                          <h5 className="m-0 fw-bold text-truncate" style={{ fontSize: '0.98rem' }} title={patientFullName(p)}>
+                            {patientFullName(p)}
+                          </h5>
+                          <div className="text-muted small text-truncate d-flex align-items-center gap-1 mt-1">
+                            <Building2 size={12} className="flex-shrink-0" />
+                            <span>{p.department || 'General Patient'}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      {p.allergies && (Array.isArray(p.allergies) ? p.allergies.length > 0 : Boolean(p.allergies)) ? (
-                        <span className="admin-department-status status-danger">
-                          ALLERGIC: {Array.isArray(p.allergies) ? p.allergies.join(', ') : String(p.allergies)}
-                        </span>
+                      {/* Status indicator pill matching AdminLTE 3 callouts */}
+                      {hasAllergies ? (
+                        <div className="patient-status-alert status-danger">
+                          <AlertTriangle size={13} className="flex-shrink-0 text-danger" />
+                          <span className="text-truncate">
+                            <strong>Allergic:</strong> {Array.isArray(p.allergies) ? p.allergies.join(', ') : String(p.allergies)}
+                          </span>
+                        </div>
                       ) : inQueue ? (
-                        <span className="admin-department-status status-warning">
-                          IN {inQueue.stage.toUpperCase()} (#{inQueue.tokenNumber})
-                        </span>
+                        <div className="patient-status-alert status-queue">
+                          <Clock size={13} className="flex-shrink-0 text-warning-emphasis" />
+                          <span className="text-truncate">
+                            In <strong>{inQueue.stage}</strong> <span className="badge bg-warning text-dark ms-1">#{inQueue.tokenNumber}</span>
+                          </span>
+                        </div>
                       ) : (
-                        <span className="admin-department-status status-success">
-                          NORMAL · READY
-                        </span>
+                        <div className="patient-status-alert status-ready">
+                          <CheckCircle2 size={13} className="flex-shrink-0 text-success" />
+                          <span>Ready for Consultation</span>
+                        </div>
                       )}
 
-                      <div className="admin-department-metric">
-                        <span>Category</span>
-                        <strong>{p.patientType} · {p.department || 'General'}</strong>
-                      </div>
-                      <div className="admin-department-metric">
-                        <span>Phone</span>
-                        <strong>{p.phone || 'N/A'}</strong>
+                      {/* Contact metadata */}
+                      <div className="patient-contact-meta">
+                        <span className="d-flex align-items-center gap-1">
+                          <Phone size={12} className="text-muted" />
+                          <span>{p.phone || 'No phone'}</span>
+                        </span>
+                        <span>{p.gender || '—'}{p.bloodGroup ? ` · ${p.bloodGroup}` : ''}</span>
                       </div>
 
-                      <div className="reception-patient-action">
+                      {/* Action Button */}
+                      <div className="mt-3">
                         {inQueue ? (
-                          <span className="badge badge-amber w-100" style={{ fontSize: '0.72rem', padding: '0.35rem 0.5rem', display: 'block', textAlign: 'center' }}>
-                            In {inQueue.stage} ({inQueue.tokenNumber})
-                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-warning w-100 disabled text-truncate"
+                            style={{ fontSize: '0.75rem', opacity: 0.85, cursor: 'not-allowed' }}
+                          >
+                            <Clock size={13} className="me-1" />
+                            Active in {inQueue.stage} (#{inQueue.tokenNumber})
+                          </button>
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-primary btn-sm w-100"
-                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.74rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600 }}
+                            className="btn btn-primary btn-sm w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                            style={{ fontWeight: 600, fontSize: '0.78rem' }}
                             onClick={() => handleOpenModal('existing', p.id)}
                           >
-                            Send to OPD <ArrowRight size={13} />
+                            <span>Send to OPD</span>
+                            <ArrowRight size={13} />
                           </button>
                         )}
                       </div>

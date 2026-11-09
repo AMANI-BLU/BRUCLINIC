@@ -78,133 +78,128 @@
   gap: 0.85rem;
 }
 
-/* ── Admin-style Patient Cards in Reception ── */
-.reception-patient-card.admin-department-box {
-  background: var(--clr-surface-2, var(--clr-bg-surface, #ffffff));
-  border: 1px solid var(--clr-border);
-  border-left: 3.5px solid var(--clr-primary-500, #007bff);
+/* ── AdminLTE v3 Patient Contact Cards in Reception ── */
+.patient-contact-card {
+  background: var(--clr-bg-card, #ffffff);
+  border: 1px solid var(--clr-border, #dee2e6);
   border-radius: 0.25rem;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
-  min-height: 116px;
-  margin-bottom: 0;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.125), 0 1px 3px rgba(0, 0, 0, 0.08);
   display: flex;
-  position: relative;
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  flex-direction: column;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
   overflow: hidden;
 }
 
-.reception-patient-card.admin-department-box:hover {
-  border-color: var(--clr-primary-400);
-  box-shadow: 0 0.35rem 0.85rem rgba(0, 0, 0, 0.1);
+.patient-contact-card:hover {
   transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border-color: #80bdff;
 }
 
-.reception-patient-card .info-box-icon {
-  align-items: center;
+.patient-card-top-bar {
   display: flex;
-  flex: 0 0 4.1rem;
-  font-size: 1.35rem;
-  font-weight: 700;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--clr-border, #e9ecef);
+}
+
+.patient-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  margin: 0.6rem;
-  min-height: 4.1rem;
-  width: 4.1rem;
-  border-radius: 0.25rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: #ffffff;
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
-.reception-patient-card .info-box-icon.bg-info {
-  background-color: #17a2b8 !important;
-  color: #fff !important;
+.patient-avatar-student {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
 }
 
-.reception-patient-card .info-box-icon.bg-primary {
-  background-color: #007bff !important;
-  color: #fff !important;
+.patient-avatar-staff {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
 }
 
-.reception-patient-card .info-box-icon.bg-teal {
-  background-color: #20c997 !important;
-  color: #fff !important;
+.patient-avatar-external {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
 }
 
-.reception-patient-card .info-box-content {
-  min-width: 0;
-  padding: 0.65rem 0.65rem 0.65rem 0;
+.patient-status-alert {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.25rem;
+  font-size: 0.74rem;
+  margin: 0.5rem 0;
+  line-height: 1.35;
 }
 
-.reception-patient-card .reception-card-header-line {
+.patient-status-alert.status-ready {
+  background-color: rgba(25, 135, 84, 0.1);
+  color: #198754;
+  border: 1px solid rgba(25, 135, 84, 0.22);
+}
+
+.patient-status-alert.status-queue {
+  background-color: rgba(255, 193, 7, 0.15);
+  color: #997404;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.patient-status-alert.status-danger {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.25);
+}
+
+.patient-contact-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--clr-border, #dee2e6);
+  font-size: 0.74rem;
+  color: var(--clr-text-muted, #6c757d);
 }
 
-.reception-patient-card .info-box-text {
-  color: var(--clr-text-primary);
-  font-size: 0.88rem;
-  font-weight: 700;
-  line-height: 1.25;
+[data-theme='dark'] .patient-contact-card {
+  background: #1e293b;
+  border-color: #334155;
 }
 
-.reception-patient-card .admin-department-status {
-  display: block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  margin: 0.2rem 0 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+[data-theme='dark'] .patient-card-top-bar {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom-color: #334155;
 }
 
-.reception-patient-card .admin-department-status.status-success {
-  color: var(--clr-success-600, #28a745);
+[data-theme='dark'] .patient-contact-meta {
+  border-top-color: #334155;
 }
 
-.reception-patient-card .admin-department-status.status-warning {
-  color: #d97706;
+[data-theme='dark'] .patient-status-alert.status-ready {
+  background-color: rgba(25, 135, 84, 0.2);
+  color: #75b798;
+  border-color: rgba(25, 135, 84, 0.35);
 }
 
-.reception-patient-card .admin-department-status.status-danger {
-  color: #dc3545;
+[data-theme='dark'] .patient-status-alert.status-queue {
+  background-color: rgba(255, 193, 7, 0.2);
+  color: #ffda6a;
+  border-color: rgba(255, 193, 7, 0.35);
 }
 
-.reception-patient-card .admin-department-metric {
-  color: var(--clr-text-muted);
-  display: flex;
-  font-size: 0.69rem;
-  justify-content: space-between;
-  line-height: 1.55;
-  gap: 0.4rem;
-}
-
-.reception-patient-card .admin-department-metric strong {
-  color: var(--clr-text-primary);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.reception-patient-card .reception-patient-action {
-  margin-top: 0.45rem;
-}
-
-[data-theme='dark'] .reception-patient-card.admin-department-box {
-  background: #1f2937;
-  border-color: #374151;
-  border-left-color: var(--clr-primary-500);
-}
-
-[data-theme='light'] .reception-patient-card.admin-department-box {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.1);
-  border-left-color: #007bff;
+[data-theme='dark'] .patient-status-alert.status-danger {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #ea868f;
+  border-color: rgba(220, 53, 69, 0.35);
 }
 
 .reception-queue-panel .table-wrapper {
