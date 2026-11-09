@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import PasswordField from './PasswordField';
+import { Lock } from 'lucide-react';
+import './PasswordChangeForm.css';
 
 export default function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
   const { changePassword, logout } = useAuth();
@@ -37,9 +39,16 @@ export default function PasswordChangeForm({ forced = false }: { forced?: boolea
   };
 
   return (
-    <section className="card card-outline card-primary p-4" style={{ maxWidth: 560, margin: '2rem auto' }}>
-      <h2>{forced ? 'Change your temporary password' : 'Change password'}</h2>
-      <p>{forced ? 'A password change is required before you can continue.' : 'Enter your current password and choose a new one.'}</p>
+    <section className={`card card-outline card-primary pcf-card${forced ? ' pcf-forced' : ''}`}>
+      <div className="pcf-heading">
+        <div className="pcf-icon">
+          <Lock size={18} />
+        </div>
+        <div>
+          <h2 className="pcf-title">{forced ? 'Change your temporary password' : 'Change password'}</h2>
+          <p className="pcf-subtitle">{forced ? 'A password change is required before you can continue.' : 'Enter your current password and choose a new one.'}</p>
+        </div>
+      </div>
       {error && <div className="alert alert-danger" role="alert">{error}</div>}
       {message && <div className="alert alert-success" role="status">{message}</div>}
       <form onSubmit={submit}>

@@ -231,25 +231,28 @@ export default function Settings() {
                 <p>New staff accounts use this temporary password and must change it at first sign-in.</p>
               </div>
             </div>
-            {defaultPasswordConfigured && (
-              defaultPasswordValue ? (
-                <div className="mb-3">
-                  <span className="form-label d-block" style={{ marginBottom: 4 }}>Current default password</span>
+
+            {/* Current default password display */}
+            <div className="mb-3">
+              <span className="form-label d-block" style={{ marginBottom: 4 }}>Current default password</span>
+              {defaultPasswordConfigured ? (
+                defaultPasswordValue ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <code
                       style={{
-                        flex: '1 1 200px',
-                        padding: '0.4rem 0.6rem',
+                        flex: '1 1 180px',
+                        padding: '0.4rem 0.65rem',
                         borderRadius: 6,
                         border: '1px solid var(--clr-border)',
-                        background: 'var(--clr-bg-surface)',
+                        background: 'var(--clr-bg-hover)',
                         color: 'var(--clr-text-primary)',
                         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                         fontSize: '0.84rem',
                         overflowWrap: 'anywhere',
+                        letterSpacing: showDefaultPassword ? 'normal' : '0.14em',
                       }}
                     >
-                      {showDefaultPassword ? defaultPasswordValue : '•'.repeat(defaultPasswordValue.length)}
+                      {showDefaultPassword ? defaultPasswordValue : '•'.repeat(Math.min(defaultPasswordValue.length, 16))}
                     </code>
                     <button
                       type="button"
@@ -263,13 +266,18 @@ export default function Settings() {
                       {showDefaultPassword ? 'Hide' : 'Show'}
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="alert alert-info py-2 mb-0" style={{ fontSize: '0.78rem' }}>
+                    A default password is configured but was saved before it could be displayed here. Save a new one below to see it.
+                  </div>
+                )
               ) : (
-                <div className="alert alert-info py-2">
-                  A default password is configured but was saved before it could be displayed. Save it again to see it here.
+                <div className="alert alert-warning py-2 mb-0" style={{ fontSize: '0.78rem' }}>
+                  No default password is set. New staff accounts will not be able to sign in until one is configured.
                 </div>
-              )
-            )}
+              )}
+            </div>
+
             {defaultPasswordError && <div className="alert alert-danger py-2" role="alert">{defaultPasswordError}</div>}
             {defaultPasswordMessage && <div className="alert alert-success py-2" role="status">{defaultPasswordMessage}</div>}
             <form onSubmit={saveDefaultPassword}>
