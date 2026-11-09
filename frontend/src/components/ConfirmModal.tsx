@@ -66,6 +66,8 @@ export default function ConfirmModal({
         style={{
           maxWidth: 420,
           width: '100%',
+          height: 'auto',
+          minHeight: 'auto',
           padding: '1.25rem',
           borderRadius: 'var(--radius-lg, 10px)',
           animation: 'fadeIn 0.15s ease-out',

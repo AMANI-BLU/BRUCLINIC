@@ -467,6 +467,7 @@ tbody td { padding: 0.875rem 1rem; color: var(--clr-text-primary); vertical-alig
   border-radius: var(--radius-lg);
   padding: 1.15rem 1.25rem;
   width: 100%; max-width: 480px;
+  height: auto; min-height: auto;
   max-height: 90vh; overflow-y: auto;
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   animation: slideUp 200ms ease;
@@ -1019,6 +1020,8 @@ tbody td { padding: 0.75rem 1rem; }
   position: relative !important;
   inset: auto !important;
   width: 100% !important;
+  height: auto !important;
+  min-height: auto !important;
   margin: auto !important;
   transform: none !important;
   max-height: 90vh;
@@ -1028,6 +1031,14 @@ tbody td { padding: 0.75rem 1rem; }
 .modal-overlay .modal-header,
 .modal-overlay .modal-footer { display: flex; }
 .modal-overlay .modal-title { display: flex; align-items: center; }
+.confirm-modal {
+  width: min(92vw, 420px) !important;
+  max-width: 420px !important;
+  height: auto !important;
+  min-height: auto !important;
+  overflow: visible !important;
+  padding: 1.25rem !important;
+}
 .confirm-modal-compact { width: min(92vw, 360px) !important; max-width: 360px !important; max-height: 60vh !important; overflow: visible !important; padding: 0.65rem 0.85rem !important; }
 .confirm-modal-compact .modal-header { margin-bottom: 0.1rem; padding-bottom: 0.35rem; }
 .confirm-modal-compact .confirm-modal-message { padding: 0.15rem 0 0.35rem !important; font-size: 0.78rem !important; line-height: 1.25 !important; }
@@ -1118,6 +1129,8 @@ tbody td { padding: 0.75rem 1rem; }
   .modal-sm {
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
     padding: 1rem !important;
     max-height: 94vh !important;
     margin: auto !important;
