@@ -18,6 +18,7 @@ import Doctors             from './pages/Doctors';
 import Reports             from './pages/Reports';
 import Settings            from './pages/Settings';
 import StaffAccounts       from './pages/StaffAccounts';
+import AdminDashboard      from './pages/dashboards/AdminDashboard';
 import ReceptionDashboard  from './pages/dashboards/ReceptionDashboard';
 import OpdDashboard        from './pages/dashboards/OpdDashboard';
 import EmergencyDashboard  from './pages/dashboards/EmergencyDashboard';
@@ -123,12 +124,16 @@ function AppRoutes() {
               <Routes>
 
                 {/* Generic dashboard — shows a role-appropriate summary */}
-                <Route path="/" element={currentUser?.role === 'admin' ? <Navigate to="/patients" replace /> : <Dashboard />} />
+                <Route path="/" element={<Dashboard />} />
 
                 {/* ── Role-specific dashboards ─────────────────────── */}
                 <Route
                   path="/admin"
-                  element={<Navigate to="/patients" replace />}
+                  element={
+                    <ProtectedRoute allowed={[...ROLE.ADMIN_ONLY]}>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/reception"

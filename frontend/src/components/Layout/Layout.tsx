@@ -32,7 +32,7 @@ const ALL_NAV_ITEMS: NavItemDef[] = [
   { to: '/appointments',   icon: CalendarDays,    label: 'Appointments',    roles: ['admin', 'receptionist', 'opd'] },
   { to: '/records',        icon: ClipboardList,   label: 'Medical Records', roles: ['admin', 'receptionist', 'opd', 'emergency', 'laboratory'] },
   { to: '/messages',       icon: MessageSquare,   label: 'Messages' },
-  { to: '/pharmacy',       icon: Pill,            label: 'Pharmacy',        roles: ['admin', 'pharmacy'] },
+  { to: '/pharmacy',       icon: Pill,            label: 'Pharmacy & Inventory', roles: ['admin', 'pharmacy'] },
   { to: '/doctors',        icon: Stethoscope,     label: 'Doctors',         roles: ['admin', 'opd'] },
   { to: '/reports',        icon: BarChart2,       label: 'Reports',         roles: ['admin'] },
   { to: '/security',       icon: ShieldAlert,     label: 'Security Center', roles: ['admin'] },
@@ -218,18 +218,7 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/login');
   };
 
-  const ADMIN_NAV_ITEMS: NavItemDef[] = [
-    { to: '/patients',     icon: Users,         label: 'Patients' },
-    { to: '/appointments', icon: CalendarDays,  label: 'Appointments' },
-    { to: '/records',      icon: ClipboardList, label: 'Medical Records' },
-    { to: '/pharmacy',     icon: Pill,          label: 'Pharmacy & Inventory' },
-  ];
-
-  const navItems: NavItemDef[] = role === 'admin'
-    ? ADMIN_NAV_ITEMS
-    : ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role)).map(item =>
-        item.to === '/pharmacy' ? { ...item, label: 'Pharmacy & Inventory' } : item
-      );
+  const navItems = ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role));
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const criticalER = erCases.filter(item => item.acuity === 'Red');
