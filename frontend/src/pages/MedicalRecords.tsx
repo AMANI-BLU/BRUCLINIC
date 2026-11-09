@@ -8,7 +8,7 @@ import { firstError, validateDate, validateRequired } from '../utils/validation'
 import {
   Activity, Calendar, CheckCircle2, Clock, FilePlus, FileText,
   FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2, HeartPulse,
-  ClipboardCheck, CircleDashed, Ban, Printer
+  ClipboardCheck, CircleDashed, Printer, Users
 } from 'lucide-react';
 import './Patients.css';
 import './MedicalRecords.css';
@@ -281,11 +281,14 @@ export default function MedicalRecords() {
       {modal.mode && (
         <ModalPortal>
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal modal-lg records-modal" onClick={event => event.stopPropagation()}>
+          <div
+            className={`modal ${modal.mode === 'view' ? 'modal-lg' : 'records-modal'}`}
+            style={{ width: modal.mode === 'view' ? 'min(96%, 880px)' : 'min(96%, 760px)', maxHeight: '92vh', overflowY: 'auto' }}
+            onClick={event => event.stopPropagation()}
+          >
             <div className="modal-header records-modal-header">
-              <h2 className="modal-title" style={{ fontSize: '0.96rem' }}>
-                {modal.mode === 'add' ? <FilePlus size={16} /> : <FileText size={16} />}
-                {modal.mode === 'add' ? 'New Record' : 'Record Details'}
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.02rem', fontWeight: 700 }}>
+                {modal.mode === 'add' ? <><FilePlus size={18} className="text-primary" /> New Medical Record</> : <><FileText size={18} className="text-primary" /> Patient Card &amp; Medical Record Details</>}
               </h2>
               <button
                 type="button"
@@ -468,8 +471,18 @@ function StepStatus({ label, tone }: { label: string; tone: 'green' | 'amber' | 
   return <span className={`record-step-status record-step-status-${tone}`}>{label}</span>;
 }
 
+function PVItem({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="pv-item">
+      <div className="pv-label">{label}</div>
+      <div className="pv-value">{value || '—'}</div>
+    </div>
+  );
+}
+
 function RecordView({ record }: { record: MedicalRecord }) {
   const { patients, queue, labOrders, pharmacyOrders } = useClinic();
+  const [activeTab, setActiveTab] = useState<'summary' | 'journey' | 'prescriptions' | 'labs' | 'demographics'>('summary');
   const [printReferral, setPrintReferral] = useState<{
     patientName: string;
     patientCode?: string;
@@ -486,6 +499,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
     notes?: string;
     date?: string;
   } | null>(null);
+
   const patient = findPatient(patients, record.patientId);
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
   const linkedQueueItem = (record.queueItemId ? queue.find(q => q.id === record.queueItemId) : null) || queue.find(q => q.patientId === record.patientId);
@@ -539,268 +553,438 @@ function RecordView({ record }: { record: MedicalRecord }) {
   const journeyPercent = Math.round((completedSteps / 6) * 100);
 
   return (
-    <div className="record-detail">
-      <header className="record-detail-summary">
-        <div className="record-detail-avatar">{initials}</div>
-        <div className="record-detail-patient">
-          <h3>{patientFullName(patient, record.patientName)}</h3>
-          <div className="record-detail-identifiers">
-            <code className="id-code">{patientCode(patient, record.patientId)}</code>
-            {patient?.patientType && (
-              <span className={`badge ${patient.patientType === 'Student' ? 'badge-blue' : 'badge-gray'}`}>
-                {patient.patientType}
-              </span>
-            )}
-            {patient?.bloodGroup && <span className="badge badge-red">Blood: {patient.bloodGroup}</span>}
-            {patient?.department && <span className="badge badge-secondary">{patient.department}</span>}
-            {closed && <span className="badge badge-green"><CheckCircle2 size={11} /> Visit closed</span>}
-          </div>
-        </div>
-        <div className="record-detail-date">
-          <span><Calendar size={12} /> Encounter Date</span>
-          <strong>{record.visitDate}</strong>
-        </div>
-      </header>
-
-      {/* Process Journey Through Clinic Departments */}
-      <section className="record-journey">
-        <div className="record-journey-head">
+    <div className="patient-view">
+      {/* Patient Card Top Header Banner */}
+      <div className="pv-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div className="pv-avatar">{initials}</div>
           <div>
-            <h4><Activity size={16} /> Encounter Workflow &amp; Department Progress</h4>
-            <p>Where this visit has moved and what each department completed.</p>
-          </div>
-          <div className="record-journey-progress-copy">
-            <strong>{journeyPercent}%</strong>
-            <span>{completedSteps} of 6 steps complete</span>
+            <h3 className="pv-name" style={{ margin: 0 }}>{patientFullName(patient, record.patientName)}</h3>
+            <p className="pv-id" style={{ margin: '2px 0 0' }}>
+              Card Number: <strong>{patientCode(patient, record.patientId)}</strong> · Record: <code style={{ fontSize: '0.78rem' }}>{record.id}</code>
+            </p>
+            <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+              {patient?.patientType && <span className="badge badge-blue">{patient.patientType}</span>}
+              {patient?.gender && <span className="badge badge-violet">{patient.gender}</span>}
+              {patient?.bloodGroup && <span className="badge badge-red">Blood: {patient.bloodGroup}</span>}
+              {patient?.department && <span className="badge badge-gray">{patient.department}</span>}
+              {closed ? (
+                <span className="badge badge-green"><CheckCircle2 size={11} /> Visit Closed</span>
+              ) : (
+                <span className="badge badge-amber"><Clock size={11} /> Active Encounter</span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="record-journey-progress" aria-hidden="true">
-          <span style={{ width: `${journeyPercent}%` }} />
-        </div>
 
-        <div className="record-journey-grid">
-          {/* 1. Reception Card Class */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}><ClipboardCheck size={15} /></span>
-              <strong>Reception &amp; Card Room</strong>
-              <StepStatus label={linkedQueueItem ? 'Completed' : 'Filed'} tone={linkedQueueItem ? 'green' : 'gray'} />
+        {/* Quick Stats Cards */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'center', padding: '6px 14px', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
+            <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-primary-400)' }}>{record.visitDate}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Encounter Date</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '6px 14px', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--clr-emerald-400)' }}>{pharmacyRows.length}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Prescriptions</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '6px 14px', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#a855f7' }}>{labRows.length}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Lab Tests</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pill Tabs Navigation */}
+      <div className="pill-tabs mb-3" style={{ borderBottom: '1px solid var(--clr-border)', paddingBottom: 8 }}>
+        <button
+          type="button"
+          className={`pill-tab ${activeTab === 'summary' ? 'active' : ''}`}
+          onClick={() => setActiveTab('summary')}
+        >
+          <FileText size={14} /> Clinical Summary
+        </button>
+        <button
+          type="button"
+          className={`pill-tab ${activeTab === 'journey' ? 'active' : ''}`}
+          onClick={() => setActiveTab('journey')}
+        >
+          <Activity size={14} /> Workflow &amp; Progress ({completedSteps}/6)
+        </button>
+        <button
+          type="button"
+          className={`pill-tab ${activeTab === 'prescriptions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('prescriptions')}
+        >
+          <Pill size={14} /> Prescriptions ({pharmacyRows.length})
+        </button>
+        <button
+          type="button"
+          className={`pill-tab ${activeTab === 'labs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('labs')}
+        >
+          <FlaskConical size={14} /> Lab Tests ({labRows.length})
+        </button>
+        <button
+          type="button"
+          className={`pill-tab ${activeTab === 'demographics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('demographics')}
+        >
+          <Users size={14} /> Patient Card
+        </button>
+      </div>
+
+      {/* TAB 1: Clinical Summary */}
+      {activeTab === 'summary' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Primary Diagnosis Card */}
+          <div
+            style={{
+              border: '1px solid var(--clr-border)',
+              borderLeft: '4px solid var(--clr-primary-500)',
+              borderRadius: 6,
+              padding: '14px 16px',
+              background: 'var(--clr-bg-surface)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--clr-text-muted)', fontWeight: 700 }}>
+                  Primary Clinical Diagnosis
+                </span>
+                <h4 style={{ margin: '4px 0 0', fontSize: '1.15rem', color: 'var(--clr-primary-400)', fontWeight: 800 }}>
+                  {record.diagnosis || 'Undiagnosed / Routine Check'}
+                </h4>
+              </div>
+              <span className="badge badge-gray" style={{ fontSize: '0.75rem' }}>
+                Attending: Dr. {record.doctorName}
+              </span>
             </div>
-            <div className="record-step-body">
-              Token: <strong>{linkedQueueItem?.tokenNumber || 'Standard visit'}</strong> · {linkedQueueItem?.cardStatus || 'Active card'}
-            </div>
-            <div className="record-step-note">
-              Chief complaint: {linkedQueueItem?.chiefComplaint || (record.symptoms.length ? record.symptoms[0] : 'Consultation')}
-            </div>
+
+            {record.symptoms && record.symptoms.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <span style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--clr-text-muted)', fontWeight: 700, display: 'block', marginBottom: 4 }}>
+                  Presenting Symptoms &amp; Complaints:
+                </span>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  {record.symptoms.map(s => (
+                    <span key={s} className="badge badge-gray" style={{ fontSize: '0.74rem' }}>{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 2. Nurse Triage Vitals */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}><HeartPulse size={15} /></span>
-              <strong>Nurse Triage &amp; Vitals</strong>
-              <StepStatus label={vitals ? 'Completed' : 'Pending'} tone={vitals ? 'green' : 'amber'} />
+          {/* Nurse Triage Vitals */}
+          <div
+            style={{
+              border: '1px solid var(--clr-border)',
+              borderRadius: 6,
+              padding: 14,
+              background: 'var(--clr-bg-surface)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: '0.85rem', fontWeight: 700 }}>
+              <HeartPulse size={16} className="text-danger" />
+              <span>Triage Vital Signs</span>
+              <span className={`badge ${vitals ? 'badge-green' : 'badge-gray'}`} style={{ marginLeft: 'auto', fontSize: '0.68rem' }}>
+                {vitals ? 'Recorded' : 'Not Recorded'}
+              </span>
             </div>
             {vitals ? (
-              <div className="record-step-body record-vitals-grid">
-                <span>BP: <strong>{vitals.bloodPressure || '—'}</strong></span>
-                <span>Pulse: <strong>{vitals.heartRate ? `${vitals.heartRate} bpm` : '—'}</strong></span>
-                <span>Temp: <strong>{vitals.temperature ? `${vitals.temperature}°C` : '—'}</strong></span>
-                <span>SpO2: <strong>{vitals.spo2 ? `${vitals.spo2}%` : '—'}</strong></span>
+              <div className="pv-grid">
+                <PVItem label="Blood Pressure" value={vitals.bloodPressure} />
+                <PVItem label="Heart Rate" value={vitals.heartRate ? `${vitals.heartRate} bpm` : undefined} />
+                <PVItem label="Body Temperature" value={vitals.temperature ? `${vitals.temperature}°C` : undefined} />
+                <PVItem label="Oxygen Saturation (SpO2)" value={vitals.spo2 ? `${vitals.spo2}%` : undefined} />
+                {vitals.respiratoryRate && <PVItem label="Respiratory Rate" value={`${vitals.respiratoryRate} /min`} />}
+                {vitals.weightKg && <PVItem label="Weight" value={`${vitals.weightKg} kg`} />}
               </div>
             ) : (
-              <div className="record-step-note">No triage vitals were recorded for this encounter.</div>
-            )}
-          </div>
-
-          {/* 3. OPD Consultation Class */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}><Stethoscope size={15} /></span>
-              <strong>OPD Consultation</strong>
-              <StepStatus label={record.diagnosis ? 'Completed' : 'In progress'} tone={record.diagnosis ? 'green' : 'amber'} />
-            </div>
-            <div className="record-step-body">
-              Doctor: <strong>Dr. {record.doctorName}</strong>
-            </div>
-            <div className="record-step-note">Dx: <strong>{record.diagnosis}</strong></div>
-          </div>
-
-          {/* 3b. EMR / Record Archive */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9' }}><FileText size={15} /></span>
-              <strong>EMR &amp; Record Archive</strong>
-              <StepStatus label="Filed" tone="green" />
-            </div>
-            <div className="record-step-body">
-              Record: <strong>{record.id}</strong>
-            </div>
-            <div className="record-step-note">
-              Saved on {record.visitDate}{record.queueItemId ? ` · linked to visit ${record.queueItemId}` : ' · manual medical record'}
-            </div>
-          </div>
-
-          {/* 4. Laboratory Class */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}><FlaskConical size={15} /></span>
-              <strong>Diagnostic Laboratory</strong>
-              <StepStatus
-                label={labRows.length === 0 ? 'Not requested' : allLabsCompleted ? 'Completed' : 'In progress'}
-                tone={labRows.length === 0 ? 'gray' : allLabsCompleted ? 'green' : 'blue'}
-              />
-            </div>
-            <div className="record-step-body">
-              {labRows.length > 0
-                ? <span><strong>{labRows.length} investigation(s)</strong> requested</span>
-                : <span>No laboratory investigations for this visit</span>}
-            </div>
-            {labRows.length > 0 && (
-              <div className="record-step-note">
-                {labRows.map(row => row.testName).slice(0, 3).join(', ')}{labRows.length > 3 ? ` +${labRows.length - 3} more` : ''}
+              <div style={{ color: 'var(--clr-text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                No triage vitals were recorded for this encounter.
               </div>
             )}
           </div>
 
-          {/* 5. Pharmacy Dispensary Class */}
-          <div className="record-step-card">
-            <div className="record-step-head">
-              <span className="record-step-icon" style={{ background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4' }}><Pill size={15} /></span>
-              <strong>Pharmacy Dispensary</strong>
-              <StepStatus
-                label={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'Prescribed' : 'Not requested') : allPharmacyDispensed ? 'Dispensed' : 'Pending'}
-                tone={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'blue' : 'gray') : allPharmacyDispensed ? 'green' : 'amber'}
-              />
-            </div>
-            <div className="record-step-body">
-              {pharmacyRows.length > 0
-                ? <span><strong>{pharmacyRows.length} medication(s)</strong> prescribed</span>
-                : <span>No prescription medications</span>}
-            </div>
-            {linkedPharmacyOrders.length > 0 && (
-              <div className="record-step-note">
-                {linkedPharmacyOrders.map(order => `${order.status}${order.dispensedBy ? ` · ${order.dispensedBy}` : ''}`).join(' | ')}
+          {/* Clinical Notes & Follow-up */}
+          {record.notes && (
+            <div
+              style={{
+                border: '1px solid var(--clr-border)',
+                borderRadius: 6,
+                padding: 14,
+                background: 'var(--clr-bg-surface)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: '0.85rem', fontWeight: 700 }}>
+                <FileText size={16} className="text-primary" />
+                <span>Clinical Notes &amp; Findings</span>
               </div>
-            )}
-          </div>
-
-          {/* 6. External Referral (if applicable) */}
-          {externalRef && (
-            <div className="record-step-card record-step-referral">
-              <div className="record-step-head">
-                <span className="record-step-icon" style={{ background: 'rgba(245, 158, 11, 0.14)', color: '#f59e0b' }}><Building2 size={15} /></span>
-                <strong>External Referral</strong>
-                <StepStatus label="Referred" tone="amber" />
-              </div>
-              <div className="record-step-body">To: <strong>{externalRef.destination}</strong></div>
-              <div className="record-step-note">Reason: {externalRef.reason}</div>
-              <div style={{ marginTop: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-warning btn-sm"
-                  style={{ fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: 5 }}
-                  onClick={() => setPrintReferral({
-                    patientName: patientFullName(patient, record.patientName),
-                    patientCode: patientCode(patient, record.patientId),
-                    patientAge: calculateAge(patient?.dateOfBirth),
-                    patientGender: patient?.gender,
-                    patientType: patient?.patientType,
-                    patientDepartment: patient?.department,
-                    doctorName: record.doctorName,
-                    destination: externalRef.destination,
-                    reason: externalRef.reason,
-                    diagnosis: record.diagnosis,
-                    vitals: vitals,
-                    symptoms: record.symptoms,
-                    notes: record.notes,
-                    date: record.visitDate,
-                  })}
-                >
-                  <Printer size={13} /> Print Official Referral Document
-                </button>
-              </div>
+              <p style={{ margin: 0, fontSize: '0.84rem', lineHeight: 1.5, color: 'var(--clr-text-primary)' }}>
+                {record.notes}
+              </p>
+              {record.followUpDate && (
+                <div style={{ marginTop: 10, fontSize: '0.78rem', color: 'var(--clr-primary-400)', fontWeight: 600 }}>
+                  <Calendar size={13} style={{ display: 'inline', marginRight: 4 }} />
+                  Scheduled Follow-up Date: {record.followUpDate}
+                </div>
+              )}
             </div>
           )}
         </div>
-      </section>
+      )}
 
-      {/* Clinical Diagnosis & Observed Symptoms */}
-      <section className="record-detail-section">
-        <h4 className="record-section-title"><Activity size={15} /> Primary Diagnosis &amp; Observed Symptoms</h4>
-        <p className="record-diagnosis-value">{record.diagnosis}</p>
-        {record.symptoms.length > 0 && (
-          <div className="record-tags">
-            {record.symptoms.map(symptom => <span className="badge badge-gray" key={symptom}>{symptom}</span>)}
-          </div>
-        )}
-      </section>
+      {/* TAB 2: Workflow Timeline & Departments */}
+      {activeTab === 'journey' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <section className="record-journey" style={{ margin: 0 }}>
+            <div className="record-journey-head">
+              <div>
+                <h4><Activity size={16} /> Encounter Workflow &amp; Department Progress</h4>
+                <p>Tracking of this visit across Reception, Triage, OPD, Lab, and Pharmacy.</p>
+              </div>
+              <div className="record-journey-progress-copy">
+                <strong>{journeyPercent}%</strong>
+                <span>{completedSteps} of 6 steps complete</span>
+              </div>
+            </div>
+            <div className="record-journey-progress" aria-hidden="true">
+              <span style={{ width: `${journeyPercent}%` }} />
+            </div>
 
-      {/* Prescription Medications */}
-      {pharmacyRows.length > 0 && (
-        <section className="record-detail-section">
-          <h4 className="record-section-title">
-            <Pill size={15} /> Prescriptions <span className="badge badge-green">{pharmacyRows.length}</span>
-          </h4>
-          <div className="record-list">
-            {pharmacyRows.map((item, index) => (
-              <div className="record-list-row" key={`${item.name}-${index}`}>
-                <div>
-                  <strong>{item.name}</strong>
-                  {item.isExternal && <span className="badge badge-yellow" style={{ marginLeft: 6, fontSize: '0.68rem' }}>Buy Outside</span>}
-                  <div className="record-list-note">
-                    {[item.instructions, item.quantity ? `Qty: ${item.quantity}` : ''].filter(Boolean).join(' · ') || 'Dose and quantity as directed by the pharmacist'}
-                  </div>
+            <div className="record-journey-grid">
+              {/* 1. Reception Card */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}><ClipboardCheck size={15} /></span>
+                  <strong>Reception &amp; Card Room</strong>
+                  <StepStatus label={linkedQueueItem ? 'Completed' : 'Filed'} tone={linkedQueueItem ? 'green' : 'gray'} />
+                </div>
+                <div className="record-step-body">
+                  Token: <strong>{linkedQueueItem?.tokenNumber || 'Standard visit'}</strong> · {linkedQueueItem?.cardStatus || 'Active card'}
+                </div>
+                <div className="record-step-note">
+                  Chief complaint: {linkedQueueItem?.chiefComplaint || (record.symptoms.length ? record.symptoms[0] : 'Consultation')}
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
+
+              {/* 2. Nurse Triage */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}><HeartPulse size={15} /></span>
+                  <strong>Nurse Triage &amp; Vitals</strong>
+                  <StepStatus label={vitals ? 'Completed' : 'Pending'} tone={vitals ? 'green' : 'amber'} />
+                </div>
+                {vitals ? (
+                  <div className="record-step-body record-vitals-grid">
+                    <span>BP: <strong>{vitals.bloodPressure || '—'}</strong></span>
+                    <span>Pulse: <strong>{vitals.heartRate ? `${vitals.heartRate} bpm` : '—'}</strong></span>
+                    <span>Temp: <strong>{vitals.temperature ? `${vitals.temperature}°C` : '—'}</strong></span>
+                    <span>SpO2: <strong>{vitals.spo2 ? `${vitals.spo2}%` : '—'}</strong></span>
+                  </div>
+                ) : (
+                  <div className="record-step-note">No triage vitals were recorded for this encounter.</div>
+                )}
+              </div>
+
+              {/* 3. OPD Consultation */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}><Stethoscope size={15} /></span>
+                  <strong>OPD Consultation</strong>
+                  <StepStatus label={record.diagnosis ? 'Completed' : 'In progress'} tone={record.diagnosis ? 'green' : 'amber'} />
+                </div>
+                <div className="record-step-body">Doctor: <strong>Dr. {record.doctorName}</strong></div>
+                <div className="record-step-note">Dx: <strong>{record.diagnosis}</strong></div>
+              </div>
+
+              {/* 4. EMR Archive */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9' }}><FileText size={15} /></span>
+                  <strong>EMR &amp; Record Archive</strong>
+                  <StepStatus label="Filed" tone="green" />
+                </div>
+                <div className="record-step-body">Record: <strong>{record.id}</strong></div>
+                <div className="record-step-note">Archived on {record.visitDate}</div>
+              </div>
+
+              {/* 5. Laboratory */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}><FlaskConical size={15} /></span>
+                  <strong>Diagnostic Laboratory</strong>
+                  <StepStatus
+                    label={labRows.length === 0 ? 'Not requested' : allLabsCompleted ? 'Completed' : 'In progress'}
+                    tone={labRows.length === 0 ? 'gray' : allLabsCompleted ? 'green' : 'blue'}
+                  />
+                </div>
+                <div className="record-step-body">
+                  {labRows.length > 0 ? <span><strong>{labRows.length} investigation(s)</strong> requested</span> : <span>No laboratory investigations</span>}
+                </div>
+              </div>
+
+              {/* 6. Pharmacy */}
+              <div className="record-step-card">
+                <div className="record-step-head">
+                  <span className="record-step-icon" style={{ background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4' }}><Pill size={15} /></span>
+                  <strong>Pharmacy Dispensary</strong>
+                  <StepStatus
+                    label={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'Prescribed' : 'Not requested') : allPharmacyDispensed ? 'Dispensed' : 'Pending'}
+                    tone={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'blue' : 'gray') : allPharmacyDispensed ? 'green' : 'amber'}
+                  />
+                </div>
+                <div className="record-step-body">
+                  {pharmacyRows.length > 0 ? <span><strong>{pharmacyRows.length} medication(s)</strong> prescribed</span> : <span>No prescription medications</span>}
+                </div>
+              </div>
+
+              {/* Referral (if exists) */}
+              {externalRef && (
+                <div className="record-step-card record-step-referral">
+                  <div className="record-step-head">
+                    <span className="record-step-icon" style={{ background: 'rgba(245, 158, 11, 0.14)', color: '#f59e0b' }}><Building2 size={15} /></span>
+                    <strong>External Referral</strong>
+                    <StepStatus label="Referred" tone="amber" />
+                  </div>
+                  <div className="record-step-body">To: <strong>{externalRef.destination}</strong></div>
+                  <div className="record-step-note">Reason: {externalRef.reason}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-warning btn-sm"
+                      style={{ fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: 5 }}
+                      onClick={() => setPrintReferral({
+                        patientName: patientFullName(patient, record.patientName),
+                        patientCode: patientCode(patient, record.patientId),
+                        patientAge: calculateAge(patient?.dateOfBirth),
+                        patientGender: patient?.gender,
+                        patientType: patient?.patientType,
+                        patientDepartment: patient?.department,
+                        doctorName: record.doctorName,
+                        destination: externalRef.destination,
+                        reason: externalRef.reason,
+                        diagnosis: record.diagnosis,
+                        vitals: vitals,
+                        symptoms: record.symptoms,
+                        notes: record.notes,
+                        date: record.visitDate,
+                      })}
+                    >
+                      <Printer size={13} /> Print Official Referral Document
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       )}
 
-      {/* Lab Investigations */}
-      {labRows.length > 0 && (
-        <section className="record-detail-section">
-          <h4 className="record-section-title">
-            <FlaskConical size={15} /> Laboratory Investigations <span className="badge badge-blue">{labRows.length}</span>
-          </h4>
-          <div className="record-lab-table-wrap">
-            <table className="record-lab-table">
-              <thead><tr><th>Investigation</th><th>Result Findings</th><th>Reference Range</th><th>Status</th></tr></thead>
-              <tbody>
-                {labRows.map(row => (
-                  <tr key={row.key}>
-                    <td>
-                      <strong>{row.testName}</strong>
-                      {row.priority && <div className="record-list-note">{row.priority} priority</div>}
-                    </td>
-                    <td className="record-lab-result">{row.result || 'Pending'}{row.unit ? ` ${row.unit}` : ''}</td>
-                    <td className="record-lab-muted">{row.referenceRange || 'Standard'}</td>
-                    <td>
-                      <span className={`badge ${row.status === 'Completed' ? 'badge-green' : row.status === 'Requested' ? 'badge-amber' : 'badge-blue'}`}>
-                        {row.status === 'Completed' ? <CheckCircle2 size={11} /> : <CircleDashed size={11} />} {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {/* TAB 3: Prescriptions & Medications */}
+      {activeTab === 'prescriptions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pharmacyRows.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
+              <Pill size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+              <div>No medications or prescriptions were ordered for this visit.</div>
+            </div>
+          ) : (
+            pharmacyRows.map((item, index) => (
+              <div
+                key={`${item.name}-${index}`}
+                style={{
+                  border: '1px solid var(--clr-border)',
+                  borderRadius: 6,
+                  padding: 12,
+                  background: 'var(--clr-bg-surface)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Pill size={15} style={{ color: 'var(--clr-primary-400)' }} />
+                    <strong style={{ fontSize: '0.9rem', color: 'var(--clr-text-primary)' }}>{item.name}</strong>
+                    {item.isExternal && <span className="badge badge-yellow" style={{ fontSize: '0.68rem' }}>Buy Outside</span>}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', marginTop: 4, paddingLeft: 21 }}>
+                    {[item.instructions, item.quantity ? `Quantity: ${item.quantity}` : ''].filter(Boolean).join(' · ') || 'Take according to clinician instructions'}
+                  </div>
+                </div>
+                <span className={`badge ${item.isExternal ? 'badge-amber' : allPharmacyDispensed ? 'badge-green' : 'badge-blue'}`}>
+                  {item.isExternal ? 'Outside Rx' : allPharmacyDispensed ? 'Dispensed' : 'Prescribed'}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       )}
 
-      {/* Clinical Consultation Notes */}
-      {record.notes && (
-        <section className="record-detail-section">
-          <h4 className="record-section-title"><FileText size={15} /> Examination Findings &amp; Clinical Notes</h4>
-          <p className="record-notes">{record.notes}</p>
-        </section>
+      {/* TAB 4: Diagnostic Lab Investigations */}
+      {activeTab === 'labs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {labRows.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
+              <FlaskConical size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+              <div>No laboratory diagnostic orders recorded for this encounter.</div>
+            </div>
+          ) : (
+            <div className="record-lab-table-wrap">
+              <table className="record-lab-table">
+                <thead><tr><th>Investigation</th><th>Result Findings</th><th>Reference Range</th><th>Status</th></tr></thead>
+                <tbody>
+                  {labRows.map(row => (
+                    <tr key={row.key}>
+                      <td>
+                        <strong>{row.testName}</strong>
+                        {row.priority && <div className="record-list-note">{row.priority} priority</div>}
+                      </td>
+                      <td className="record-lab-result">{row.result || 'Pending'}{row.unit ? ` ${row.unit}` : ''}</td>
+                      <td className="record-lab-muted">{row.referenceRange || 'Standard'}</td>
+                      <td>
+                        <span className={`badge ${row.status === 'Completed' ? 'badge-green' : row.status === 'Requested' ? 'badge-amber' : 'badge-blue'}`}>
+                          {row.status === 'Completed' ? <CheckCircle2 size={11} /> : <CircleDashed size={11} />} {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
-      {!record.notes && !record.diagnosis && !pharmacyRows.length && !labRows.length && (
-        <div className="record-empty-note"><Ban size={16} /> No clinical detail was recorded for this encounter.</div>
+      {/* TAB 5: Full Demographics / Patient Card */}
+      {activeTab === 'demographics' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {patient ? (
+            <div className="pv-grid">
+              <PVItem label="Full Legal Name" value={patientFullName(patient, record.patientName)} />
+              <PVItem label="Card / File ID" value={patientCode(patient, record.patientId)} />
+              <PVItem label="Patient Classification" value={patient.patientType} />
+              <PVItem label="Gender" value={patient.gender} />
+              <PVItem label="Date of Birth" value={patient.dateOfBirth} />
+              <PVItem label="Age" value={calculateAge(patient.dateOfBirth) ? `${calculateAge(patient.dateOfBirth)} years` : undefined} />
+              <PVItem label="Phone Number" value={patient.phone} />
+              <PVItem label="Email Address" value={patient.email} />
+              <PVItem label="Department / Program" value={patient.department} />
+              <PVItem label="Blood Group" value={patient.bloodGroup} />
+              <PVItem label="Address / Residence" value={patient.address} />
+              <PVItem label="Registered Date" value={patient.registeredAt} />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>
+              Patient demographic profile not directly linked to database card.
+            </div>
+          )}
+        </div>
       )}
 
+      {/* Referral Print Modal */}
       {printReferral && (
         <ReferralPrintModal
           isOpen={Boolean(printReferral)}

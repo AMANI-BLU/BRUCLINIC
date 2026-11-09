@@ -5,7 +5,7 @@ import {
   Pill, Stethoscope, BarChart2, Menu, Bell, Settings,
   ChevronRight, LogOut, HeartPulse, ClipboardList, Sun, Moon,
   ShieldCheck, ShieldAlert, Database, Wrench, AlertTriangle, MessageSquare,
-  FlaskConical, CheckCircle2, ArrowRight
+  FlaskConical, CheckCircle2, ArrowRight, Trash2
 } from 'lucide-react';
 import './Layout.css';
 import '../Maintenance/MaintenancePage.css';
@@ -135,6 +135,47 @@ export default function Layout({ children }: LayoutProps) {
       if (stored) setReadAlertKey(stored);
     } catch {}
   }, [currentUser?.id]);
+
+  const dismissedStorageKey = `bruclinic:dismissed_alerts_${currentUser?.id || 'guest'}`;
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(dismissedStorageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    try {
+      const stored = localStorage.getItem(`bruclinic:dismissed_alerts_${currentUser.id}`);
+      if (stored) setDismissedAlertIds(JSON.parse(stored));
+    } catch {}
+  }, [currentUser?.id]);
+
+  const dismissAlert = (id: string) => {
+    setDismissedAlertIds(prev => {
+      const next = Array.from(new Set([...prev, id]));
+      try {
+        localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const clearAllAlerts = () => {
+    const allIds = roleNotifications.map(a => a.id);
+    setDismissedAlertIds(prev => {
+      const next = Array.from(new Set([...prev, ...allIds]));
+      try {
+        localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    markAlertsRead('');
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -455,8 +496,12 @@ export default function Layout({ children }: LayoutProps) {
     return alerts;
   }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id]);
 
-  const totalAlerts = roleNotifications.length;
-  const alertKey = JSON.stringify(roleNotifications.map(item => item.id).sort());
+  const visibleNotifications = useMemo(() => {
+    return roleNotifications.filter(item => !dismissedAlertIds.includes(item.id));
+  }, [roleNotifications, dismissedAlertIds]);
+
+  const totalAlerts = visibleNotifications.length;
+  const alertKey = JSON.stringify(visibleNotifications.map(item => item.id).sort());
   const unreadAlerts = alertKey === readAlertKey ? 0 : totalAlerts;
   const handleLogout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
@@ -514,29 +559,41 @@ export default function Layout({ children }: LayoutProps) {
               <div className="app-notification-dropdown">
                 <div className="app-notification-heading">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <strong><Bell size={14} /> Live Alerts &amp; Notifications</strong>
+                    <strong><Bell size={14} /> Live Alerts</strong>
                     <span className="badge text-bg-primary">{totalAlerts}</span>
                   </div>
                   {totalAlerts > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm p-0 text-decoration-none"
-                      style={{ fontSize: '0.72rem', color: 'var(--clr-primary-400)', cursor: 'pointer' }}
-                      onClick={() => markAlertsRead(alertKey)}
-                    >
-                      Mark read
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 text-decoration-none"
+                        style={{ fontSize: '0.72rem', color: 'var(--clr-primary-400)', cursor: 'pointer' }}
+                        onClick={() => markAlertsRead(alertKey)}
+                      >
+                        Mark read
+                      </button>
+                      <span style={{ color: 'var(--clr-border, #cbd5e1)', fontSize: '0.7rem' }}>·</span>
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 text-decoration-none text-danger"
+                        style={{ fontSize: '0.72rem', cursor: 'pointer' }}
+                        onClick={clearAllAlerts}
+                        title="Clear and delete all active alerts"
+                      >
+                        Clear all
+                      </button>
+                    </div>
                   )}
                 </div>
 
                 <div className="app-notification-list">
-                  {roleNotifications.length === 0 ? (
+                  {visibleNotifications.length === 0 ? (
                     <div className="app-notification-empty">
                       <CheckCircle2 size={22} style={{ color: '#10b981' }} />
                       <span>No active notifications for {currentUser?.roleTitle || role}</span>
                     </div>
                   ) : (
-                    roleNotifications.slice(0, 6).map(alert => {
+                    visibleNotifications.slice(0, 6).map(alert => {
                       const IconComponent = alert.icon;
                       const isCritical = alert.priority === 'critical';
                       const isUrgent = alert.priority === 'urgent';
@@ -562,13 +619,26 @@ export default function Layout({ children }: LayoutProps) {
                             </div>
                             <p className="app-notification-item-msg">{alert.message}</p>
                           </div>
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-muted ms-1"
+                            style={{ opacity: 0.6, alignSelf: 'center', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              dismissAlert(alert.id);
+                            }}
+                            title="Dismiss notification"
+                            aria-label="Dismiss notification"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       );
                     })
                   )}
                 </div>
 
-                {roleNotifications.length > 0 && (
+                {visibleNotifications.length > 0 && (
                   <div className="app-notification-footer">
                     <button
                       type="button"
@@ -579,7 +649,7 @@ export default function Layout({ children }: LayoutProps) {
                         setShowAllNotificationsModal(true);
                       }}
                     >
-                      <span>View All Notifications ({roleNotifications.length})</span>
+                      <span>View All Notifications ({visibleNotifications.length})</span>
                       <ArrowRight size={13} />
                     </button>
                   </div>
@@ -656,8 +726,10 @@ export default function Layout({ children }: LayoutProps) {
       <AllNotificationsModal
         isOpen={showAllNotificationsModal}
         onClose={() => setShowAllNotificationsModal(false)}
-        notifications={roleNotifications}
+        notifications={visibleNotifications}
         onMarkAllRead={() => markAlertsRead(alertKey)}
+        onClearAllAlerts={clearAllAlerts}
+        onDismissAlert={dismissAlert}
         onNavigate={link => navigate(link)}
         roleTitle={currentUser?.roleTitle || role}
       />

@@ -258,7 +258,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--clr-bg-main, #f8fafc);
+  background: var(--clr-bg-base, #f8fafc);
   position: relative;
   box-sizing: border-box;
 }
@@ -280,9 +280,83 @@
   filter: grayscale(15%);
 }
 
+[data-theme="dark"] .tg-chat-main,
+[data-bs-theme="dark"] .tg-chat-main {
+  background: #081120 !important;
+}
+
+[data-theme="dark"] .tg-chat-main::before,
 [data-bs-theme="dark"] .tg-chat-main::before {
-  opacity: 0.06;
-  filter: brightness(1.2);
+  opacity: 0.045;
+  filter: invert(1) brightness(0.8) contrast(1.15);
+}
+
+[data-theme="dark"] .tg-app,
+[data-bs-theme="dark"] .tg-app {
+  background: #0c172d;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .tg-sidebar,
+[data-bs-theme="dark"] .tg-sidebar,
+[data-theme="dark"] .tg-sidebar-header,
+[data-bs-theme="dark"] .tg-sidebar-header {
+  background: #0c172d !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .tg-chat-header,
+[data-bs-theme="dark"] .tg-chat-header {
+  background: #0e1a32 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .tg-messages-thread,
+[data-bs-theme="dark"] .tg-messages-thread {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+[data-theme="dark"] .tg-bubble.incoming,
+[data-bs-theme="dark"] .tg-bubble.incoming {
+  background: #14223b !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .tg-composer,
+[data-bs-theme="dark"] .tg-composer {
+  background: #0e1a32 !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .tg-composer-input,
+[data-bs-theme="dark"] .tg-composer-input {
+  background: #162540 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .tg-date-divider,
+[data-bs-theme="dark"] .tg-date-divider {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .tg-user-item:hover,
+[data-bs-theme="dark"] .tg-user-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .tg-user-item.active,
+[data-bs-theme="dark"] .tg-user-item.active {
+  background: rgba(37, 99, 235, 0.24) !important;
+}
+
+[data-theme="dark"] .tg-quick-contact-btn,
+[data-bs-theme="dark"] .tg-quick-contact-btn {
+  background: #14223b !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f1f5f9 !important;
 }
 
 /* Telegram Header */

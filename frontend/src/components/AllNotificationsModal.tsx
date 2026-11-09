@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Bell, X, Search, CheckCircle2, type LucideIcon, ArrowRight, CheckCheck
+  Bell, X, Search, CheckCircle2, type LucideIcon, ArrowRight, CheckCheck, Trash2
 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
@@ -21,6 +21,8 @@ interface AllNotificationsModalProps {
   onClose: () => void;
   notifications: ClinicAlert[];
   onMarkAllRead: () => void;
+  onClearAllAlerts: () => void;
+  onDismissAlert: (id: string) => void;
   onNavigate: (link: string) => void;
   roleTitle?: string;
 }
@@ -30,6 +32,8 @@ export default function AllNotificationsModal({
   onClose,
   notifications,
   onMarkAllRead,
+  onClearAllAlerts,
+  onDismissAlert,
   onNavigate,
   roleTitle = 'Staff',
 }: AllNotificationsModalProps) {
@@ -150,16 +154,28 @@ export default function AllNotificationsModal({
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {notifications.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '0.35rem' }}
-                    onClick={onMarkAllRead}
-                    title="Mark all notifications as read"
-                  >
-                    <CheckCheck size={14} />
-                    Mark all read
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '0.35rem' }}
+                      onClick={onClearAllAlerts}
+                      title="Clear and delete all notifications"
+                    >
+                      <Trash2 size={13} />
+                      Clear all
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '0.35rem' }}
+                      onClick={onMarkAllRead}
+                      title="Mark all notifications as read"
+                    >
+                      <CheckCheck size={14} />
+                      Mark read
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -393,27 +409,47 @@ export default function AllNotificationsModal({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          className="btn btn-outline-primary btn-sm align-self-center"
-                          style={{
-                            fontSize: '0.74rem',
-                            padding: '0.3rem 0.7rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            flexShrink: 0,
-                            borderRadius: '0.35rem'
-                          }}
-                          onClick={e => {
-                            e.stopPropagation();
-                            onClose();
-                            onNavigate(alert.link);
-                          }}
-                        >
-                          <span>Open</span>
-                          <ArrowRight size={13} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            style={{
+                              fontSize: '0.74rem',
+                              padding: '0.3rem 0.7rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              borderRadius: '0.35rem'
+                            }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              onClose();
+                              onNavigate(alert.link);
+                            }}
+                          >
+                            <span>Open</span>
+                            <ArrowRight size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm"
+                            style={{
+                              fontSize: '0.74rem',
+                              padding: '0.3rem 0.55rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderRadius: '0.35rem'
+                            }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              onDismissAlert(alert.id);
+                            }}
+                            title="Delete this notification"
+                            aria-label="Delete notification"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
