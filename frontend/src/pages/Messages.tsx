@@ -295,7 +295,7 @@ export default function Messages() {
   }, [activeMessages]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%' }}>
+    <div className="tg-page-container">
       {/* Telegram App Container */}
       <div className="tg-app">
         {/* Left Sidebar */}
@@ -473,7 +473,7 @@ export default function Messages() {
                   </div>
                 ) : (
                   groupedMessages.map(group => (
-                    <div key={group.date} style={{ display: 'contents' }}>
+                    <div key={group.date} className="tg-date-group">
                       <div className="tg-date-divider">{group.date}</div>
                       {group.items.map(m => {
                         const isOwn = m.sender_id === currentUser?.id;
