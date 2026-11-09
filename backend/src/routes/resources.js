@@ -90,21 +90,36 @@ async function notifyAdminsOnDeletion({ resource, id, item, user }) {
     // Audit log entry
     try {
       await query(
-        `INSERT INTO security_audit_logs (id, user_id, user_name, user_role, action, status, details, ip_address)
-         VALUES ($1, $2, $3, $4, $5, 'SUCCESS', $6, 'internal')`,
-        [`AUD-${randomUUID().slice(0, 12)}`, senderId || 'SYSTEM', senderName, senderRole, `DELETE_${resource.toUpperCase()}`, JSON.stringify({ resource, id, itemDesc })]
+        `INSERT INTO audit_logs (id, user_id, username, user_role, action, resource, resource_id, summary, changes, ip_address)
+         VALUES ($1, $2, $3, $4, 'DELETE', $5, $6, $7, $8, 'internal')`,
+        [
+          `AUD-${randomUUID().slice(0, 12)}`,
+          senderId || null,
+          senderName,
+          senderRole,
+          resource,
+          id,
+          body,
+          JSON.stringify({ itemDesc }),
+        ]
       );
     } catch (_) {}
 
     // Send notification message to active admins
     for (const admin of adminUsers.rows) {
       if (senderId && senderId === admin.id) continue;
+      const effectiveSenderId = (senderId && senderId !== admin.id)
+        ? senderId
+        : (adminUsers.rows.find(a => a.id !== admin.id)?.id || null);
+
+      if (!effectiveSenderId) continue;
+
       const msgId = `MSG-DEL-${randomUUID().slice(0, 10).toUpperCase()}`;
       await query(
         `INSERT INTO user_messages (id, sender_id, recipient_id, body)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO NOTHING`,
-        [msgId, senderId || admin.id, admin.id, body]
+        [msgId, effectiveSenderId, admin.id, body]
       );
     }
   } catch (err) {

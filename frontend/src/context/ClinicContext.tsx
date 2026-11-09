@@ -151,7 +151,16 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     return normalized;
   }, [token]);
   const updatePatient = useCallback((id: string, changes: Partial<Patient>) => mutate(async () => { const response = await apiPatch<{ data: Patient }>(`/patients/${encodeURIComponent(id)}`, changes, token); const normalized = normalizePatient(response.data); setPatients(previous => previous.map(item => item.id === id ? normalized : item)); }, 'Patient record updated'), [mutate, token]);
-  const deletePatient = useCallback((id: string) => mutate(async () => { await apiDelete(`/patients/${encodeURIComponent(id)}`, token); setPatients(previous => previous.filter(item => item.id !== id)); }, 'Patient record deleted'), [mutate, token]);
+  const deletePatient = useCallback((id: string) => mutate(async () => {
+    await apiDelete(`/patients/${encodeURIComponent(id)}`, token);
+    setPatients(previous => previous.filter(item => item.id !== id));
+    setQueue(previous => previous.filter(item => item.patientId !== id));
+    setAppointments(previous => previous.filter(item => item.patientId !== id));
+    setRecords(previous => previous.filter(item => item.patientId !== id));
+    setErCases(previous => previous.filter(item => item.patientId !== id));
+    setLabOrders(previous => previous.filter(item => item.patientId !== id));
+    setPharmacyOrders(previous => previous.filter(item => item.patientId !== id));
+  }, 'Patient record deleted'), [mutate, token]);
 
   const addAppointment = useCallback(async (appointment: Omit<Appointment, 'id'>) => { const response = await apiPost<{ data: Appointment }>('/appointments', appointment, token); setAppointments(previous => [response.data, ...previous]); notifyActionSuccess('Appointment booked'); return response.data; }, [token]);
   const updateAppointment = useCallback((id: string, changes: Partial<Appointment>) => mutate(async () => { const response = await apiPatch<{ data: Appointment }>(`/appointments/${encodeURIComponent(id)}`, changes, token); setAppointments(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Appointment updated'), [mutate, token]);
