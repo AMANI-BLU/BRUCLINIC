@@ -216,54 +216,43 @@ export default function ReceptionDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="row reception-kpi-grid g-3 mb-3">
-        <div className="col-md-6 col-xl-3">
-          <InfoBox
-            tone="info"
-            icon={<CreditCard size={24} />}
-            value={patients.length}
-            label="Patient cards"
-            detail="Registered in database"
-            to="/patients"
-            footerText="Manage cards"
-          />
-        </div>
-
-        <div className="col-md-6 col-xl-3">
-          <InfoBox
-            tone="success"
-            icon={<Activity size={24} />}
-            value={queue.filter(q => q.stage === 'Doctor Consultation').length}
-            label="OPD queue"
-            detail="In doctor consultation"
-            onClick={() => setFilterStage('Doctor Consultation')}
-            footerText="Filter OPD queue"
-          />
-        </div>
-
-        <div className="col-md-6 col-xl-3">
-          <InfoBox
-            tone="warning"
-            icon={<Clock size={24} />}
-            value={queue.filter(q => q.stage === 'Laboratory').length}
-            label="At laboratory"
-            detail="Under diagnostic testing"
-            onClick={() => setFilterStage('Laboratory')}
-            footerText="Filter lab queue"
-          />
-        </div>
-
-        <div className="col-md-6 col-xl-3">
-          <InfoBox
-            tone="primary"
-            icon={<CheckCircle2 size={24} />}
-            value={queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}
-            label="Completed"
-            detail="Prescriptions & discharged"
-            onClick={() => setFilterStage('Completed')}
-            footerText="Filter completed"
-          />
-        </div>
+      <div className="reception-kpi-grid">
+        <InfoBox
+          tone="info"
+          icon={<CreditCard size={22} />}
+          value={patients.length}
+          label="Patient cards"
+          detail="Registered in database"
+          to="/patients"
+          footerText="Manage cards"
+        />
+        <InfoBox
+          tone="success"
+          icon={<Activity size={22} />}
+          value={queue.filter(q => q.stage === 'Doctor Consultation').length}
+          label="OPD queue"
+          detail="In doctor consultation"
+          onClick={() => setFilterStage('Doctor Consultation')}
+          footerText="Filter OPD queue"
+        />
+        <InfoBox
+          tone="warning"
+          icon={<Clock size={22} />}
+          value={queue.filter(q => q.stage === 'Laboratory').length}
+          label="At laboratory"
+          detail="Under diagnostic testing"
+          onClick={() => setFilterStage('Laboratory')}
+          footerText="Filter lab queue"
+        />
+        <InfoBox
+          tone="primary"
+          icon={<CheckCircle2 size={22} />}
+          value={queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}
+          label="Completed"
+          detail="Prescriptions & discharged"
+          onClick={() => setFilterStage('Completed')}
+          footerText="Filter completed"
+        />
       </div>
 
       {/* Quick Card Lookup & Dispatch Widget - AdminLTE v3 Card Outline Style */}

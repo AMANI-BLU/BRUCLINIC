@@ -10,27 +10,35 @@
   gap: 0.5rem;
 }
 
-.reception-kpi-grid { margin-inline: -7.5px; }
-.reception-kpi-grid > [class*="col-"] { padding-inline: 7.5px; }
-.reception-kpi-grid .small-box {
-  min-height: 128px;
-  margin-bottom: 1rem;
+.reception-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.reception-kpi-grid .clinic-metric-box {
+  min-width: 0;
+  min-height: 8.5rem;
+  height: 100%;
   border-radius: 0.25rem;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
-.reception-kpi-grid .small-box:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.17);
+
+@media (max-width: 991.98px) {
+  .reception-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-.reception-kpi-grid .small-box .inner { padding: 1.15rem 1.25rem; }
-.reception-kpi-grid .small-box h3 { font-size: 2rem; font-weight: 700; margin-bottom: 0.35rem; }
-.reception-kpi-grid .small-box p { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.15rem; }
-.reception-kpi-grid .small-box small { font-size: 0.72rem; opacity: 0.88; }
-.reception-kpi-grid .small-box .icon { position: absolute; top: 0.8rem; right: 1rem; bottom: auto; }
-.reception-kpi-grid .small-box .icon svg { width: 58px; height: 58px; opacity: 0.23; stroke-width: 1.5; }
-.reception-kpi-grid .small-box-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 1.25rem; text-align: left; font-size: 0.72rem; }
-.reception-kpi-grid .small-box-footer svg { width: 15px; height: 15px; }
+
+@media (max-width: 575.98px) {
+  .reception-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .reception-panel {
   padding: 0 !important;
@@ -306,7 +314,6 @@
 }
 
 @media (max-width: 575.98px) {
-  .reception-kpi-grid .small-box { min-height: 120px; }
   .reception-patient-card {
     flex-direction: column;
     align-items: stretch;
