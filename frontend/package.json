@@ -10,7 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "admin-lte": "^3.2.0",
+    "admin-lte": "^4.10.0",
+    "bootstrap": "^5.3.8",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.52.0",
     "react": "^19.2.8",

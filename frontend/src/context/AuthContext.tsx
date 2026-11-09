@@ -11,12 +11,15 @@ interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   authLoading: boolean;
+  idleLockMinutes: number;
   login: (username: string, password?: string) => Promise<AuthResponse>;
   logout: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<ActionResponse>;
+  unlockSession: (password: string) => Promise<ActionResponse>;
   createStaffAccount: (data: CreateStaffInput) => Promise<AuthResponse>;
   fetchStaffList: () => Promise<UserProfile[]>;
   updateStaffStatus: (userId: string, isActive: boolean) => Promise<ActionResponse>;
-  resetStaffPassword: (userId: string, newPassword: string) => Promise<ActionResponse>;
+  resetStaffPassword: (userId: string, newPassword?: string, autoGenerate?: boolean, useDefaultPassword?: boolean) => Promise<ActionResponse & { generatedPassword?: string }>;
   deleteStaffAccount: (userId: string) => Promise<ActionResponse>;
 }
 
@@ -32,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_TOKEN_KEY));
   const [authLoading, setAuthLoading] = useState(true);
+  const [idleLockMinutes, setIdleLockMinutes] = useState(15);
 
   const clearSession = useCallback(() => {
     setCurrentUser(null);
@@ -46,9 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     setAuthLoading(true);
-    apiGet<{ user: UserProfile }>('/auth/me', token)
+    apiGet<{ user: UserProfile; idleLockMinutes?: number }>('/auth/me', token)
       .then(response => {
         setCurrentUser(response.user);
+        if (response.idleLockMinutes) setIdleLockMinutes(response.idleLockMinutes);
         localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
       })
       .catch(() => clearSession())
@@ -63,9 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanUsername = username.trim();
     if (!cleanUsername || !password) return { success: false, error: 'Please enter both username and password.' };
     try {
-      const response = await apiPost<{ token: string; user: UserProfile }>('/auth/login', { username: cleanUsername, password });
+      const response = await apiPost<{ token: string; user: UserProfile; idleLockMinutes?: number }>('/auth/login', { username: cleanUsername, password });
       setToken(response.token);
       setCurrentUser(response.user);
+      if (response.idleLockMinutes) setIdleLockMinutes(response.idleLockMinutes);
       localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
       return { success: true, user: response.user };
     } catch (error) {
@@ -74,6 +80,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => clearSession(), [clearSession]);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string): Promise<ActionResponse> => {
+    try {
+      const response = await apiPost<{ message: string }>('/auth/change-password', { currentPassword, newPassword }, token);
+      setCurrentUser(user => user ? { ...user, mustChangePassword: false } : user);
+      return { success: true, message: response.message };
+    } catch (error) {
+      return { success: false, error: messageFrom(error) };
+    }
+  }, [token]);
+
+  const unlockSession = useCallback(async (password: string): Promise<ActionResponse> => {
+    try {
+      const response = await apiPost<{ message: string }>('/auth/unlock', { password }, token);
+      return { success: true, message: response.message };
+    } catch (error) {
+      return { success: false, error: messageFrom(error) };
+    }
+  }, [token]);
 
   const createStaffAccount = useCallback(async (data: CreateStaffInput): Promise<AuthResponse> => {
     try {
@@ -98,10 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
-  const resetStaffPassword = useCallback(async (userId: string, newPassword: string): Promise<ActionResponse> => {
+  const resetStaffPassword = useCallback(async (userId: string, newPassword?: string, autoGenerate = false, useDefaultPassword = false): Promise<ActionResponse & { generatedPassword?: string }> => {
     try {
-      const response = await apiPost<{ message: string }>('/auth/users/' + encodeURIComponent(userId) + '/reset-password', { newPassword }, token);
-      return { success: true, message: response.message };
+      const response = await apiPost<{ message: string; generatedPassword?: string }>('/auth/users/' + encodeURIComponent(userId) + '/reset-password', { newPassword, autoGenerate, useDefaultPassword }, token);
+      return { success: true, message: response.message, generatedPassword: response.generatedPassword };
     } catch (error) {
       return { success: false, error: messageFrom(error) };
     }
@@ -118,8 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      currentUser, token, role: currentUser?.role || 'admin', isAuthenticated: Boolean(currentUser), authLoading,
-      login, logout, createStaffAccount, fetchStaffList, updateStaffStatus, resetStaffPassword, deleteStaffAccount,
+      currentUser, token, role: currentUser?.role || 'admin', isAuthenticated: Boolean(currentUser), authLoading, idleLockMinutes,
+      login, logout, changePassword, unlockSession, createStaffAccount, fetchStaffList, updateStaffStatus, resetStaffPassword, deleteStaffAccount,
     }}>
       {children}
     </AuthContext.Provider>

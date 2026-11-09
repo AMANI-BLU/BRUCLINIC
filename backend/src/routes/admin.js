@@ -15,7 +15,9 @@
 
 import { query } from '../db/pool.js';
 import { sendDownload, sendError, sendJson } from '../utils/http.js';
-import { assertPlainObject, validateText } from '../utils/validation.js';
+import { assertPlainObject, validatePassword, validateText } from '../utils/validation.js';
+import { hashPassword } from '../utils/auth.js';
+import { openSecret, sealSecret } from '../utils/secrets.js';
 import { writeAuditLog, writeSecurityEvent } from '../middleware/auditLogger.js';
 import { AUDIT_ACTION, SECURITY_EVENT } from '../constants/events.js';
 import { checkAdminRateLimit, getClientIp } from '../middleware/rateLimiter.js';
@@ -58,6 +60,48 @@ export async function adminHandler(request, response, segments, url) {
   if (!checkAdminRateLimit(request, response)) return;
 
   const section = segments[2]; // audit-logs | security-events | config | stats | backup
+
+  if (section === 'default-password') {
+    if (request.method === 'GET') {
+      const result = await query(
+        `SELECT key, value FROM system_config
+         WHERE key IN ('default_user_password_hash', 'default_user_password_enc')`,
+      );
+      const hashRow = result.rows.find(row => row.key === 'default_user_password_hash');
+      const sealedRow = result.rows.find(row => row.key === 'default_user_password_enc');
+      return sendJson(response, 200, {
+        configured: Boolean(hashRow?.value),
+        password: openSecret(sealedRow?.value),
+      });
+    }
+    if (request.method === 'POST') {
+      assertPlainObject(request.body);
+      validatePassword(request.body.password, 'Default password');
+      const plainPassword = String(request.body.password);
+      await query(
+        `INSERT INTO system_config (key, value, description, updated_by)
+         VALUES ('default_user_password_hash', $1, 'Hashed temporary password assigned to newly created staff accounts', $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+        [hashPassword(plainPassword), request.user.username],
+      );
+      // Sealed copy so administrators can review the current default password later.
+      await query(
+        `INSERT INTO system_config (key, value, description, updated_by)
+         VALUES ('default_user_password_enc', $1, 'Sealed (AES-256-GCM) copy of the default staff password shown to administrators', $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+        [sealSecret(plainPassword), request.user.username],
+      );
+      writeAuditLog({
+        requestId: request.requestId, userId: request.user.id, username: request.user.username,
+        userRole: request.user.role, action: AUDIT_ACTION.CONFIG, resource: 'system_config',
+        resourceId: 'default_user_password_hash', summary: 'Administrator updated the default staff password',
+        ipAddress: getClientIp(request),
+      });
+      invalidateSystemConfig();
+      return sendJson(response, 200, { message: 'Default staff password updated', configured: true });
+    }
+    return sendError(response, 405, 'Method not allowed');
+  }
 
   // ---------------------------------------------------------------
   // Backup & restore
@@ -248,7 +292,7 @@ export async function adminHandler(request, response, segments, url) {
   // GET /api/admin/config
   // ---------------------------------------------------------------
   if (request.method === 'GET' && section === 'config') {
-    const rows = await query('SELECT key, value, description, updated_by, updated_at FROM system_config ORDER BY key ASC');
+    const rows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key <> 'default_user_password_hash' ORDER BY key ASC");
     return sendJson(response, 200, { data: rows.rows });
   }
 
@@ -311,7 +355,7 @@ export async function adminHandler(request, response, segments, url) {
     // Runtime consumers (session, lockout, maintenance) reload immediately.
     invalidateSystemConfig();
 
-    const updatedRows = await query('SELECT key, value, description, updated_by, updated_at FROM system_config ORDER BY key ASC');
+    const updatedRows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key <> 'default_user_password_hash' ORDER BY key ASC");
     return sendJson(response, 200, { message: 'Configuration updated', data: updatedRows.rows });
   }
 
@@ -345,6 +389,60 @@ export async function adminHandler(request, response, segments, url) {
         recentLockouts: recentLockouts.rows,
       },
     });
+  }
+
+  // ---------------------------------------------------------------
+  // GET  /api/admin/clinic-profile
+  // PATCH /api/admin/clinic-profile
+  // ---------------------------------------------------------------
+  if (section === 'clinic-profile') {
+    if (request.method === 'GET') {
+      const result = await query("SELECT * FROM clinic_profile WHERE id = 'main' LIMIT 1");
+      return sendJson(response, 200, { data: result.rows[0] || null });
+    }
+
+    if (request.method === 'PATCH') {
+      assertPlainObject(request.body);
+      const PROFILE_FIELDS = new Set([
+        'name', 'tagline', 'address', 'phone', 'email', 'website',
+        'logo_url', 'working_hours', 'emergency_line', 'accreditation',
+        'bed_capacity', 'founded_year',
+      ]);
+      const sets = [];
+      const values = [];
+      const param = v => { values.push(v); return `$${values.length}`; };
+
+      for (const [key, value] of Object.entries(request.body)) {
+        if (!PROFILE_FIELDS.has(key) || value === undefined || value === null) continue;
+        sets.push(`${key} = ${param(key === 'bed_capacity' || key === 'founded_year' ? Number(value) : String(value).trim())}`);
+      }
+      if (!sets.length) return sendError(response, 422, 'No valid clinic profile fields provided');
+
+      sets.push(`updated_by = ${param(request.user.username)}`);
+      values.push('main');
+
+      await query(
+        `UPDATE clinic_profile SET ${sets.join(', ')} WHERE id = $${values.length}`,
+        values,
+      );
+
+      writeAuditLog({
+        requestId: request.requestId,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        action: AUDIT_ACTION.UPDATE,
+        resource: 'clinic_profile',
+        resourceId: 'main',
+        summary: `Admin updated clinic profile (${sets.length - 1} field(s))`,
+        ipAddress: getClientIp(request),
+      });
+
+      const updated = await query("SELECT * FROM clinic_profile WHERE id = 'main' LIMIT 1");
+      return sendJson(response, 200, { message: 'Clinic profile updated', data: updated.rows[0] });
+    }
+
+    return sendError(response, 405, 'Method not allowed');
   }
 
   return sendError(response, 404, 'Admin route not found');

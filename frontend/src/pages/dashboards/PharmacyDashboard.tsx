@@ -1,24 +1,31 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
-import type { MedicineItem } from '../../types';
-import { validateNumber } from '../../utils/validation';
+import AddMedicineModal from '../../components/AddMedicineModal';
+import ConfirmDispenseModal from '../../components/ConfirmDispenseModal';
+import RestockMedicineModal from '../../components/RestockMedicineModal';
+import type { MedicineItem, PharmacyOrder } from '../../types';
 import { patientCodeFor, patientNameFor } from '../../utils/patient';
+import { formatDateWithFallback } from '../../utils/date';
 import {
   Pill, AlertTriangle, Package, CheckCircle2,
-  Clock, Search, X, DollarSign, Plus
+  Clock, Search, DollarSign, Plus, Printer
 } from 'lucide-react';
 
 export default function PharmacyDashboard() {
   const {
     pharmacyOrders, dispensePharmacyOrder,
-    medicines, updateMedicineStock, patients
+    medicines, updateMedicine, patients
   } = useClinic();
+  const { currentUser } = useAuth();
 
   const [search, setSearch] = useState('');
-  const [filterPending, setFilterPending] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'Pending' | 'Dispensed' | 'All'>('Pending');
+  const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [restockModal, setRestockModal] = useState<MedicineItem | null>(null);
-  const [restockAmount, setRestockAmount] = useState(100);
+  const [selectOrder, setSelectOrder] = useState<PharmacyOrder | null>(null);
+  const [dispenseModal, setDispenseModal] = useState<PharmacyOrder | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const pendingOrders = pharmacyOrders.filter(p => p.status === 'Pending');
@@ -28,41 +35,49 @@ export default function PharmacyDashboard() {
   const totalValue = medicines.reduce((sum, m) => sum + m.stock * m.costPerUnit, 0);
 
   const displayedOrders = pharmacyOrders.filter(p => {
-    const matchStatus = !filterPending || p.status === 'Pending';
+    const matchStatus = statusFilter === 'All' || p.status === statusFilter;
     const matchSearch = p.patientName.toLowerCase().includes(search.toLowerCase()) ||
       p.id.toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
   });
 
-  const handleDispense = (orderId: string) => {
-    dispensePharmacyOrder(orderId, 'Pharm. Hawi Tadesse');
+  /** Inventory entry for a prescribed line — used for the photo & attribution. */
+  const inventoryMatch = (name: string, medicineId?: string) =>
+    medicines.find(m => (medicineId && m.id === medicineId) || m.name.toLowerCase() === name.toLowerCase());
+
+  const handleDispense = (orderOrId: PharmacyOrder | string) => {
+    setSelectOrder(null);
+    if (typeof orderOrId === 'string') {
+      const order = pharmacyOrders.find(p => p.id === orderOrId) || null;
+      setDispenseModal(order);
+    } else {
+      setDispenseModal(orderOrId);
+    }
   };
 
-  const handleRestockSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restockModal) return;
-    const numericError = validateNumber(String(restockAmount), 'Quantity', { min: 1, integer: true });
-    if (numericError) {
-      setFormError(numericError);
-      return;
-    }
+  const confirmDispense = async (orderId: string, _medicineId?: string, _quantity?: number, overrides?: Record<string, string>, quantities?: Record<string, number>) => {
     try {
-      await updateMedicineStock(restockModal.id, Number(restockAmount));
+      await dispensePharmacyOrder(orderId, currentUser?.name || 'Pharmacy staff', overrides, quantities);
       setFormError(null);
-      setRestockModal(null);
+      setDispenseModal(null);
     } catch (cause) {
-      setFormError(cause instanceof Error ? cause.message : 'Could not update stock.');
+      setFormError(cause instanceof Error ? cause.message : 'Could not dispense this order.');
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Pharmacy queue status */}
-      <div className="department-action-row">
+      <div className="department-action-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div className="department-action-control">
             <span className="badge badge-blue" style={{ padding: '0.45rem 0.95rem', fontSize: '0.8rem', fontWeight: 700 }}>
               <Clock size={14} /> {pendingOrders.length} Prescriptions In Queue
             </span>
+          </div>
+          <div className="department-action-control">
+            <button className="btn btn-primary" onClick={() => setShowAddMedicine(true)}>
+              <Plus size={16} /> Add Medicine
+            </button>
           </div>
       </div>
 
@@ -81,14 +96,17 @@ export default function PharmacyDashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Pill size={18} className="text-primary" /> Live Electronic Prescription Queue
+                <Pill size={18} className="text-primary" />
+                {statusFilter === 'Dispensed' ? 'Dispensed Orders' : statusFilter === 'Pending' ? 'Live Electronic Prescription Queue' : 'All Prescription Orders'}
               </h3>
               <span style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)' }}>
-                Direct clinical orders from consulting doctors
+                {statusFilter === 'Dispensed'
+                  ? 'Fulfilled prescriptions with the pharmacist who dispensed them'
+                  : 'Direct clinical orders from consulting doctors'}
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search size={14} style={{ position: 'absolute', left: 8, color: 'var(--clr-text-muted)', pointerEvents: 'none' }} />
                 <input
@@ -99,19 +117,32 @@ export default function PharmacyDashboard() {
                   style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem 0.35rem 1.7rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--clr-border)', background: 'var(--clr-bg-card)', color: 'var(--clr-text-primary)', width: 140 }}
                 />
               </div>
-              <button
-                className={`btn btn-sm ${filterPending ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setFilterPending(!filterPending)}
-              >
-                {filterPending ? 'Showing Pending' : 'All Prescriptions'}
-              </button>
+              <div className="pill-tabs" style={{ fontSize: '0.74rem' }}>
+                {(['Pending', 'Dispensed', 'All'] as const).map(filter => (
+                  <button
+                    key={filter}
+                    className={`pill-tab ${statusFilter === filter ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(filter)}
+                  >
+                    {filter} ({filter === 'Pending' ? pendingOrders.length : filter === 'Dispensed' ? dispensedOrders.length : pharmacyOrders.length})
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+
+          {formError && !restockModal && (
+            <div className="alert alert-danger py-2 px-3" role="alert" style={{ marginBottom: '0.875rem' }}>
+              {formError}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {displayedOrders.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', fontSize: '0.875rem' }}>
-                No prescriptions found matching filter.
+                {statusFilter === 'Dispensed'
+                  ? 'No dispensed orders yet. Dispensed prescriptions will be listed here.'
+                  : 'No prescriptions found matching filter.'}
               </div>
             ) : (
               displayedOrders.map((order) => (
@@ -133,53 +164,99 @@ export default function PharmacyDashboard() {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)', marginTop: 2 }}>
-                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {order.prescribedAt}
+                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {formatDateWithFallback(order.prescribedAt, order.createdAt)}
                       </div>
                     </div>
-                    <span className={`badge ${order.status === 'Pending' ? 'badge-blue' : 'badge-gray'}`}>
-                      {order.status}
-                    </span>
+                    <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                      {order.medicines.some(m => m.isExternal) && (
+                        <span className="badge badge-yellow" style={{ fontSize: '0.7rem' }}>
+                          Buy Outside Items
+                        </span>
+                      )}
+                      <span className={`badge ${order.status === 'Pending' ? 'badge-blue' : order.status === 'Dispensed' ? 'badge-green' : 'badge-gray'}`}>
+                        {order.status}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Medicines List in Order */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', margin: '0.75rem 0' }}>
-                    {order.medicines.map((med, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          borderRadius: 6,
-                          padding: '0.5rem 0.75rem',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '0.82rem',
-                        }}
-                      >
-                        <div>
-                          <strong style={{ color: 'var(--clr-text-primary)' }}>{med.name}</strong>
-                          <span style={{ color: 'var(--clr-text-muted)', marginLeft: 8 }}>
-                            {med.dosage} ({med.frequency}, {med.duration})
-                          </span>
+                    {order.medicines.map((med, idx) => {
+                      const inventory = inventoryMatch(med.name, med.medicineId);
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            borderRadius: 6,
+                            padding: '0.5rem 0.75rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                            <div style={{
+                              width: 34, height: 34, borderRadius: 6, overflow: 'hidden', flexShrink: 0,
+                              border: '1px solid var(--clr-border)', background: 'var(--clr-bg-hover)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {inventory?.imageUrl ? (
+                                <img src={inventory.imageUrl} alt={med.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <Pill size={14} style={{ color: 'var(--clr-text-muted)' }} />
+                              )}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <strong style={{ color: 'var(--clr-text-primary)' }}>{med.name}</strong>
+                              {med.isExternal && (
+                                <span className="badge badge-yellow" style={{ fontSize: '0.65rem', marginLeft: 6 }}>
+                                  Buy Outside
+                                </span>
+                              )}
+                              <span style={{ color: 'var(--clr-text-muted)', marginLeft: 8 }}>
+                                {med.instructions || 'Dose as directed by the prescriber'}
+                              </span>
+                              {inventory?.addedBy && (
+                                <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)', marginTop: 2 }}>
+                                  Added to inventory by {inventory.addedBy}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <span className="badge badge-blue">Qty: {med.quantity > 0 ? med.quantity : 'Pharmacist sets'}</span>
                         </div>
-                        <span className="badge badge-blue">Qty: {med.quantity}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--clr-border)' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>
-                      {order.status === 'Dispensed' ? `Dispensed by ${order.dispensedBy} at ${order.dispensedAt}` : 'Verify dosage before dispensing'}
+                      {order.status === 'Dispensed'
+                        ? `Dispensed by ${order.dispensedBy || 'Pharmacy staff'} at ${order.dispensedAt}`
+                        : 'Verify prescription before dispensing'}
                     </span>
-                    {order.status === 'Pending' && (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                       <button
-                        className="btn btn-primary btn-sm"
+                        type="button"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => handleDispense(order.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                       >
-                        <CheckCircle2 size={14} /> Dispense &amp; Deduct Stock
+                        <Printer size={13} /> Review &amp; Print Slip
                       </button>
-                    )}
+                      {order.status === 'Pending' && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleDispense(order.id)}
+                        >
+                          <CheckCircle2 size={14} /> Dispense &amp; Deduct Stock
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -247,15 +324,31 @@ export default function PharmacyDashboard() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    gap: '0.6rem',
                     padding: '0.45rem 0.6rem',
                     borderRadius: 6,
                     border: '1px solid var(--clr-border)',
                     fontSize: '0.8rem',
                   }}
                 >
-                  <div>
-                    <span style={{ fontWeight: 600 }}>{m.name}</span>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>{m.category} · {m.costPerUnit} ETB/unit</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', minWidth: 0 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0,
+                      border: '1px solid var(--clr-border)', background: 'var(--clr-bg-hover)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {m.imageUrl ? (
+                        <img src={m.imageUrl} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Package size={14} style={{ color: 'var(--clr-text-muted)' }} />
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontWeight: 600 }}>{m.name}</span>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
+                        {m.category} · {m.costPerUnit} ETB/unit{m.addedBy ? ` · Added by ${m.addedBy}` : ''}
+                      </div>
+                    </div>
                   </div>
                   <span className={`badge ${m.stock === 0 ? 'badge-red' : m.stock <= m.minStock ? 'badge-red' : 'badge-blue'}`}>
                     {m.stock} {m.unit}
@@ -269,50 +362,30 @@ export default function PharmacyDashboard() {
 
       {/* Restock Modal */}
       {restockModal && (
-        <div className="modal-overlay" onClick={() => setRestockModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Plus size={16} className="text-primary" /> Restock Medicine: {restockModal.name}
-              </h2>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setRestockModal(null)}
-                aria-label="Close dialog"
-              >
-                <X size={16} />
-              </button>
-            </div>
+        <RestockMedicineModal
+          medicine={restockModal}
+          onClose={() => setRestockModal(null)}
+          onRestock={async (additionalStock, updates) => {
+            const currentItem = restockModal;
+            await updateMedicine(currentItem.id, {
+              stock: currentItem.stock + additionalStock,
+              expiryDate: updates.expiryDate,
+              supplier: updates.supplier,
+              costPerUnit: updates.costPerUnit,
+            });
+            setRestockModal(null);
+          }}
+        />
+      )}
 
-            <form onSubmit={handleRestockSubmit}>
-              {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Quantity to Add ({restockModal.unit})</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={restockAmount}
-                  onChange={(e) => setRestockAmount(Number(e.target.value))}
-                />
-              </div>
-
-              <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', marginBottom: '1rem' }}>
-                Supplier: {restockModal.supplier} · Current Stock: {restockModal.stock} {restockModal.unit}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setRestockModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  <CheckCircle2 size={16} /> Confirm Restock
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showAddMedicine && <AddMedicineModal onClose={() => setShowAddMedicine(false)} />}
+      {(selectOrder || dispenseModal) && (
+        <ConfirmDispenseModal
+          order={selectOrder || dispenseModal}
+          medicines={medicines}
+          onSelect={confirmDispense}
+          onClose={() => { setSelectOrder(null); setDispenseModal(null); }}
+        />
       )}
     </div>
   );

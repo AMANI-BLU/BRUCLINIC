@@ -10,13 +10,13 @@ export default function InfoBox({ tone, icon, label, value, detail }: {
   detail?: string;
 }) {
   return (
-    <div className="info-box shadow-sm h-100">
-      <span className={`info-box-icon bg-${tone}`}>{icon}</span>
-      <div className="info-box-content">
-        <span className="info-box-text">{label}</span>
-        <span className="info-box-number">{value}</span>
-        {detail && <span className="progress-description">{detail}</span>}
+    <div className={`small-box text-bg-${tone} clinic-metric-box h-100`}>
+      <div className="inner">
+        <h3>{value}</h3>
+        <p>{label}</p>
+        {detail && <small>{detail}</small>}
       </div>
+      <div className="icon" aria-hidden="true">{icon}</div>
     </div>
   );
 }

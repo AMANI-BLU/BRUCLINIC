@@ -92,6 +92,19 @@ const patientTypeValues = ['Student', 'Staff', 'External'];
 const queueStageValues = ['Reception', 'Nurse Triage', 'Doctor Consultation', 'Pharmacy', 'Laboratory', 'Emergency', 'Completed'];
 const priorityValues = ['Low', 'Medium', 'High', 'Critical', 'Normal', 'Urgent', 'Emergency'];
 
+/**
+ * A medicine photo arrives as an uploaded image (inline data URL) or an
+ * external URL. Anything else is rejected before it reaches the database.
+ */
+function validateMedicineImage(value) {
+  if (isBlank(value)) return;
+  if (typeof value !== 'string') throw validationError('Medicine image must be text');
+  if (value.length > 600000) throw validationError('Medicine image must be 600 KB or smaller');
+  const isDataImage = value.startsWith('data:image/');
+  const isRemoteImage = /^https?:\/\/\S+$/i.test(value);
+  if (!isDataImage && !isRemoteImage) throw validationError('Medicine image must be an uploaded image file or an image URL');
+}
+
 export function validateResourcePayload(resource, payload, allowedFields, requiredFields, { partial = false } = {}) {
   assertPlainObject(payload);
   const body = cleanPayload(payload, allowedFields);
@@ -102,7 +115,7 @@ export function validateResourcePayload(resource, payload, allowedFields, requir
     patientName: 150, doctorName: 150, specialization: 120, reason: 500, notes: 2000, diagnosis: 1000,
     chiefComplaint: 1000, criticalNotes: 2000, testName: 150, category: 120,
     specimenType: 100, result: 2000, unit: 40, referenceRange: 120, supplier: 150, address: 255,
-    email: 254, phone: 30, emergencyContactName: 150, emergencyContactPhone: 30,
+    email: 254, phone: 30, emergencyContactName: 150, emergencyContactPhone: 30, addedBy: 180,
   };
   for (const [field, max] of Object.entries(stringRules)) {
     if (field in body) validateText(body[field], field, { max });
@@ -142,6 +155,7 @@ export function validateResourcePayload(resource, payload, allowedFields, requir
     validateNumber(body.minStock, 'Minimum stock', { min: 0 });
     validateNumber(body.costPerUnit, 'Cost per unit', { min: 0 });
     validateDate(body.expiryDate, 'Expiry date', { required: !partial });
+    validateMedicineImage(body.imageUrl);
   }
   if (resource === 'queue') {
     validateEnum(body.patientType, 'Patient type', patientTypeValues, { required: !partial });

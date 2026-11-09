@@ -16,7 +16,10 @@ import {
   Key,
 } from 'lucide-react';
 import { firstError, validateEmail, validatePassword, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { apiGet } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
+import ModalPortal from '../components/ModalPortal';
+import PasswordField from '../components/PasswordField';
 import './Patients.css';
 import './StaffAccounts.css';
 
@@ -32,6 +35,7 @@ const ROLE_PRESETS: Record<UserRole, { title: string; dept: string; tone: string
 export default function StaffAccounts() {
   const {
     currentUser,
+    token,
     fetchStaffList,
     createStaffAccount,
     updateStaffStatus,
@@ -54,7 +58,6 @@ export default function StaffAccounts() {
 
   const [formName, setFormName] = useState('');
   const [formUsername, setFormUsername] = useState('');
-  const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('receptionist');
   const [formRoleTitle, setFormRoleTitle] = useState(ROLE_PRESETS.receptionist.title);
   const [formDept, setFormDept] = useState(ROLE_PRESETS.receptionist.dept);
@@ -64,6 +67,9 @@ export default function StaffAccounts() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetTargetUser, setResetTargetUser] = useState<UserProfile | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [resetMode, setResetMode] = useState<'default' | 'generate' | 'manual'>('default');
+  const [defaultPasswordConfigured, setDefaultPasswordConfigured] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
@@ -95,7 +101,7 @@ export default function StaffAccounts() {
     setFormRoleTitle(ROLE_PRESETS[role].title);
     setFormDept(ROLE_PRESETS[role].dept);
     if (!formEmail && formUsername) {
-      setFormEmail(`${formUsername.trim().toLowerCase()}@boru.edu.et`);
+      setFormEmail(`${formUsername.trim().toLowerCase()}@bru.edu.et`);
     }
   };
 
@@ -103,7 +109,7 @@ export default function StaffAccounts() {
     setFormUsername(val);
     const cleaned = val.trim().toLowerCase();
     if (cleaned) {
-      setFormEmail(`${cleaned}@boru.edu.et`);
+      setFormEmail(`${cleaned}@bru.edu.et`);
     }
   };
 
@@ -111,14 +117,13 @@ export default function StaffAccounts() {
     e.preventDefault();
     setCreateError(null);
     const validationErrors = validateRequired(
-      { name: formName, username: formUsername, password: formPassword, role: formRole },
-      { name: 'Name', username: 'Username', password: 'Password', role: 'Role' },
+      { name: formName, username: formUsername, role: formRole },
+      { name: 'Name', username: 'Username', role: 'Role' },
     );
     const validationError = firstError(
       ...Object.values(validationErrors),
       validateTextLength(formName, 'Name', { min: 2, max: 150, required: true }),
       validateTextLength(formUsername, 'Username', { min: 3, max: 60, required: true }),
-      validatePassword(formPassword),
       formEmail ? validateEmail(formEmail) : undefined,
     );
     if (validationError) {
@@ -131,11 +136,10 @@ export default function StaffAccounts() {
       const res = await createStaffAccount({
         name: sanitizeInput(formName),
         username: sanitizeInput(formUsername).toLowerCase(),
-        password: formPassword.trim(),
         role: formRole,
         roleTitle: sanitizeInput(formRoleTitle) || ROLE_PRESETS[formRole].title,
         department: sanitizeInput(formDept) || ROLE_PRESETS[formRole].dept,
-        email: sanitizeInput(formEmail) || `${sanitizeInput(formUsername).toLowerCase()}@boru.edu.et`,
+        email: sanitizeInput(formEmail) || `${sanitizeInput(formUsername).toLowerCase()}@bru.edu.et`,
       });
 
       if (res.success && res.user) {
@@ -146,7 +150,6 @@ export default function StaffAccounts() {
         setShowCreateModal(false);
         setFormName('');
         setFormUsername('');
-        setFormPassword('');
         setFormEmail('');
         await loadData();
       } else {
@@ -189,18 +192,31 @@ export default function StaffAccounts() {
   const handleOpenResetModal = (user: UserProfile) => {
     setResetTargetUser(user);
     setNewPassword('');
+    setResetMode('default');
+    setDefaultPasswordConfigured(false);
+    setGeneratedPassword('');
     setResetError(null);
     setShowResetModal(true);
+    apiGet<{ configured: boolean }>('/admin/default-password', token)
+      .then(result => {
+        setDefaultPasswordConfigured(result.configured);
+        setResetMode(result.configured ? 'default' : 'generate');
+      })
+      .catch(() => setResetMode('generate'));
   };
 
   const handleResetSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!resetTargetUser) return;
+    if (generatedPassword) {
+      setShowResetModal(false);
+      return;
+    }
     setResetError(null);
-    const validationError = firstError(
+    const validationError = resetMode === 'manual' ? firstError(
       ...Object.values(validateRequired({ newPassword }, { newPassword: 'New password' })),
       validatePassword(newPassword, 'New password'),
-    );
+    ) : undefined;
     if (validationError) {
       setResetError(validationError);
       return;
@@ -208,13 +224,19 @@ export default function StaffAccounts() {
     setResetting(true);
 
     try {
-      const res = await resetStaffPassword(resetTargetUser.id, newPassword);
+      const res = await resetStaffPassword(
+        resetTargetUser.id,
+        newPassword,
+        resetMode === 'generate',
+        resetMode === 'default',
+      );
       if (res.success) {
+        setGeneratedPassword(res.generatedPassword || '');
         setToastMessage({
           text: `Password updated for ${resetTargetUser.name}.`,
           type: 'success',
         });
-        setShowResetModal(false);
+        if (!res.generatedPassword) setShowResetModal(false);
       } else {
         setResetError(res.error || 'Failed to reset password');
       }
@@ -524,6 +546,7 @@ export default function StaffAccounts() {
 
       {/* ── MODAL 1: CREATE STAFF ACCOUNT (Compact Modal) ── */}
       {showCreateModal && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div
             className="modal"
@@ -565,31 +588,18 @@ export default function StaffAccounts() {
                   />
                 </div>
 
-                <div className="form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Username *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. drbikila"
-                      value={formUsername}
-                      onChange={(e) => handleUsernameChange(e.target.value)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Password *</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Initial password"
-                      value={formPassword}
-                      onChange={(e) => setFormPassword(e.target.value)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Username *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. drbikila"
+                    value={formUsername}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
+                  />
                 </div>
+                <div className="alert alert-info py-2 mb-0">The configured default staff password will be assigned. The user must change it at first sign-in.</div>
 
                 <div className="form-group">
                   <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Role *</label>
@@ -633,7 +643,7 @@ export default function StaffAccounts() {
                   <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Email</label>
                   <input
                     type="email"
-                    placeholder="staff@boru.edu.et"
+                    placeholder="staff@bru.edu.et"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
                     style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
@@ -664,10 +674,12 @@ export default function StaffAccounts() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* ── MODAL 2: RESET PASSWORD MODAL (Compact Modal) ── */}
       {showResetModal && resetTargetUser && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
           <div
             className="modal"
@@ -697,20 +709,64 @@ export default function StaffAccounts() {
               )}
 
               <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-secondary)', marginBottom: '0.75rem' }}>
-                Enter new password for <strong>{resetTargetUser.username}</strong> ({resetTargetUser.name}).
+                Reset password for <strong>{resetTargetUser.username}</strong> ({resetTargetUser.name}).
               </p>
 
-              <div className="form-group mb-0">
-                <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>New Password *</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Min. 4 characters"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
-                />
-              </div>
+              <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.75rem' }}>
+                <legend className="form-label" style={{ fontSize: '0.74rem', marginBottom: 4, padding: 0 }}>New password</legend>
+                <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: '0.8rem', cursor: defaultPasswordConfigured ? 'pointer' : 'not-allowed', opacity: defaultPasswordConfigured ? 1 : 0.55 }}>
+                  <input
+                    type="radio"
+                    name="reset-password-mode"
+                    checked={resetMode === 'default'}
+                    onChange={() => setResetMode('default')}
+                    disabled={!defaultPasswordConfigured}
+                  />
+                  Clinic default password
+                  {!defaultPasswordConfigured && <span style={{ color: 'var(--clr-text-muted)' }}>(not configured)</span>}
+                </label>
+                <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: '0.8rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="reset-password-mode"
+                    checked={resetMode === 'generate'}
+                    onChange={() => setResetMode('generate')}
+                  />
+                  Automatically generate a temporary password
+                </label>
+                <label className="d-flex align-items-center gap-2" style={{ fontSize: '0.8rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="reset-password-mode"
+                    checked={resetMode === 'manual'}
+                    onChange={() => setResetMode('manual')}
+                  />
+                  Set a password manually
+                </label>
+              </fieldset>
+              {resetMode === 'manual' && (
+                <div className="form-group mb-0">
+                  <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>New Password *</label>
+                  <PasswordField
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ height: 32, fontSize: '0.8rem' }}
+                  />
+                </div>
+              )}
+              {resetMode === 'default' && (
+                <p style={{ fontSize: '0.74rem', color: 'var(--clr-text-muted)', margin: 0 }}>
+                  The account is reset to the default password from Settings; the user must change it at first sign-in.
+                </p>
+              )}
+              {generatedPassword && (
+                <div className="alert alert-success mt-3">
+                  Temporary password (shown once): <code>{generatedPassword}</code>
+                  <div>The user will be required to change this password at their next sign-in.</div>
+                </div>
+              )}
 
               <div className="modal-footer pt-2 mt-3" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.45rem', borderTop: '1px solid var(--clr-border)' }}>
                 <button
@@ -728,12 +784,13 @@ export default function StaffAccounts() {
                   disabled={resetting}
                   style={{ height: 30, fontSize: '0.78rem', padding: '0 0.75rem', fontWeight: 600 }}
                 >
-                  {resetting ? 'Resetting...' : 'Save Password'}
+                  {resetting ? 'Resetting...' : generatedPassword ? 'Done' : 'Reset Password'}
                 </button>
               </div>
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Delete Staff Account Confirmation Modal */}

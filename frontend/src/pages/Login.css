@@ -320,7 +320,7 @@
 
 .login-input {
   width: 100%;
-  padding: 0.8rem 0.875rem 0.8rem 2.6rem;
+  padding: 0.8rem 2.9rem 0.8rem 2.6rem;
   background: rgba(12, 22, 44, 0.95);
   border: 1px solid rgba(59, 130, 246, 0.28);
   border-radius: var(--radius-md);
@@ -338,6 +338,48 @@
 
 .login-input::placeholder {
   color: #64748b;
+}
+
+.login-password-toggle {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.login-password-toggle:hover {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.login-password-toggle:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.login-password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .login-password-toggle {
+  color: #64748b;
+}
+
+[data-theme="light"] .login-password-toggle:hover {
+  color: #0f172a;
+  background: rgba(100, 116, 139, 0.12);
 }
 
 /* HIGH-CONTRAST PRIMARY SUBMIT BUTTON */
@@ -571,7 +613,7 @@
   color: #64748b;
 }
 
-/* AdminLTE v3 login skin */
+/* AdminLTE-aligned login styling */
 .login-page-container {
   background: #f4f6f9;
   padding: 2.5rem 1.25rem;

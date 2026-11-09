@@ -18,7 +18,7 @@
  *   - JWT tokens with issuer/audience claims
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { query } from '../db/pool.js';
 import { generateToken, hashPassword, verifyPassword } from '../utils/auth.js';
 import { sendError, sendJson } from '../utils/http.js';
@@ -32,6 +32,18 @@ import {
 } from '../constants/roles.js';
 
 // ── Helpers ──────────────────────────────────────────────────────
+
+/**
+ * Temporary passwords must satisfy validatePassword (uppercase, lowercase and
+ * a digit), so they are assembled from explicit character pools.
+ */
+function generateTemporaryPassword() {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnopqrstuvwxyz';
+  const digits = '23456789';
+  const pick = (pool, length) => Array.from(randomBytes(length), byte => pool[byte % pool.length]).join('');
+  return `${pick(upper, 2)}${pick(lower, 5)}${pick(digits, 2)}${pick(`${upper}${lower}${digits}`, 3)}`;
+}
 
 function getInitials(name = '') {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -53,6 +65,7 @@ function toProfile(user) {
     avatarInitials: user.avatar_initials,
     badgeColor: user.badge_color,
     isActive: user.is_active === undefined ? Boolean(user.isActive) : Boolean(user.is_active),
+    mustChangePassword: Boolean(user.must_change_password ?? user.mustChangePassword),
     createdAt: user.created_at || user.createdAt,
   };
 }
@@ -133,7 +146,17 @@ export async function authHandler(request, response, segments) {
 
     // Login successful
     clearAuthRateLimit(ip, username);
-    const profile = toProfile(user);
+    let mustChangePassword = Boolean(user.must_change_password);
+    if (!mustChangePassword) {
+      // Safeguard for pre-existing accounts: if the account still uses the
+      // administrator-configured default password, force a change on this login.
+      const defaultPassword = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+      if (defaultPassword.rows[0]?.value && verifyPassword(String(password), defaultPassword.rows[0].value)) {
+        mustChangePassword = true;
+        await query('UPDATE users SET must_change_password = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
+      }
+    }
+    const profile = toProfile({ ...user, must_change_password: mustChangePassword });
 
     writeSecurityEvent({
       eventType: SECURITY_EVENT.LOGIN_SUCCESS,
@@ -156,11 +179,13 @@ export async function authHandler(request, response, segments) {
     });
 
     const sessionHours = await getConfigNumber('session_timeout_hours', 8, { min: 1, max: 72 });
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 5, max: 60 });
     return sendJson(response, 200, {
       message: 'Login successful',
       token: generateToken(profile, { ttlSeconds: sessionHours * 60 * 60 }),
       user: profile,
       expiresInSeconds: sessionHours * 60 * 60,
+      idleLockMinutes,
     });
   }
 
@@ -187,7 +212,53 @@ export async function authHandler(request, response, segments) {
       });
       return sendError(response, 401, 'Session is no longer valid');
     }
-    return sendJson(response, 200, { user: toProfile(result.rows[0]) });
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 5, max: 60 });
+    return sendJson(response, 200, { user: toProfile(result.rows[0]), idleLockMinutes });
+  }
+
+  if (request.method === 'POST' && action === 'change-password') {
+    if (!request.user) return sendError(response, 401, 'Authentication required');
+    assertPlainObject(request.body);
+    const { currentPassword, newPassword } = request.body || {};
+    validateText(currentPassword, 'Current password', { required: true, max: 128 });
+    validatePassword(newPassword, 'New password');
+    const result = await query('SELECT password_hash FROM users WHERE id = $1 AND is_active = TRUE LIMIT 1', [request.user.id]);
+    if (!result.rows[0] || !verifyPassword(String(currentPassword), result.rows[0].password_hash)) {
+      return sendError(response, 401, 'Current password is incorrect');
+    }
+    if (verifyPassword(String(newPassword), result.rows[0].password_hash)) {
+      return sendError(response, 422, 'Choose a password different from your current password');
+    }
+    await query(
+      'UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = NOW() WHERE id = $2',
+      [hashPassword(String(newPassword)), request.user.id],
+    );
+    writeAuditLog({
+      requestId: request.requestId, userId: request.user.id, username: request.user.username,
+      userRole: request.user.role, action: AUDIT_ACTION.UPDATE, resource: 'users',
+      resourceId: request.user.id, summary: 'User changed their password', ipAddress: ip,
+    });
+    return sendJson(response, 200, { message: 'Password changed successfully' });
+  }
+
+  if (request.method === 'POST' && action === 'unlock') {
+    if (!request.user) return sendError(response, 401, 'Authentication required');
+    assertPlainObject(request.body);
+    validateText(request.body.password, 'Password', { required: true, max: 128 });
+    const result = await query('SELECT password_hash, is_active FROM users WHERE id = $1 LIMIT 1', [request.user.id]);
+    if (!result.rows[0]?.is_active || !verifyPassword(String(request.body.password), result.rows[0].password_hash)) {
+      return sendError(response, 401, 'Incorrect password');
+    }
+    return sendJson(response, 200, { message: 'Session unlocked' });
+  }
+
+  if (request.method === 'GET' && action === 'directory') {
+    if (!request.user) return sendError(response, 401, 'Authentication required');
+    const result = await query(
+      'SELECT id, name, username, role, role_title, department FROM users WHERE is_active = TRUE AND id <> $1 ORDER BY name ASC',
+      [request.user.id],
+    );
+    return sendJson(response, 200, { data: result.rows });
   }
 
   // ── GET /api/auth/users ──────────────────────────────────────
@@ -201,10 +272,9 @@ export async function authHandler(request, response, segments) {
   if (request.method === 'POST' && action === 'create-user') {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
-    const { name, username, password, role, roleTitle, department, email } = request.body || {};
+    const { name, username, role, roleTitle, department, email } = request.body || {};
     validateText(name, 'Name', { required: true, max: 150 });
     validateText(username, 'Username', { required: true, max: 60 });
-    validatePassword(password);
     validateText(role, 'Role', { required: true, max: 20 });
     validateText(roleTitle, 'Role title', { max: 100 });
     validateText(department, 'Department', { max: 150 });
@@ -217,8 +287,13 @@ export async function authHandler(request, response, segments) {
     if (existing.rows.length) return sendError(response, 409, `An account with username '${username}' already exists`);
 
     const id = `USR-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const defaultPassword = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+    const defaultPasswordHash = defaultPassword.rows[0]?.value;
+    if (!defaultPasswordHash) {
+      return sendError(response, 409, 'Set the default staff password in Settings before creating user accounts');
+    }
     const cleanName = String(name).trim();
-    const safeEmail = String(email || `${normalizedUsername}@boru.edu.et`).trim().toLowerCase();
+    const safeEmail = String(email || `${normalizedUsername}@bru.edu.et`).trim().toLowerCase();
     const profile = {
       id, username: normalizedUsername, name: cleanName, role,
       roleTitle: String(roleTitle || ROLE_LABELS[role] || role).trim(),
@@ -227,11 +302,12 @@ export async function authHandler(request, response, segments) {
       avatarInitials: getInitials(cleanName),
       badgeColor: ROLE_BADGE_COLORS[role] || '#2563eb',
       isActive: true,
+      mustChangePassword: true,
     };
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, role_title, department, email, avatar_initials, badge_color, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)`,
-      [id, profile.username, hashPassword(String(password)), profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.avatarInitials, profile.badgeColor],
+      `INSERT INTO users (id, username, password_hash, name, role, role_title, department, email, avatar_initials, badge_color, is_active, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, TRUE)`,
+      [id, profile.username, defaultPasswordHash, profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.avatarInitials, profile.badgeColor],
     );
 
     // Auto-create doctor record for OPD physicians
@@ -314,9 +390,29 @@ export async function authHandler(request, response, segments) {
   if (request.method === 'POST' && action === 'users' && targetId && subAction === 'reset-password') {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
-    const { newPassword } = request.body || {};
-    validatePassword(newPassword, 'New password');
-    const result = await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashPassword(String(newPassword)), targetId]);
+    const { newPassword, autoGenerate = false, useDefaultPassword = false } = request.body || {};
+    let passwordHash;
+    let generatedPassword = '';
+    let message = 'Password reset successfully';
+
+    if (useDefaultPassword) {
+      const configured = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+      passwordHash = configured.rows[0]?.value;
+      if (!passwordHash) {
+        return sendError(response, 409, 'Set the clinic default password in Settings before resetting an account to it');
+      }
+      message = 'Password reset to the clinic default. The user must change it at first sign-in.';
+    } else if (autoGenerate) {
+      generatedPassword = generateTemporaryPassword();
+      validatePassword(generatedPassword, 'Generated password');
+      passwordHash = hashPassword(generatedPassword);
+      message = 'Password reset successfully. Share the temporary password securely.';
+    } else {
+      validatePassword(newPassword, 'New password');
+      passwordHash = hashPassword(String(newPassword));
+    }
+
+    const result = await query('UPDATE users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2', [passwordHash, targetId]);
     if (!result.affectedRows) return sendError(response, 404, 'Staff account not found');
 
     writeSecurityEvent({
@@ -326,7 +422,7 @@ export async function authHandler(request, response, segments) {
       ipAddress: ip,
       requestId: request.requestId,
       description: `Password reset for account ID=${targetId} by ${request.user.username}`,
-      metadata: { targetId },
+      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual' },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -336,11 +432,14 @@ export async function authHandler(request, response, segments) {
       action: AUDIT_ACTION.UPDATE,
       resource: 'users',
       resourceId: targetId,
-      summary: `Password reset for account ID: ${targetId}`,
+      summary: `Password reset for account ID: ${targetId}${useDefaultPassword ? ' (clinic default password)' : ''}`,
       ipAddress: ip,
     });
 
-    return sendJson(response, 200, { message: 'Password reset successfully' });
+    return sendJson(response, 200, {
+      message,
+      ...(generatedPassword ? { generatedPassword } : {}),
+    });
   }
 
   // ── PATCH /api/auth/users/:id ────────────────────────────────

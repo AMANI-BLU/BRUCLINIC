@@ -1,0 +1,75 @@
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.reports-header {
+  align-items: center;
+  gap: 1rem;
+}
+
+.reports-header .btn { flex: 0 0 auto; }
+.report-kpis { row-gap: 0.85rem; }
+.report-kpis > [class*='col-'] { display: flex; }
+.report-kpis .clinic-metric-box { width: 100%; min-height: 7.5rem; border-radius: 0.25rem; }
+.report-kpis .clinic-metric-box > .inner { padding: 0.85rem 0.9rem; }
+.report-kpis .clinic-metric-box h3 { font-size: 1.65rem; }
+.report-kpis .clinic-metric-box p { max-width: calc(100% - 2rem); font-size: 0.76rem; }
+.report-kpis .clinic-metric-box > .icon { position: absolute; top: 0.7rem; right: 0.7rem; bottom: auto; }
+.report-kpis .clinic-metric-box > .icon svg { width: 2.2rem; height: 2.2rem; }
+
+.report-charts { row-gap: 1rem; }
+.report-charts > [class*='col-'] { display: flex; min-width: 0; }
+
+.report-chart-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 0;
+  border-radius: 0.25rem;
+}
+
+.report-chart-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.report-chart-card .card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--clr-text-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.report-chart-card .card-title svg { color: var(--clr-primary-400); flex: 0 0 auto; }
+.report-chart-caption { color: var(--clr-text-muted); font-size: 0.7rem; white-space: nowrap; }
+.report-chart-card .card-body { min-width: 0; padding: 0.75rem 0.85rem 0.85rem; }
+.report-chart { width: 100%; min-width: 0; }
+.report-chart-wide { height: 270px; }
+.report-chart-donut { height: 270px; }
+.report-chart-bars { height: 290px; }
+.report-empty { display: grid; width: 100%; height: 100%; place-items: center; padding: 1rem; color: var(--clr-text-muted); font-size: 0.8rem; text-align: center; }
+.report-legend-label { color: var(--clr-text-secondary); font-size: 0.72rem; }
+
+@media (max-width: 575.98px) {
+  .reports-header { align-items: stretch; }
+  .reports-header .btn { align-self: flex-start; }
+  .report-kpis .clinic-metric-box { min-height: 6.75rem; }
+  .report-kpis .clinic-metric-box h3 { font-size: 1.4rem; }
+  .report-chart-wide, .report-chart-donut { height: 245px; }
+  .report-chart-bars { height: 310px; }
+  .report-chart-card .card-header { align-items: flex-start; }
+  .report-chart-caption { white-space: normal; text-align: right; }
+}

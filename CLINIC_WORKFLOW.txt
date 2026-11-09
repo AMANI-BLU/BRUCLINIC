@@ -1,0 +1,24 @@
+BRUCLINIC CLINICAL WORKFLOW
+
+1. Patient check-in
+Reception finds an existing patient or registers a new patient. Blood group may be left unrecorded. Reception records the reason for the visit, urgency, and destination, then sends the patient to triage or the doctor.
+
+2. Triage
+Nursing staff record the required observations and forward the patient to the doctor. Allergies and existing patient history should be reviewed before treatment decisions.
+
+3. Doctor review and laboratory requests
+The doctor opens the active visit and starts at Lab Request. A final diagnosis is not required to request an investigation. Select or enter one test, its category, specimen, urgency, and clinical indication. For a medical certificate, record the certificate purpose and request investigations appropriate to the assessment; BruClinic does not apply a fixed certificate panel.
+
+Each laboratory investigation is a separate order. The laboratory records specimen collection, analysis, result, and verification. A completed result returns the visit to the doctor queue for review. The doctor may request another test if clinically needed.
+
+4. Assessment
+The doctor records the diagnosis supported by the history, examination, and available results, along with symptoms and clinical notes. Existing diagnoses with similar spelling may be suggested; the doctor must verify and select a suggestion. Suggestions never change a diagnosis automatically.
+
+5. Prescription, if needed
+The doctor selects a medicine from the formulary when available and records dose, frequency, duration, quantity, and patient instructions. For each catalog item, choose Clinic pharmacy only when enough stock is available; otherwise choose Outside purchase or select another medicine. A custom non-catalogue medicine is routed as an outside purchase. Pharmacy reviews the selected source and may change it if stock changes before dispensing. To replenish a clinic item, use the separate Pharmacy inventory restock action.
+
+6. Complete the visit
+The doctor completes the visit when assessment and any required actions are finished. A visit with no lab or prescription can be completed directly after assessment. Completed visits are read-only; a new consultation starts with a new reception visit.
+
+REPORTING NOTES
+Diagnosis capitalization and extra spaces are normalized for case-category reporting. Similar spellings are not automatically merged because they may represent different clinical conditions. Choose a verified existing diagnosis suggestion when appropriate.

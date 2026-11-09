@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AlertTriangle, Trash2, X, AlertCircle } from 'lucide-react';
+import ModalPortal from './ModalPortal';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export interface ConfirmModalProps {
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
   isLoading?: boolean;
+  compact?: boolean;
 }
 
 export default function ConfirmModal({
@@ -25,6 +27,7 @@ export default function ConfirmModal({
   onConfirm,
   onClose,
   isLoading = false,
+  compact = false,
 }: ConfirmModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -56,9 +59,10 @@ export default function ConfirmModal({
       : 'btn btn-primary';
 
   return (
+    <ModalPortal>
     <div className="modal-overlay" onClick={() => !isLoading && onClose()}>
       <div
-        className="modal"
+        className={`modal confirm-modal ${compact ? 'confirm-modal-compact' : ''}`}
         style={{
           maxWidth: 420,
           width: '100%',
@@ -109,11 +113,11 @@ export default function ConfirmModal({
           </button>
         </div>
 
-        <div style={{ padding: '0.5rem 0 1rem 0', color: 'var(--clr-text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+        <div className="confirm-modal-message" style={{ padding: '0.5rem 0 1rem 0', color: 'var(--clr-text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
           {message}
         </div>
 
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.5rem', paddingTop: '0.75rem' }}>
+        <div className="modal-footer confirm-modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.5rem', paddingTop: '0.75rem' }}>
           <button
             type="button"
             className="btn btn-secondary"
@@ -135,5 +139,6 @@ export default function ConfirmModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

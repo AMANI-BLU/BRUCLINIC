@@ -113,6 +113,13 @@ export function createResourceHandler(resource) {
       const body = validateResourcePayload(resource, request.body, allowedFields, definition.required);
       try {
         if (resource === 'patients') await assertNoDuplicatePatient(body);
+        if (resource === 'records' && body.doctorId) {
+          const docCheck = await query('SELECT id FROM doctors WHERE id = $1', [body.doctorId]);
+          if (!docCheck.rows.length) body.doctorId = null;
+        }
+        // Attribute the medicine to the signed-in pharmacist rather than trusting
+        // whatever the client sent, so "Added by" is always trustworthy.
+        if (resource === 'medicines') body.addedBy = String(request.user?.name || '').slice(0, 180);
         const created = await insertResource(resource, body);
         // Fire-and-forget audit log
         auditResourceMutation(request, resource, 'POST', created?.id, null);
@@ -126,7 +133,18 @@ export function createResourceHandler(resource) {
     if (request.method === 'PATCH' && id) {
       const body = validateResourcePayload(resource, request.body, allowedFields.filter(f => f !== 'id'), definition.required, { partial: true });
       try {
+        if (resource === 'queue' && body.stage) {
+          const currentItem = await findResource(resource, id);
+          if (!currentItem) return sendError(response, 404, 'Resource not found');
+          if (currentItem.stage === 'Completed' && body.stage !== 'Completed') {
+            return sendError(response, 409, 'Completed visits are closed. Create a new reception request for another consultation.');
+          }
+        }
         if (resource === 'patients') await assertNoDuplicatePatient(body, id);
+        if (resource === 'records' && body.doctorId) {
+          const docCheck = await query('SELECT id FROM doctors WHERE id = $1', [body.doctorId]);
+          if (!docCheck.rows.length) body.doctorId = null;
+        }
         const item = await updateResource(resource, id, body);
         if (item) {
           auditResourceMutation(request, resource, 'PATCH', id, body);

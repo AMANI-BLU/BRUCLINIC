@@ -1,0 +1,106 @@
+.pharmacy-adjust-trigger { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.pharmacy-adjust-trigger svg { width: 0.9rem; height: 0.9rem; }
+
+.pharmacy-adjust-modal { width: min(94vw, 460px); max-width: 460px; padding: 1.15rem; }
+.pharmacy-adjust-header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--clr-border); }
+.pharmacy-adjust-title-icon { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 2.25rem; place-items: center; border-radius: 0.25rem; background: rgba(13, 110, 253, 0.1); color: var(--clr-primary-400); }
+.pharmacy-adjust-title-copy { min-width: 0; flex: 1 1 auto; }
+.pharmacy-adjust-title-copy h2 { margin: 0; color: var(--clr-text-primary); font-size: 0.98rem; font-weight: 700; }
+.pharmacy-adjust-title-copy p { overflow: hidden; margin: 0.15rem 0 0; color: var(--clr-text-muted); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.pharmacy-adjust-form { display: grid; gap: 0.85rem; }
+.pharmacy-stock-balance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+.pharmacy-stock-balance > div { display: grid; gap: 0.2rem; padding: 0.65rem 0.75rem; border: 1px solid var(--clr-border); border-radius: 0.25rem; background: var(--clr-bg-hover); }
+.pharmacy-stock-balance span, .pharmacy-stock-preview > span { color: var(--clr-text-muted); font-size: 0.68rem; }
+.pharmacy-stock-balance strong { color: var(--clr-text-primary); font-size: 1.05rem; line-height: 1.1; }
+.pharmacy-stock-balance small, .pharmacy-stock-preview small { color: var(--clr-text-muted); font-size: 0.68rem; font-weight: 500; }
+.pharmacy-adjust-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.pharmacy-adjust-actions legend { float: none; width: 100%; margin-bottom: 0.45rem; color: var(--clr-text-secondary); font-size: 0.74rem; font-weight: 700; }
+.pharmacy-adjust-choice { display: flex; align-items: center; gap: 0.55rem; min-width: 0; padding: 0.65rem; border: 1px solid var(--clr-border); border-radius: 0.25rem; background: var(--clr-bg-surface); color: var(--clr-text-secondary); text-align: left; cursor: pointer; transition: background 130ms ease, border-color 130ms ease; }
+.pharmacy-adjust-choice:disabled { cursor: not-allowed; opacity: 0.48; }
+.pharmacy-adjust-choice > svg { flex: 0 0 auto; color: var(--clr-text-muted); }
+.pharmacy-adjust-choice span, .pharmacy-adjust-choice strong, .pharmacy-adjust-choice small { display: block; min-width: 0; }
+.pharmacy-adjust-choice strong { color: var(--clr-text-primary); font-size: 0.76rem; }
+.pharmacy-adjust-choice small { margin-top: 0.12rem; color: var(--clr-text-muted); font-size: 0.64rem; }
+.pharmacy-adjust-choice.selected.add { border-color: #198754; background: rgba(25, 135, 84, 0.08); }
+.pharmacy-adjust-choice.selected.add > svg { color: #198754; }
+.pharmacy-adjust-choice.selected.dispense { border-color: #dc3545; background: rgba(220, 53, 69, 0.08); }
+.pharmacy-adjust-choice.selected.dispense > svg { color: #dc3545; }
+.pharmacy-adjust-quantity-field { margin: 0; }
+.pharmacy-adjust-quantity-field input { max-width: 100%; font-size: 1rem; font-weight: 700; }
+.pharmacy-adjust-quantity-field small { color: var(--clr-text-muted); font-size: 0.68rem; }
+.pharmacy-stock-preview { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.75rem; border: 1px solid rgba(25, 135, 84, 0.25); border-radius: 0.25rem; background: rgba(25, 135, 84, 0.06); }
+.pharmacy-stock-preview strong { color: #198754; font-size: 1.05rem; }
+.pharmacy-stock-preview.invalid { border-color: rgba(220, 53, 69, 0.35); background: rgba(220, 53, 69, 0.06); }
+.pharmacy-stock-preview.invalid strong { color: #dc3545; }
+.pharmacy-adjust-footer { display: flex; justify-content: flex-end; gap: 0.5rem; margin: 0; padding: 0.8rem 0 0; border-top: 1px solid var(--clr-border); }
+
+/* ── Best Before / Expiry report ─────────────────────────────────── */
+.pharmacy-report-modal {
+  width: min(96vw, 1040px) !important;
+  max-width: 1040px !important;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.1rem;
+}
+.pharmacy-report-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.pharmacy-report-toolbar .modal-title { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--clr-text-primary); font-size: 1rem; font-weight: 800; }
+.pharmacy-report-subtitle { margin: 0.2rem 0 0; color: var(--clr-text-muted); font-size: 0.74rem; }
+.pharmacy-report-actions { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.pharmacy-report-actions .btn { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+
+.pharmacy-expiry-report-sheet { margin-top: 0.9rem; padding: 1.25rem; border: 1px solid var(--clr-border); border-radius: 10px; background: #fff; color: #0f172a; }
+.pharmacy-report-sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid #0284c7; }
+.pharmacy-report-sheet-head h1 { margin: 0; color: #0369a1; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+.pharmacy-report-sheet-head p { margin: 0.15rem 0 0; color: #64748b; font-size: 0.78rem; }
+.pharmacy-report-sheet-meta { text-align: right; color: #475569; font-size: 0.72rem; }
+.pharmacy-report-sheet-meta span { display: block; color: #94a3b8; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.pharmacy-report-sheet-meta strong { display: block; margin-top: 0.1rem; font-size: 0.8rem; }
+
+.pharmacy-report-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; margin: 0.9rem 0; }
+.pharmacy-report-summary > div { padding: 0.6rem 0.7rem; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; }
+.pharmacy-report-summary span { display: block; color: #64748b; font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.pharmacy-report-summary strong { display: block; margin-top: 0.2rem; color: #0f172a; font-size: 1.05rem; line-height: 1.1; }
+
+.pharmacy-report-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.pharmacy-report-table th { padding: 0.5rem 0.55rem; border-bottom: 1px solid #e2e8f0; background: #f1f5f9; color: #475569; font-size: 0.64rem; font-weight: 800; text-align: left; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.pharmacy-report-table td { padding: 0.5rem 0.55rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.pharmacy-report-table td strong { color: #0f172a; }
+.pharmacy-report-row-expired td { background: rgba(239, 68, 68, 0.04); }
+.pharmacy-report-row-soon td { background: rgba(245, 158, 11, 0.04); }
+.pharmacy-report-unit { color: #94a3b8; font-size: 0.66rem; }
+.pharmacy-report-empty { display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem; border: 1px dashed #bbf7d0; border-radius: 8px; background: #f0fdf4; color: #166534; }
+.pharmacy-report-empty strong { display: block; font-size: 0.86rem; }
+.pharmacy-report-empty span { display: block; margin-top: 0.15rem; color: #15803d; font-size: 0.72rem; }
+.pharmacy-report-sheet-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 0.68rem; }
+.pharmacy-report-sign-line { padding-top: 1.5rem; border-bottom: 1px dashed #64748b; color: #64748b; }
+
+@media (max-width: 700px) {
+  .pharmacy-report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pharmacy-expiry-report-sheet { padding: 0.85rem; }
+  .pharmacy-report-sheet-head { flex-direction: column; }
+  .pharmacy-report-sheet-meta { text-align: left; }
+}
+
+@media print {
+  body:has(.pharmacy-report-modal) * { visibility: hidden; }
+  .pharmacy-report-modal .pharmacy-expiry-report-sheet,
+  .pharmacy-report-modal .pharmacy-expiry-report-sheet * { visibility: visible; }
+  .pharmacy-report-modal .pharmacy-expiry-report-sheet {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+  .pharmacy-report-modal .no-print { display: none !important; }
+  body:has(.pharmacy-report-modal) .modal-overlay { background: none !important; padding: 0 !important; }
+}
+
+@media (max-width: 400px) {
+	.pharmacy-adjust-modal { width: 100%; padding: 0.9rem; }
+	.pharmacy-adjust-actions { grid-template-columns: 1fr; }
+	.pharmacy-adjust-footer { flex-direction: column-reverse; }
+	.pharmacy-adjust-footer .btn { width: 100%; justify-content: center; }
+}

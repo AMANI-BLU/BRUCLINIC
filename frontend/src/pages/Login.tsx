@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, ArrowRight, KeyRound, Sun, Moon, AlertCircle } from 'lucide-react';
+import { Lock, User, ArrowRight, KeyRound, Sun, Moon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import type { UserRole } from '../types';
@@ -13,6 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -85,7 +86,7 @@ export default function Login() {
 
         <section className="login-right-panel">
           <div className="login-form-header">
-            <h1 className="login-form-title">Staff Sign In</h1>
+            <h1 className="login-form-title">Sign In</h1>
             <p className="login-form-sub">Enter your clinic credentials to access your clinical dashboard.</p>
           </div>
 
@@ -123,7 +124,7 @@ export default function Login() {
                   className="login-input"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  placeholder="e.g. admin or staff username"
+                  placeholder="username"
                   autoComplete="username"
                   disabled={isSubmitting}
                 />
@@ -138,15 +139,27 @@ export default function Login() {
                 <KeyRound size={16} className="login-input-icon" />
                 <input
                   id="login-password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   className="login-input"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="password"
                   autoComplete="current-password"
                   disabled={isSubmitting}
                 />
+                <button
+                  type="button"
+                  className="login-password-toggle"
+                  onClick={() => setShowPassword(current => !current)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  aria-controls="login-password"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+                </button>
               </div>
             </div>
 

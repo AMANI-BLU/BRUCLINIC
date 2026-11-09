@@ -26,6 +26,8 @@ import PharmacyDashboard   from './pages/dashboards/PharmacyDashboard';
 import LaboratoryDashboard from './pages/dashboards/LaboratoryDashboard';
 import SecurityCenter      from './pages/SecurityCenter';
 import AdminBackup         from './pages/AdminBackup';
+import PasswordChangeForm  from './components/PasswordChangeForm';
+import Messages            from './pages/Messages';
 
 // ── Role permission map ───────────────────────────────────────────
 //
@@ -60,10 +62,27 @@ function AppRoutes() {
 
   if (authLoading || maintenanceChecking) {
     return (
-      <div className="d-flex align-items-center justify-content-center min-vh-100">
-        <div className="text-center text-muted">
-          <div className="spinner-border text-primary mb-3" role="status" aria-label="Loading session" />
-          <div>Checking clinic availability…</div>
+      <div className="clinic-bootstrap-skeleton" role="status" aria-label="Loading clinic">
+        <div className="clinic-skeleton-topbar">
+          <span className="clinic-skeleton-block clinic-skeleton-brand" />
+          <span className="clinic-skeleton-block clinic-skeleton-top-actions" />
+        </div>
+        <div className="clinic-skeleton-workspace">
+          <aside className="clinic-skeleton-sidebar">
+            {Array.from({ length: 6 }, (_, index) => <span className="clinic-skeleton-block clinic-skeleton-nav-item" key={index} />)}
+          </aside>
+          <main className="page-visit-skeleton clinic-skeleton-main" aria-hidden="true">
+            <span className="page-skeleton-block page-skeleton-heading" />
+            <div className="page-skeleton-metrics">
+              {Array.from({ length: 4 }, (_, index) => <span className="page-skeleton-block" key={index} />)}
+            </div>
+            <div className="page-skeleton-content">
+              <span className="page-skeleton-block page-skeleton-subheading" />
+              <span className="page-skeleton-block page-skeleton-line" />
+              <span className="page-skeleton-block page-skeleton-line" />
+              <span className="page-skeleton-block page-skeleton-line page-skeleton-line-short" />
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -83,6 +102,10 @@ function AppRoutes() {
   }
 
   const landingPage = roleLandingPage(currentUser?.role);
+
+  if (isAuthenticated && currentUser?.mustChangePassword) {
+    return <PasswordChangeForm forced />;
+  }
 
   return (
     <Routes>
@@ -259,6 +282,14 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute allowed={[...ROLE.ALL]}>
                       <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/messages"
+                  element={
+                    <ProtectedRoute allowed={[...ROLE.ALL]}>
+                      <Messages />
                     </ProtectedRoute>
                   }
                 />

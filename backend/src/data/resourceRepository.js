@@ -36,6 +36,7 @@ const common = {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name',
       visitDate: 'visit_date', diagnosis: 'diagnosis', symptoms: 'symptoms', vitals: 'vitals', prescription: 'prescription',
       labTests: 'lab_tests', notes: 'notes', followUpDate: 'follow_up_date',
+      queueItemId: 'queue_item_id',
     },
     arrays: ['symptoms'], json: ['vitals', 'prescription', 'labTests'], dates: ['visitDate', 'followUpDate'],
     search: ['patient_name', 'doctor_name', 'diagnosis', 'id'], order: 'visit_date DESC, created_at DESC',
@@ -44,7 +45,7 @@ const common = {
     table: 'medicines', prefix: 'MED', required: ['name', 'expiryDate'],
     fields: {
       id: 'id', name: 'name', category: 'category', stock: 'stock', unit: 'unit', expiryDate: 'expiry_date',
-      supplier: 'supplier', minStock: 'min_stock', costPerUnit: 'cost_per_unit',
+      supplier: 'supplier', minStock: 'min_stock', costPerUnit: 'cost_per_unit', imageUrl: 'image_url', addedBy: 'added_by',
     },
     dates: ['expiryDate'], numbers: ['stock', 'minStock', 'costPerUnit'], search: ['name', 'category', 'supplier'], order: 'name ASC',
   },
@@ -60,8 +61,9 @@ const common = {
       labUnit: 'lab_unit', labReferenceRange: 'lab_reference_range', labIsAbnormal: 'lab_is_abnormal', labCompletedAt: 'lab_completed_at', labNotes: 'lab_notes',
       pharmacyOrderId: 'pharmacy_order_id', prescribedMedicines: 'prescribed_medicines', pharmacyStatus: 'pharmacy_status', doctorDiagnosis: 'doctor_diagnosis',
       consultationNotes: 'consultation_notes', completedAt: 'completed_at',
+      externalReferral: 'external_referral',
     },
-    arrays: ['allergies', 'chronicConditions'], json: ['vitals', 'prescribedMedicines'],
+    arrays: ['allergies', 'chronicConditions'], json: ['vitals', 'prescribedMedicines', 'externalReferral'],
     search: ['token_number', 'patient_name', 'patient_id', 'chief_complaint'], order: 'created_at DESC',
   },
   emergency: {
@@ -77,15 +79,16 @@ const common = {
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', orderedAt: 'ordered_at', priority: 'priority',
       testName: 'test_name', category: 'category', specimenType: 'specimen_type', status: 'status', result: 'result', unit: 'unit', referenceRange: 'reference_range',
-      isAbnormal: 'is_abnormal', notes: 'notes', completedAt: 'completed_at',
+      isAbnormal: 'is_abnormal', notes: 'notes', completedAt: 'completed_at', requestGroupId: 'request_group_id', queueItemId: 'queue_item_id',
     },
     search: ['patient_name', 'patient_id', 'doctor_name', 'test_name'], order: 'created_at DESC',
   },
   pharmacyOrders: {
-    table: 'pharmacy_orders', prefix: 'RX', required: ['patientId', 'patientName', 'doctorId', 'doctorName', 'prescribedAt', 'medicines'],
+    table: 'pharmacy_orders', prefix: 'RX', required: ['patientId', 'patientName', 'doctorId', 'doctorName', 'prescribedAt', 'medicines'], readOnly: ['createdAt'],
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', prescribedAt: 'prescribed_at',
-      medicines: 'medicines', status: 'status', dispensedAt: 'dispensed_at', dispensedBy: 'dispensed_by', notes: 'notes',
+      medicines: 'medicines', status: 'status', dispensedAt: 'dispensed_at', dispensedBy: 'dispensed_by', notes: 'notes', createdAt: 'created_at',
+      queueItemId: 'queue_item_id',
     },
     json: ['medicines'], search: ['patient_name', 'patient_id', 'doctor_name', 'status'], order: 'created_at DESC',
   },
@@ -196,7 +199,7 @@ export async function insertResource(resource, body) {
   const item = { ...body, id: body.id || createId(definition.prefix) };
 
   for (const [apiField, dbField] of Object.entries(definition.fields)) {
-    if (item[apiField] === undefined) continue;
+    if (definition.readOnly?.includes(apiField) || item[apiField] === undefined) continue;
     columns.push(dbField);
     values.push(serializeValue(definition, apiField, item[apiField]));
     placeholders.push(`$${values.length}`);
@@ -212,7 +215,7 @@ export async function updateResource(resource, id, changes) {
   const updates = [];
 
   for (const [apiField, dbField] of Object.entries(definition.fields)) {
-    if (apiField === 'id' || changes[apiField] === undefined) continue;
+    if (apiField === 'id' || definition.readOnly?.includes(apiField) || changes[apiField] === undefined) continue;
     values.push(serializeValue(definition, apiField, changes[apiField]));
     updates.push(`${dbField} = $${values.length}`);
   }

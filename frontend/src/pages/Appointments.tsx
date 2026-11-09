@@ -5,6 +5,7 @@ import { Plus, Search, X, Edit2, Trash2, CalendarDays, Clock } from 'lucide-reac
 import { firstError, validateDate, validateRequired, validateTime, validateTextLength, sanitizeInput } from '../utils/validation';
 import { patientCodeFor, patientNameFor, patientOptionLabel } from '../utils/patient';
 import ConfirmModal from '../components/ConfirmModal';
+import ModalPortal from '../components/ModalPortal';
 
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -178,6 +179,7 @@ export default function Appointments() {
 
       {/* Modal */}
       {modal.open && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -243,6 +245,7 @@ export default function Appointments() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Delete Appointment Confirmation Modal */}

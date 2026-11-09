@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
+import ModalPortal from '../../components/ModalPortal';
 import { useAuth } from '../../context/AuthContext';
 import type { ERCase, TriageAcuity } from '../../types';
 import { firstError, validateRequired } from '../../utils/validation';
@@ -273,6 +274,7 @@ export default function EmergencyDashboard() {
 
       {/* Modal: Fast-Track ER Admission */}
       {modalOpen && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -417,6 +419,7 @@ export default function EmergencyDashboard() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

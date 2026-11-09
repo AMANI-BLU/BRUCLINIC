@@ -17,6 +17,108 @@
 
 .action-btns { display: flex; gap: 0.375rem; }
 
+/* Patient registration follows the same compact AdminLTE modal treatment as reception. */
+.patient-register-modal {
+  width: min(96vw, 780px);
+  max-width: 780px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.patient-register-modal .modal-header {
+  position: sticky;
+  top: -1.25rem;
+  z-index: 2;
+  margin: -1.25rem -1.25rem 0.9rem;
+  padding: 1rem 1.25rem 0.8rem;
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-bg-card);
+}
+
+.patient-register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.patient-register-section {
+  padding: 0.9rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+  counter-increment: patient-register-section;
+}
+
+.patient-register-form { counter-reset: patient-register-section; }
+.patient-register-section .form-grid { margin-bottom: 0; }
+.patient-register-section .form-group:last-child { margin-bottom: 0; }
+
+.patient-register-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--clr-text-primary);
+}
+
+.patient-register-section-title::before {
+  content: counter(patient-register-section);
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 1.35rem;
+  border-radius: 50%;
+  background: rgba(0, 123, 255, 0.12);
+  color: var(--clr-primary-400);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.patient-register-section-title > svg { flex: 0 0 auto; }
+
+.patient-register-dispatch-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-hover);
+  cursor: pointer;
+}
+
+.patient-register-dispatch-toggle.selected {
+  border-color: var(--clr-primary-400);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.patient-register-dispatch-toggle input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--clr-primary-500);
+}
+
+.patient-register-dispatch-toggle span,
+.patient-register-dispatch-toggle strong,
+.patient-register-dispatch-toggle small { display: block; }
+.patient-register-dispatch-toggle strong { color: var(--clr-text-primary); font-size: 0.78rem; }
+.patient-register-dispatch-toggle small { margin-top: 0.15rem; color: var(--clr-text-muted); font-size: 0.7rem; }
+
+.patient-register-form .modal-footer { margin-top: 0.25rem; }
+
+@media (max-width: 575.98px) {
+  .patient-register-modal { width: min(100%, 780px); padding: 1rem; }
+  .patient-register-modal .modal-header { top: -1rem; margin: -1rem -1rem 0.8rem; padding: 0.85rem 1rem 0.7rem; }
+  .patient-register-section { padding: 0.75rem; }
+}
+
 /* Modal */
 .modal-header {
   display: flex;

@@ -4,6 +4,31 @@
 
 .settings-page-header {
   margin-bottom: 1rem;
+  align-items: center;
+  gap: 1rem;
+}
+
+.settings-header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+  color: var(--clr-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.settings-header-status span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #198754;
+  box-shadow: 0 0 0 0.18rem rgba(25, 135, 84, 0.12);
 }
 
 .settings-layout {
@@ -19,8 +44,11 @@
   border: 1px solid var(--clr-border);
   background: var(--clr-bg-surface);
   color: var(--clr-text-primary);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 140ms ease, border-color 140ms ease;
 }
+
+.settings-card:hover { box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1); }
 
 .settings-appearance-card,
 .settings-account-card {
@@ -175,7 +203,7 @@
 
 .settings-role-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.55rem;
 }
 
@@ -192,7 +220,21 @@
   font-size: 0.74rem;
 }
 
-.settings-role-item svg { flex: 0 0 auto; color: #198754; }
+.settings-role-item {
+  justify-content: space-between;
+  min-height: 2.75rem;
+  background: var(--clr-bg-surface);
+  text-decoration: none;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.settings-role-item:hover {
+  border-color: var(--clr-primary-400);
+  background: rgba(13, 110, 253, 0.06);
+  color: var(--clr-primary-400);
+}
+
+.settings-role-item svg { flex: 0 0 auto; color: var(--clr-primary-400); }
 
 .settings-clinic-details > div { align-items: flex-start; }
 
@@ -223,8 +265,9 @@
 
 @media (max-width: 575.98px) {
   .settings-choice-grid,
-  .settings-role-list,
-  .settings-quick-links { grid-template-columns: 1fr; }
+  .settings-role-list { grid-template-columns: 1fr; }
+
+  .settings-header-status { align-self: flex-start; }
 
   .settings-details > div {
     align-items: flex-start;

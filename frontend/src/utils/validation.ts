@@ -48,7 +48,7 @@ export function validateEmail(value: string, label = 'Email'): string | undefine
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   if (trimmed.length > 254 || !EMAIL_PATTERN.test(trimmed)) {
-    return `${label} must be a valid email address (e.g. staff@boru.edu.et).`;
+    return `${label} must be a valid email address (e.g. staff@bru.edu.et).`;
   }
   return undefined;
 }

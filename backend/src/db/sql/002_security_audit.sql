@@ -99,5 +99,5 @@ INSERT INTO system_config (key, value, description) VALUES
   ('audit_log_retention_days',       '365',                       'Days to retain audit log rows (min 90)'),
   ('security_event_retention_days',  '180',                       'Days to retain security event rows (min 30)'),
   ('timezone',                       'Africa/Addis_Ababa',        'Clinic local timezone for reports'),
-  ('academic_year',                  '',                          'Current academic year label (e.g. 2025/2026)')
+  ('academic_year',                  '',                            'Current academic year label (e.g. 2025/2026)')
 ON CONFLICT (key) DO NOTHING;

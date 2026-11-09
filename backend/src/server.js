@@ -31,6 +31,7 @@ import { createResourceHandler } from './routes/resources.js';
 import { workflowHandler } from './routes/workflows.js';
 import { dashboardSummaryHandler } from './routes/dashboard.js';
 import { adminHandler } from './routes/admin.js';
+import { messagesHandler } from './routes/messages.js';
 import { readJson, sendError, setCors, setSecurityHeaders } from './utils/http.js';
 import { getSystemConfig, isMaintenanceMode } from './services/systemConfig.js';
 import { resourceDefinitions } from './data/resourceRepository.js';
@@ -157,6 +158,10 @@ const server = http.createServer(async (request, response) => {
     // 8f. Clinical workflows
     if (segments[1] === 'workflows') {
       return await workflowHandler(request, response, segments);
+    }
+
+    if (segments[1] === 'messages') {
+      return await messagesHandler(request, response, segments);
     }
 
     // 8g. Resource CRUD

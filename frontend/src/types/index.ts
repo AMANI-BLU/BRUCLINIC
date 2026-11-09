@@ -20,7 +20,7 @@ export interface Patient {
   address: string;
   patientType: PatientType;
   department?: string;
-  bloodGroup?: BloodGroup;
+  bloodGroup?: BloodGroup | null;
   allergies?: string[];
   chronicConditions?: string[];
   emergencyContactName: string;
@@ -70,6 +70,14 @@ export interface MedicalRecord {
   labTests?: LabTest[];
   notes: string;
   followUpDate?: string;
+  queueItemId?: string;
+  vitals?: Vitals;
+  externalReferral?: {
+    destination: string;
+    reason: string;
+    referredBy?: string;
+    referredAt?: string;
+  };
 }
 
 export interface Prescription {
@@ -78,6 +86,7 @@ export interface Prescription {
   frequency: string;
   duration: string;
   instructions?: string;
+  isExternal?: boolean;
 }
 
 export interface LabTest {
@@ -98,6 +107,10 @@ export interface MedicineItem {
   supplier: string;
   minStock: number;
   costPerUnit: number;
+  /** Uploaded medicine photo (inline data URL) */
+  imageUrl?: string;
+  /** Staff member who added this medicine to the catalogue */
+  addedBy?: string;
 }
 
 export interface DashboardStats {
@@ -123,13 +136,14 @@ export interface UserProfile {
   badgeColor: string;
   email: string;
   isActive?: boolean;
+  mustChangePassword?: boolean;
   createdAt?: string;
 }
 
 export interface CreateStaffInput {
   name: string;
   username: string;
-  password: string;
+  password?: string;
   role: UserRole;
   roleTitle?: string;
   department?: string;
@@ -202,6 +216,7 @@ export interface ClinicQueueItem {
   doctorDiagnosis?: string;
   consultationNotes?: string;
   completedAt?: string;
+  externalReferral?: { destination: string; reason: string; referredAt: string; referredBy: string };
 }
 
 // ── Emergency (ER) Case ──
@@ -235,7 +250,7 @@ export interface LabOrder {
   orderedAt: string;
   priority: Priority;
   testName: string;
-  category: 'Hematology' | 'Biochemistry' | 'Parasitology' | 'Microbiology' | 'Serology' | 'Urinalysis';
+  category: string;
   specimenType: string;
   status: 'Requested' | 'Sample Collected' | 'Analyzing' | 'Completed';
   result?: string;
@@ -244,6 +259,8 @@ export interface LabOrder {
   isAbnormal?: boolean;
   notes?: string;
   completedAt?: string;
+  requestGroupId?: string;
+  queueItemId?: string;
 }
 
 // ── Pharmacy Dispense Queue ──
@@ -254,6 +271,7 @@ export interface PharmacyOrder {
   doctorId: string;
   doctorName: string;
   prescribedAt: string;
+  createdAt?: string;
   medicines: {
     medicineId?: string;
     name: string;
@@ -262,11 +280,13 @@ export interface PharmacyOrder {
     duration: string;
     quantity: number;
     instructions?: string;
+    isExternal?: boolean;
   }[];
   status: 'Pending' | 'Dispensed' | 'Partial' | 'Cancelled';
   dispensedAt?: string;
   dispensedBy?: string;
   notes?: string;
+  queueItemId?: string;
 }
 
 // ── Security Center Types ──────────────────────────────────────────

@@ -122,21 +122,38 @@
 .backup-option,
 .backup-mode {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.65rem 0.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
   border: 1px solid var(--clr-border);
-  border-radius: 8px;
+  border-radius: 0.25rem;
   cursor: pointer;
   font-size: 0.8rem;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.backup-option:hover {
+  border-color: var(--clr-border-hi);
+  background: var(--clr-bg-hover);
+}
+
+.backup-option.selected {
+  border-color: var(--clr-primary-400);
+  background: rgba(37, 99, 235, 0.06);
+  box-shadow: inset 3px 0 0 var(--clr-primary-500);
 }
 
 .backup-option input,
 .backup-mode input {
-  margin-top: 0.15rem;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
   accent-color: var(--clr-primary-500);
 }
 
+.backup-option-content { display: grid; gap: 0.25rem; min-width: 0; }
+.backup-option-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
 .backup-option strong,
 .backup-mode strong {
   display: block;
@@ -150,6 +167,25 @@
   color: var(--clr-text-muted);
   font-size: 0.72rem;
   margin-top: 0.1rem;
+}
+
+.backup-option-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.15rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.backup-option-badge.sensitive { background: rgba(220, 53, 69, 0.12); color: #c82333; }
+.backup-option-badge.optional { background: rgba(108, 117, 125, 0.12); color: var(--clr-text-secondary); }
+
+@media (max-width: 575.98px) {
+  .backup-option { align-items: flex-start; padding: 0.75rem; }
+  .backup-option input { margin-top: 0.12rem; }
 }
 
 .backup-mode-grid {

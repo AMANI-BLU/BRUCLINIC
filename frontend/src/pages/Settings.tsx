@@ -1,14 +1,19 @@
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
+import { apiGet, apiPost } from '../api/client';
+import PasswordChangeForm from '../components/PasswordChangeForm';
+import PasswordField from '../components/PasswordField';
+import { NavLink } from 'react-router-dom';
 import {
+  ArrowUpRight,
   Activity,
-  BarChart3,
   Building2,
   Check,
   ClipboardList,
-  Clock3,
-  FileText,
+  Eye,
+  EyeOff,
   FlaskConical,
   KeyRound,
   Moon,
@@ -24,7 +29,7 @@ interface RoleSetting {
   label: string;
   description: string;
   icon: typeof Users;
-  items: string[];
+  items: Array<{ label: string; to: string }>;
 }
 
 const ROLE_SETTINGS: Record<UserRole, RoleSetting> = {
@@ -32,37 +37,62 @@ const ROLE_SETTINGS: Record<UserRole, RoleSetting> = {
     label: 'Administration workspace',
     description: 'Manage clinic access, operational setup, and reporting.',
     icon: ShieldCheck,
-    items: ['Staff accounts', 'Clinic-wide reports', 'Department access'],
+    items: [
+      { label: 'Staff accounts', to: '/staff-accounts' },
+      { label: 'Clinic-wide reports', to: '/reports' },
+      { label: 'Security center', to: '/security' },
+    ],
   },
   receptionist: {
     label: 'Reception workspace',
     description: 'Keep patient registration and OPD requests moving quickly.',
     icon: ClipboardList,
-    items: ['Patient cards', 'OPD requests', 'Appointments'],
+    items: [
+      { label: 'Patient cards', to: '/patients' },
+      { label: 'OPD requests', to: '/reception' },
+      { label: 'Medical records', to: '/records' },
+      { label: 'Appointments', to: '/appointments' },
+    ],
   },
   opd: {
     label: 'OPD workspace',
     description: 'Focus on consultations, referrals, and patient records.',
     icon: Activity,
-    items: ['Consultation queue', 'Medical records', 'Laboratory requests'],
+    items: [
+      { label: 'Consultation queue', to: '/opd' },
+      { label: 'Medical records', to: '/records' },
+      { label: 'Appointments', to: '/appointments' },
+    ],
   },
   emergency: {
     label: 'Emergency workspace',
     description: 'Keep triage and urgent patient movement visible.',
     icon: Activity,
-    items: ['Emergency queue', 'Triage status', 'Patient history'],
+    items: [
+      { label: 'Emergency queue', to: '/emergency' },
+      { label: 'Patient cards', to: '/patients' },
+      { label: 'Medical records', to: '/records' },
+    ],
   },
   pharmacy: {
     label: 'Pharmacy workspace',
     description: 'Process prescriptions and monitor dispensary stock.',
     icon: Pill,
-    items: ['Prescription queue', 'Inventory', 'Dispensing history'],
+    items: [
+      { label: 'Prescription queue', to: '/pharmacy-board' },
+      { label: 'Inventory', to: '/pharmacy' },
+      { label: 'Medical records', to: '/records' },
+    ],
   },
   laboratory: {
     label: 'Laboratory workspace',
     description: 'Track diagnostic work and release verified results.',
     icon: FlaskConical,
-    items: ['Pending tests', 'Specimen workflow', 'Results verification'],
+    items: [
+      { label: 'Laboratory queue', to: '/laboratory' },
+      { label: 'Medical records', to: '/records' },
+      { label: 'Patient cards', to: '/patients' },
+    ],
   },
 };
 
@@ -73,9 +103,49 @@ const themeOptions = [
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, role } = useAuth();
+  const { currentUser, role, token } = useAuth();
   const roleSetting = ROLE_SETTINGS[role];
   const RoleIcon = roleSetting.icon;
+  const [defaultPassword, setDefaultPassword] = useState('');
+  const [defaultPasswordConfigured, setDefaultPasswordConfigured] = useState(false);
+  const [defaultPasswordValue, setDefaultPasswordValue] = useState<string | null>(null);
+  const [showDefaultPassword, setShowDefaultPassword] = useState(false);
+  const [defaultPasswordMessage, setDefaultPasswordMessage] = useState('');
+  const [defaultPasswordError, setDefaultPasswordError] = useState('');
+  const [savingDefaultPassword, setSavingDefaultPassword] = useState(false);
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+    apiGet<{ configured: boolean; password?: string | null }>('/admin/default-password', token)
+      .then(result => {
+        setDefaultPasswordConfigured(result.configured);
+        setDefaultPasswordValue(result.password ?? null);
+      })
+      .catch(error => setDefaultPasswordError(error instanceof Error ? error.message : 'Could not load default password status.'));
+  }, [role, token]);
+
+  const saveDefaultPassword = async (event: FormEvent) => {
+    event.preventDefault();
+    setDefaultPasswordError('');
+    setDefaultPasswordMessage('');
+    if (defaultPassword.length < 8) {
+      setDefaultPasswordError('Use at least 8 characters.');
+      return;
+    }
+    setSavingDefaultPassword(true);
+    const savedPassword = defaultPassword;
+    try {
+      const result = await apiPost<{ message: string }>('/admin/default-password', { password: savedPassword }, token);
+      setDefaultPasswordConfigured(true);
+      setDefaultPasswordValue(savedPassword);
+      setDefaultPassword('');
+      setDefaultPasswordMessage(result.message);
+    } catch (error) {
+      setDefaultPasswordError(error instanceof Error ? error.message : 'Could not update the default password.');
+    } finally {
+      setSavingDefaultPassword(false);
+    }
+  };
 
   return (
     <div className="settings-page">
@@ -84,10 +154,13 @@ export default function Settings() {
           <h1 className="page-title">Settings</h1>
           <p className="page-subtitle">Personal preferences and {roleSetting.label.toLowerCase()}.</p>
         </div>
+        <div className="settings-header-status" aria-label={`${theme} theme active`}>
+          <span /> {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+        </div>
       </div>
 
       <div className="settings-layout">
-        <section className="card settings-card settings-appearance-card">
+        <section className="card card-outline card-primary settings-card settings-appearance-card">
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-blue"><Sun size={18} /></div>
             <div>
@@ -119,7 +192,7 @@ export default function Settings() {
           </div>
         </section>
 
-        <section className="card settings-card settings-account-card">
+        <section className="card card-outline card-success settings-card settings-account-card">
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-green"><UserRound size={18} /></div>
             <div>
@@ -144,12 +217,69 @@ export default function Settings() {
             <div><dt>Department</dt><dd>{currentUser?.department || '—'}</dd></div>
           </dl>
 
-          <div className="settings-note">
-            <KeyRound size={15} /> Password changes are managed by an administrator.
-          </div>
         </section>
 
-        <section className="card settings-card settings-role-card">
+        <PasswordChangeForm />
+
+        {role === 'admin' && (
+          <section className="card card-outline card-warning settings-card">
+            <div className="settings-card-heading">
+              <div className="settings-icon settings-icon-orange"><KeyRound size={18} /></div>
+              <div>
+                <h2>Default staff password</h2>
+                <p>New staff accounts use this temporary password and must change it at first sign-in.</p>
+              </div>
+            </div>
+            {defaultPasswordConfigured && (
+              defaultPasswordValue ? (
+                <div className="mb-3">
+                  <span className="form-label d-block" style={{ marginBottom: 4 }}>Current default password</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <code
+                      style={{
+                        flex: '1 1 200px',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: 6,
+                        border: '1px solid var(--clr-border)',
+                        background: 'var(--clr-bg-surface)',
+                        color: 'var(--clr-text-primary)',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                        fontSize: '0.84rem',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {showDefaultPassword ? defaultPasswordValue : '•'.repeat(defaultPasswordValue.length)}
+                    </code>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setShowDefaultPassword(current => !current)}
+                      aria-pressed={showDefaultPassword}
+                      aria-label={showDefaultPassword ? 'Hide default password' : 'Show default password'}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      {showDefaultPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      {showDefaultPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="alert alert-info py-2">
+                  A default password is configured but was saved before it could be displayed. Save it again to see it here.
+                </div>
+              )
+            )}
+            {defaultPasswordError && <div className="alert alert-danger py-2" role="alert">{defaultPasswordError}</div>}
+            {defaultPasswordMessage && <div className="alert alert-success py-2" role="status">{defaultPasswordMessage}</div>}
+            <form onSubmit={saveDefaultPassword}>
+              <label className="form-label" htmlFor="default-staff-password">New default password</label>
+              <PasswordField id="default-staff-password" className="form-control mb-3" autoComplete="new-password" value={defaultPassword} onChange={event => setDefaultPassword(event.target.value)} minLength={8} required />
+              <button type="submit" className="btn btn-warning" disabled={savingDefaultPassword}>{savingDefaultPassword ? 'Saving…' : 'Save default password'}</button>
+            </form>
+          </section>
+        )}
+
+        <section className="card card-outline card-info settings-card settings-role-card">
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-purple"><RoleIcon size={18} /></div>
             <div>
@@ -160,15 +290,15 @@ export default function Settings() {
 
           <div className="settings-role-list">
             {roleSetting.items.map(item => (
-              <div className="settings-role-item" key={item}>
-                <Check size={15} />
-                <span>{item}</span>
-              </div>
+              <NavLink className="settings-role-item" key={item.to} to={item.to}>
+                <span>{item.label}</span>
+                <ArrowUpRight size={14} />
+              </NavLink>
             ))}
           </div>
         </section>
 
-        <section className="card settings-card settings-clinic-card">
+        <section className="card card-outline card-warning settings-card settings-clinic-card">
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-orange"><Building2 size={18} /></div>
             <div>
@@ -184,20 +314,6 @@ export default function Settings() {
           </div>
         </section>
 
-        <section className="card settings-card settings-help-card">
-          <div className="settings-card-heading">
-            <div className="settings-icon settings-icon-gray"><Clock3 size={18} /></div>
-            <div>
-              <h2>Quick access</h2>
-              <p>Use the sidebar for your available clinic tools.</p>
-            </div>
-          </div>
-          <div className="settings-quick-links">
-            <span><Users size={15} /> Staff directory</span>
-            <span><FileText size={15} /> Patient records</span>
-            <span><BarChart3 size={15} /> Reports</span>
-          </div>
-        </section>
       </div>
     </div>
   );

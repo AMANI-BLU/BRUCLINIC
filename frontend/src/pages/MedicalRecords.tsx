@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
+import { useAuth } from '../context/AuthContext';
 import InfoBox from '../components/AdminLTE/InfoBox';
-import type { MedicalRecord, Patient } from '../types';
+import type { MedicalRecord, Patient, LabOrder, PharmacyOrder } from '../types';
 import { findPatient, patientCode, patientFullName, patientInitials, patientOptionLabel, patientTypeClass } from '../utils/patient';
 import { firstError, validateDate, validateRequired } from '../utils/validation';
 import {
   Activity, Calendar, CheckCircle2, Clock, Eye, FilePlus, FileText,
-  FlaskConical, Pill, Plus, Search, Stethoscope, X,
+  FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2, HeartPulse,
+  PackageCheck, ClipboardCheck, CircleDashed, Ban
 } from 'lucide-react';
 import './Patients.css';
 import './MedicalRecords.css';
+import DiagnosisField from '../components/DiagnosisField';
+import ModalPortal from '../components/ModalPortal';
 
 function getInitials(name: string) {
   const parts = name.replace(/^Dr\.\s*/i, '').trim().split(/\s+/);
@@ -19,30 +23,76 @@ function getInitials(name: string) {
 
 type RecordFilter = 'all' | 'rx' | 'lab' | 'followup';
 
+interface RecordLinks {
+  labOrders: LabOrder[];
+  pharmacyOrders: PharmacyOrder[];
+}
+
+function orderMatchesRecord(
+  record: MedicalRecord,
+  order: { patientId: string; queueItemId?: string; orderedAt?: string; prescribedAt?: string; createdAt?: string },
+) {
+  const recordQueueId = record.queueItemId;
+  if (order.queueItemId && recordQueueId) return order.queueItemId === recordQueueId;
+  if (order.queueItemId && !recordQueueId) return false;
+  return order.patientId === record.patientId
+    && (order.orderedAt || order.prescribedAt || order.createdAt || '').slice(0, 10) === record.visitDate;
+}
+
+function buildRecordLinks(records: MedicalRecord[], labOrders: LabOrder[], pharmacyOrders: PharmacyOrder[]) {
+  const map = new Map<string, RecordLinks>();
+  for (const record of records) {
+    map.set(record.id, {
+      labOrders: labOrders.filter(order => orderMatchesRecord(record, order)),
+      pharmacyOrders: pharmacyOrders.filter(order => orderMatchesRecord(record, order)),
+    });
+  }
+  return map;
+}
+
+function labTestCount(record: MedicalRecord, links?: RecordLinks) {
+  const recorded = record.labTests?.length || 0;
+  const extraOrders = (links?.labOrders || []).filter(
+    order => !(record.labTests || []).some(test => test.testName.toLowerCase() === order.testName.toLowerCase()),
+  ).length;
+  return recorded + extraOrders;
+}
+
+function pharmacyStatusTone(status?: PharmacyOrder['status']) {
+  if (status === 'Dispensed') return 'green';
+  if (status === 'Pending') return 'amber';
+  if (status === 'Cancelled') return 'red';
+  return 'blue';
+}
+
 export default function MedicalRecords() {
-  const { records, patients, doctors, addRecord } = useClinic();
+  const { records, patients, doctors, labOrders, pharmacyOrders, addRecord } = useClinic();
+  const { role } = useAuth();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<RecordFilter>('all');
   const [modal, setModal] = useState<{ mode: 'view' | 'add' | null; record?: MedicalRecord }>({ mode: null });
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     patientId: '', doctorId: '', visitDate: new Date().toISOString().split('T')[0],
     diagnosis: '', symptoms: '', notes: '', followUpDate: '', medications: '',
   });
 
-  const prescriptionRecords = records.filter(record => (record.prescription?.length || 0) > 0).length;
-  const labRecords = records.filter(record => (record.labTests?.length || 0) > 0).length;
+  const canAddRecord = role === 'admin' || role === 'opd' || role === 'emergency';
+  const recordLinks = buildRecordLinks(records, labOrders, pharmacyOrders);
+  const prescriptionRecords = records.filter(record => (record.prescription?.length || 0) > 0 || (recordLinks.get(record.id)?.pharmacyOrders.length || 0) > 0).length;
+  const labRecords = records.filter(record => labTestCount(record, recordLinks.get(record.id)) > 0).length;
   const followUpRecords = records.filter(record => Boolean(record.followUpDate)).length;
   const totalPrescriptions = records.reduce((total, record) => total + (record.prescription?.length || 0), 0);
-  const totalLabTests = records.reduce((total, record) => total + (record.labTests?.length || 0), 0);
+  const totalLabTests = records.reduce((total, record) => total + labTestCount(record, recordLinks.get(record.id)), 0);
 
   const filtered = records.filter(record => {
     const query = search.toLowerCase().trim();
     const patient = findPatient(patients, record.patientId);
     const searchable = `${record.patientName} ${patientFullName(patient, '')} ${patientCode(patient, '')} ${record.doctorName} ${record.diagnosis} ${record.id} ${record.symptoms.join(' ')}`.toLowerCase();
     if (query && !searchable.includes(query)) return false;
-    if (activeFilter === 'rx') return (record.prescription?.length || 0) > 0;
-    if (activeFilter === 'lab') return (record.labTests?.length || 0) > 0;
+    if (activeFilter === 'rx') return (record.prescription?.length || 0) > 0 || (recordLinks.get(record.id)?.pharmacyOrders.length || 0) > 0;
+    if (activeFilter === 'lab') return labTestCount(record, recordLinks.get(record.id)) > 0;
     if (activeFilter === 'followup') return Boolean(record.followUpDate);
     return true;
   });
@@ -55,15 +105,33 @@ export default function MedicalRecords() {
       diagnosis: '', symptoms: '', notes: '', followUpDate: '', medications: '',
     });
     setFormError(null);
+    setFieldErrors({});
     setModal({ mode: 'add' });
+  };
+
+  const updateFormField = (field: keyof typeof form, value: string) => {
+    setForm(current => ({ ...current, [field]: value }));
+    setFieldErrors(current => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const requiredErrors = validateRequired(form, {
+    const errors: Record<string, string> = validateRequired(form, {
       patientId: 'Patient', doctorId: 'Doctor', visitDate: 'Visit date', diagnosis: 'Diagnosis',
     });
-    const error = firstError(...Object.values(requiredErrors), validateDate(form.visitDate, 'Visit date', { allowFuture: false }), form.followUpDate ? validateDate(form.followUpDate, 'Follow-up date') : undefined);
+    const visitDateError = validateDate(form.visitDate, 'Visit date', { allowFuture: false });
+    const followUpDateError = form.followUpDate ? validateDate(form.followUpDate, 'Follow-up date', { allowFuture: false }) : undefined;
+    if (visitDateError) errors.visitDate = visitDateError;
+    if (followUpDateError) errors.followUpDate = followUpDateError;
+    if (form.followUpDate && form.visitDate && form.followUpDate < form.visitDate) {
+      errors.followUpDate = 'Follow-up date must be on or after the visit date.';
+    }
+    setFieldErrors(errors);
+    const error = firstError(...Object.values(errors));
     if (error) {
       setFormError(error);
       return;
@@ -71,7 +139,11 @@ export default function MedicalRecords() {
     const patient = patients.find(item => item.id === form.patientId);
     const doctor = doctors.find(item => item.id === form.doctorId);
     if (!patient || !doctor) {
-      setFormError('Select a valid patient and doctor.');
+      setFieldErrors(current => ({
+        ...current,
+        ...(!patient ? { patientId: 'Select a valid patient.' } : {}),
+        ...(!doctor ? { doctorId: 'Select a valid doctor.' } : {}),
+      }));
       return;
     }
 
@@ -91,13 +163,14 @@ export default function MedicalRecords() {
         followUpDate: form.followUpDate || undefined,
       });
       setFormError(null);
+      setFieldErrors({});
       setModal({ mode: null });
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not save the record.');
     }
   };
 
-  const closeModal = () => { setFormError(null); setModal({ mode: null }); };
+  const closeModal = () => { setFormError(null); setFieldErrors({}); setModal({ mode: null }); };
 
   return (
     <div className="medical-records-page">
@@ -109,9 +182,11 @@ export default function MedicalRecords() {
           </h1>
           <p className="page-subtitle">{records.length} clinical encounter records</p>
         </div>
-        <button type="button" className="btn btn-primary" id="add-record-btn" onClick={openAdd}>
-          <Plus size={16} /> New Record
-        </button>
+        {canAddRecord && (
+          <button type="button" className="btn btn-primary" id="add-record-btn" onClick={openAdd}>
+            <Plus size={16} /> New Record
+          </button>
+        )}
       </div>
 
       <div className="records-stats">
@@ -158,8 +233,8 @@ export default function MedicalRecords() {
       </div>
 
       {/* Table matching Patients.tsx */}
-      <div className="table-wrapper">
-        <table>
+      <div className="table-wrapper records-table-wrapper">
+        <table className="records-table">
           <thead>
             <tr>
               <th>Patient</th>
@@ -184,6 +259,7 @@ export default function MedicalRecords() {
                 key={record.id}
                 record={record}
                 patient={findPatient(patients, record.patientId)}
+                links={recordLinks.get(record.id)}
                 onView={() => setModal({ mode: 'view', record })}
               />
             ))}
@@ -192,6 +268,7 @@ export default function MedicalRecords() {
       </div>
 
       {modal.mode && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal modal-lg records-modal" onClick={event => event.stopPropagation()}>
             <div className="modal-header records-modal-header">
@@ -217,29 +294,40 @@ export default function MedicalRecords() {
                 <div className="records-form-grid">
                   <div className="form-group">
                     <label className="form-label">Patient *</label>
-                    <select required value={form.patientId} onChange={event => setForm(current => ({ ...current, patientId: event.target.value }))}>
+                    <select required aria-invalid={Boolean(fieldErrors.patientId)} aria-describedby={fieldErrors.patientId ? 'record-patient-error' : undefined} value={form.patientId} onChange={event => updateFormField('patientId', event.target.value)}>
                       <option value="">Select patient</option>
                       {patients.map(patient => <option key={patient.id} value={patient.id}>{patientOptionLabel(patient)}</option>)}
                     </select>
+                    {fieldErrors.patientId && <small className="records-field-error" id="record-patient-error">{fieldErrors.patientId}</small>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Doctor *</label>
-                    <select required value={form.doctorId} onChange={event => setForm(current => ({ ...current, doctorId: event.target.value }))}>
+                    <select required aria-invalid={Boolean(fieldErrors.doctorId)} aria-describedby={fieldErrors.doctorId ? 'record-doctor-error' : undefined} value={form.doctorId} onChange={event => updateFormField('doctorId', event.target.value)}>
                       <option value="">Select doctor</option>
                       {doctors.map(doctor => <option key={doctor.id} value={doctor.id}>{doctor.firstName} {doctor.lastName}</option>)}
                     </select>
+                    {fieldErrors.doctorId && <small className="records-field-error" id="record-doctor-error">{fieldErrors.doctorId}</small>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Visit date *</label>
-                    <input required type="date" value={form.visitDate} onChange={event => setForm(current => ({ ...current, visitDate: event.target.value }))} />
+                    <input required type="date" aria-invalid={Boolean(fieldErrors.visitDate)} aria-describedby={fieldErrors.visitDate ? 'record-visit-date-error' : undefined} value={form.visitDate} onChange={event => updateFormField('visitDate', event.target.value)} />
+                    {fieldErrors.visitDate && <small className="records-field-error" id="record-visit-date-error">{fieldErrors.visitDate}</small>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Follow-up date</label>
-                    <input type="date" value={form.followUpDate} onChange={event => setForm(current => ({ ...current, followUpDate: event.target.value }))} />
+                    <input type="date" aria-invalid={Boolean(fieldErrors.followUpDate)} aria-describedby={fieldErrors.followUpDate ? 'record-followup-date-error' : undefined} value={form.followUpDate} onChange={event => updateFormField('followUpDate', event.target.value)} />
+                    {fieldErrors.followUpDate && <small className="records-field-error" id="record-followup-date-error">{fieldErrors.followUpDate}</small>}
                   </div>
-                  <div className="form-group records-form-span-2">
-                    <label className="form-label">Diagnosis *</label>
-                    <input required value={form.diagnosis} onChange={event => setForm(current => ({ ...current, diagnosis: event.target.value }))} placeholder="Primary diagnosis" />
+                  <div className="records-form-span-2">
+                    <DiagnosisField
+                      label="Diagnosis"
+                      required
+                      value={form.diagnosis}
+                      onChange={diagnosis => updateFormField('diagnosis', diagnosis)}
+                      diagnoses={records.map(record => record.diagnosis)}
+                      placeholder="Primary diagnosis"
+                    />
+                    {fieldErrors.diagnosis && <small className="records-field-error" role="alert">{fieldErrors.diagnosis}</small>}
                   </div>
                   <div className="form-group records-form-span-2">
                     <label className="form-label">Symptoms <span>(comma separated)</span></label>
@@ -262,6 +350,7 @@ export default function MedicalRecords() {
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );
@@ -278,12 +367,17 @@ function RecordStat({ tone, icon, value, label }: {
   );
 }
 
-function RecordRow({ record, patient, onView }: {
+function RecordRow({ record, patient, links, onView }: {
   record: MedicalRecord;
   patient?: Patient;
+  links?: RecordLinks;
   onView: () => void;
 }) {
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
+  const labCount = labTestCount(record, links);
+  const pharmacyOrder = links?.pharmacyOrders.at(-1);
+  const medicationCount = (record.prescription?.length || 0) || pharmacyOrder?.medicines.length || 0;
+  const hasItems = medicationCount > 0 || labCount > 0 || Boolean(pharmacyOrder);
 
   return (
     <tr>
@@ -303,7 +397,7 @@ function RecordRow({ record, patient, onView }: {
       </td>
       <td>
         <div style={{ fontWeight: 600, color: 'var(--clr-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Activity size={14} style={{ color: 'var(--clr-primary-400)' }} />
+          <span className="record-diagnosis-icon"><Activity size={13} /></span>
           <span>{record.diagnosis}</span>
         </div>
         {record.symptoms.length > 0 && (
@@ -314,7 +408,7 @@ function RecordRow({ record, patient, onView }: {
       </td>
       <td>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem' }}>
-          <Stethoscope size={14} style={{ color: 'var(--clr-primary-400)' }} />
+          <span className="record-doctor-icon"><Stethoscope size={13} /></span>
           <span>{record.doctorName}</span>
         </div>
       </td>
@@ -330,27 +424,33 @@ function RecordRow({ record, patient, onView }: {
         )}
       </td>
       <td>
-        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-          {record.prescription?.length ? (
-            <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>
-              <Pill size={11} /> {record.prescription.length} Rx
+        <div className="records-items">
+          {medicationCount > 0 && (
+            <span className="record-item-chip record-item-chip-green" title={`${medicationCount} prescribed medication(s)`}>
+              <span className="record-item-chip-icon"><Pill size={12} /></span>
+              {medicationCount} Rx
             </span>
-          ) : null}
-          {record.labTests?.length ? (
-            <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
-              <FlaskConical size={11} /> {record.labTests.length} Lab
-            </span>
-          ) : null}
-          {!record.prescription?.length && !record.labTests?.length && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)' }}>—</span>
           )}
+          {labCount > 0 && (
+            <span className="record-item-chip record-item-chip-blue" title={`${labCount} laboratory investigation(s)`}>
+              <span className="record-item-chip-icon"><FlaskConical size={12} /></span>
+              {labCount} Lab
+            </span>
+          )}
+          {pharmacyOrder && (
+            <span className={`record-item-chip record-item-chip-${pharmacyStatusTone(pharmacyOrder.status)}`} title={`Pharmacy order ${pharmacyOrder.id} · ${pharmacyOrder.status}`}>
+              <span className="record-item-chip-icon"><PackageCheck size={12} /></span>
+              Pharmacy: {pharmacyOrder.status}
+            </span>
+          )}
+          {!hasItems && <span style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)' }}>—</span>}
         </div>
       </td>
       <td style={{ textAlign: 'right' }}>
         <div className="action-btns" style={{ justifyContent: 'flex-end' }}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm btn-icon"
+            className="btn btn-secondary btn-sm btn-icon records-view-btn"
             onClick={onView}
             title="View record"
           >
@@ -362,19 +462,71 @@ function RecordRow({ record, patient, onView }: {
   );
 }
 
+function StepStatus({ label, tone }: { label: string; tone: 'green' | 'amber' | 'red' | 'blue' | 'gray' }) {
+  return <span className={`record-step-status record-step-status-${tone}`}>{label}</span>;
+}
+
 function RecordView({ record }: { record: MedicalRecord }) {
-  const { patients } = useClinic();
+  const { patients, queue, labOrders, pharmacyOrders } = useClinic();
   const patient = findPatient(patients, record.patientId);
-  const labTests = record.labTests ?? [];
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
+  const linkedQueueItem = (record.queueItemId ? queue.find(q => q.id === record.queueItemId) : null) || queue.find(q => q.patientId === record.patientId);
+  const vitals = record.vitals || linkedQueueItem?.vitals;
+  const externalRef = record.externalReferral || (linkedQueueItem?.externalReferral as { destination: string; reason: string; referredBy?: string; referredAt?: string } | undefined);
+  const linkedLabOrders = labOrders.filter(order => orderMatchesRecord(record, order));
+  const linkedPharmacyOrders = pharmacyOrders.filter(order => orderMatchesRecord(record, order));
+
+  const labRows = (() => {
+    const map = new Map<string, { key: string; testName: string; result?: string; unit?: string; referenceRange?: string; status: string; priority?: string; notes?: string }>();
+    for (const test of record.labTests || []) {
+      map.set(test.testName.toLowerCase(), { key: `record-${test.testName}`, ...test });
+    }
+    for (const order of linkedLabOrders) {
+      map.set(order.testName.toLowerCase(), {
+        key: order.id,
+        testName: order.testName,
+        result: order.result,
+        unit: order.unit,
+        referenceRange: order.referenceRange,
+        status: order.status,
+        priority: order.priority,
+        notes: order.notes,
+      });
+    }
+    return Array.from(map.values());
+  })();
+
+  const pharmacyRows = record.prescription?.length
+    ? record.prescription.map(item => ({
+        name: item.medication,
+        instructions: item.instructions,
+        isExternal: item.isExternal,
+        quantity: undefined as number | undefined,
+      }))
+    : linkedPharmacyOrders.flatMap(order => order.medicines.map(medicine => ({
+        name: medicine.name,
+        instructions: medicine.instructions,
+        isExternal: medicine.isExternal,
+        quantity: medicine.quantity,
+      })));
+
+  const allLabsCompleted = labRows.length === 0 || labRows.every(row => row.status === 'Completed');
+  const allPharmacyDispensed = linkedPharmacyOrders.length === 0 || linkedPharmacyOrders.every(order => order.status === 'Dispensed');
+  const closed = linkedQueueItem?.stage === 'Completed';
+  const completedSteps = 2
+    + (vitals ? 1 : 0)
+    + (record.diagnosis ? 1 : 0)
+    + (allLabsCompleted ? 1 : 0)
+    + (allPharmacyDispensed ? 1 : 0);
+  const journeyPercent = Math.round((completedSteps / 6) * 100);
 
   return (
-    <div className="patient-view">
-      <div className="pv-header">
-        <div className="pv-avatar">{initials}</div>
-        <div>
-          <div className="pv-name">{patientFullName(patient, record.patientName)}</div>
-          <div className="pv-id" style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.2rem' }}>
+    <div className="record-detail">
+      <header className="record-detail-summary">
+        <div className="record-detail-avatar">{initials}</div>
+        <div className="record-detail-patient">
+          <h3>{patientFullName(patient, record.patientName)}</h3>
+          <div className="record-detail-identifiers">
             <code className="id-code">{patientCode(patient, record.patientId)}</code>
             {patient?.patientType && (
               <span className={`badge ${patient.patientType === 'Student' ? 'badge-blue' : 'badge-gray'}`}>
@@ -382,77 +534,210 @@ function RecordView({ record }: { record: MedicalRecord }) {
               </span>
             )}
             {patient?.bloodGroup && <span className="badge badge-red">Blood: {patient.bloodGroup}</span>}
+            {patient?.department && <span className="badge badge-secondary">{patient.department}</span>}
+            {closed && <span className="badge badge-green"><CheckCircle2 size={11} /> Visit closed</span>}
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Visit Date</span>
-          <strong style={{ display: 'block', fontSize: '0.88rem', color: 'var(--clr-text-primary)' }}>{record.visitDate}</strong>
+        <div className="record-detail-date">
+          <span><Calendar size={12} /> Encounter Date</span>
+          <strong>{record.visitDate}</strong>
         </div>
-      </div>
+      </header>
 
-      <div className="pv-grid" style={{ marginBottom: '1.25rem' }}>
-        <div className="pv-item">
-          <div className="pv-label">Doctor</div>
-          <div className="pv-value" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Stethoscope size={14} style={{ color: 'var(--clr-primary-400)' }} /> {record.doctorName}
+      {/* Process Journey Through Clinic Departments */}
+      <section className="record-journey">
+        <div className="record-journey-head">
+          <div>
+            <h4><Activity size={16} /> Encounter Workflow &amp; Department Progress</h4>
+            <p>Where this visit has moved and what each department completed.</p>
+          </div>
+          <div className="record-journey-progress-copy">
+            <strong>{journeyPercent}%</strong>
+            <span>{completedSteps} of 6 steps complete</span>
           </div>
         </div>
-        <div className="pv-item">
-          <div className="pv-label">Status</div>
-          <div className="pv-value" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Calendar size={14} style={{ color: 'var(--clr-primary-400)' }} /> Completed
-          </div>
+        <div className="record-journey-progress" aria-hidden="true">
+          <span style={{ width: `${journeyPercent}%` }} />
         </div>
-        <div className="pv-item">
-          <div className="pv-label">Follow-up Date</div>
-          <div className="pv-value" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Clock size={14} style={{ color: 'var(--clr-primary-400)' }} /> {record.followUpDate || 'None scheduled'}
-          </div>
-        </div>
-      </div>
 
-      <section className="record-detail-section mb-3">
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-          <Activity size={16} className="text-primary" /> Diagnosis &amp; Symptoms
-        </h3>
-        <p className="record-diagnosis-value" style={{ fontWeight: 600, fontSize: '0.92rem' }}>{record.diagnosis}</p>
+        <div className="record-journey-grid">
+          {/* 1. Reception Card Class */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}><ClipboardCheck size={15} /></span>
+              <strong>Reception &amp; Card Room</strong>
+              <StepStatus label={linkedQueueItem ? 'Completed' : 'Filed'} tone={linkedQueueItem ? 'green' : 'gray'} />
+            </div>
+            <div className="record-step-body">
+              Token: <strong>{linkedQueueItem?.tokenNumber || 'Standard visit'}</strong> · {linkedQueueItem?.cardStatus || 'Active card'}
+            </div>
+            <div className="record-step-note">
+              Chief complaint: {linkedQueueItem?.chiefComplaint || (record.symptoms.length ? record.symptoms[0] : 'Consultation')}
+            </div>
+          </div>
+
+          {/* 2. Nurse Triage Vitals */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}><HeartPulse size={15} /></span>
+              <strong>Nurse Triage &amp; Vitals</strong>
+              <StepStatus label={vitals ? 'Completed' : 'Pending'} tone={vitals ? 'green' : 'amber'} />
+            </div>
+            {vitals ? (
+              <div className="record-step-body record-vitals-grid">
+                <span>BP: <strong>{vitals.bloodPressure || '—'}</strong></span>
+                <span>Pulse: <strong>{vitals.heartRate ? `${vitals.heartRate} bpm` : '—'}</strong></span>
+                <span>Temp: <strong>{vitals.temperature ? `${vitals.temperature}°C` : '—'}</strong></span>
+                <span>SpO2: <strong>{vitals.spo2 ? `${vitals.spo2}%` : '—'}</strong></span>
+              </div>
+            ) : (
+              <div className="record-step-note">No triage vitals were recorded for this encounter.</div>
+            )}
+          </div>
+
+          {/* 3. OPD Consultation Class */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}><Stethoscope size={15} /></span>
+              <strong>OPD Consultation</strong>
+              <StepStatus label={record.diagnosis ? 'Completed' : 'In progress'} tone={record.diagnosis ? 'green' : 'amber'} />
+            </div>
+            <div className="record-step-body">
+              Doctor: <strong>Dr. {record.doctorName}</strong>
+            </div>
+            <div className="record-step-note">Dx: <strong>{record.diagnosis}</strong></div>
+          </div>
+
+          {/* 3b. EMR / Record Archive */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9' }}><FileText size={15} /></span>
+              <strong>EMR &amp; Record Archive</strong>
+              <StepStatus label="Filed" tone="green" />
+            </div>
+            <div className="record-step-body">
+              Record: <strong>{record.id}</strong>
+            </div>
+            <div className="record-step-note">
+              Saved on {record.visitDate}{record.queueItemId ? ` · linked to visit ${record.queueItemId}` : ' · manual medical record'}
+            </div>
+          </div>
+
+          {/* 4. Laboratory Class */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}><FlaskConical size={15} /></span>
+              <strong>Diagnostic Laboratory</strong>
+              <StepStatus
+                label={labRows.length === 0 ? 'Not requested' : allLabsCompleted ? 'Completed' : 'In progress'}
+                tone={labRows.length === 0 ? 'gray' : allLabsCompleted ? 'green' : 'blue'}
+              />
+            </div>
+            <div className="record-step-body">
+              {labRows.length > 0
+                ? <span><strong>{labRows.length} investigation(s)</strong> requested</span>
+                : <span>No laboratory investigations for this visit</span>}
+            </div>
+            {labRows.length > 0 && (
+              <div className="record-step-note">
+                {labRows.map(row => row.testName).slice(0, 3).join(', ')}{labRows.length > 3 ? ` +${labRows.length - 3} more` : ''}
+              </div>
+            )}
+          </div>
+
+          {/* 5. Pharmacy Dispensary Class */}
+          <div className="record-step-card">
+            <div className="record-step-head">
+              <span className="record-step-icon" style={{ background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4' }}><Pill size={15} /></span>
+              <strong>Pharmacy Dispensary</strong>
+              <StepStatus
+                label={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'Prescribed' : 'Not requested') : allPharmacyDispensed ? 'Dispensed' : 'Pending'}
+                tone={linkedPharmacyOrders.length === 0 ? (pharmacyRows.length > 0 ? 'blue' : 'gray') : allPharmacyDispensed ? 'green' : 'amber'}
+              />
+            </div>
+            <div className="record-step-body">
+              {pharmacyRows.length > 0
+                ? <span><strong>{pharmacyRows.length} medication(s)</strong> prescribed</span>
+                : <span>No prescription medications</span>}
+            </div>
+            {linkedPharmacyOrders.length > 0 && (
+              <div className="record-step-note">
+                {linkedPharmacyOrders.map(order => `${order.status}${order.dispensedBy ? ` · ${order.dispensedBy}` : ''}`).join(' | ')}
+              </div>
+            )}
+          </div>
+
+          {/* 6. External Referral (if applicable) */}
+          {externalRef && (
+            <div className="record-step-card record-step-referral">
+              <div className="record-step-head">
+                <span className="record-step-icon" style={{ background: 'rgba(245, 158, 11, 0.14)', color: '#f59e0b' }}><Building2 size={15} /></span>
+                <strong>External Referral</strong>
+                <StepStatus label="Referred" tone="amber" />
+              </div>
+              <div className="record-step-body">To: <strong>{externalRef.destination}</strong></div>
+              <div className="record-step-note">Reason: {externalRef.reason}</div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Clinical Diagnosis & Observed Symptoms */}
+      <section className="record-detail-section">
+        <h4 className="record-section-title"><Activity size={15} /> Primary Diagnosis &amp; Observed Symptoms</h4>
+        <p className="record-diagnosis-value">{record.diagnosis}</p>
         {record.symptoms.length > 0 && (
-          <div className="record-tags" style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+          <div className="record-tags">
             {record.symptoms.map(symptom => <span className="badge badge-gray" key={symptom}>{symptom}</span>)}
           </div>
         )}
       </section>
 
-      {record.prescription && record.prescription.length > 0 && (
-        <section className="record-detail-section mb-3">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-            <Pill size={16} className="text-primary" /> Prescriptions <span className="badge badge-green">{record.prescription.length}</span>
-          </h3>
+      {/* Prescription Medications */}
+      {pharmacyRows.length > 0 && (
+        <section className="record-detail-section">
+          <h4 className="record-section-title">
+            <Pill size={15} /> Prescriptions <span className="badge badge-green">{pharmacyRows.length}</span>
+          </h4>
           <div className="record-list">
-            {record.prescription.map((item, index) => (
-              <div className="record-list-row" key={`${item.medication}-${index}`}>
-                <strong>{item.medication}</strong>
-                <span>{item.dosage} · {item.frequency} · {item.duration}</span>
+            {pharmacyRows.map((item, index) => (
+              <div className="record-list-row" key={`${item.name}-${index}`}>
+                <div>
+                  <strong>{item.name}</strong>
+                  {item.isExternal && <span className="badge badge-yellow" style={{ marginLeft: 6, fontSize: '0.68rem' }}>Buy Outside</span>}
+                  <div className="record-list-note">
+                    {[item.instructions, item.quantity ? `Qty: ${item.quantity}` : ''].filter(Boolean).join(' · ') || 'Dose and quantity as directed by the pharmacist'}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {labTests.length > 0 && (
-        <section className="record-detail-section mb-3">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-            <FlaskConical size={16} className="text-primary" /> Laboratory Tests <span className="badge badge-blue">{labTests.length}</span>
-          </h3>
-          <div className="table-wrapper">
-            <table>
-              <thead><tr><th>Test</th><th>Result</th><th>Status</th></tr></thead>
+      {/* Lab Investigations */}
+      {labRows.length > 0 && (
+        <section className="record-detail-section">
+          <h4 className="record-section-title">
+            <FlaskConical size={15} /> Laboratory Investigations <span className="badge badge-blue">{labRows.length}</span>
+          </h4>
+          <div className="record-lab-table-wrap">
+            <table className="record-lab-table">
+              <thead><tr><th>Investigation</th><th>Result Findings</th><th>Reference Range</th><th>Status</th></tr></thead>
               <tbody>
-                {labTests.map((test, index) => (
-                  <tr key={`${test.testName}-${index}`}>
-                    <td>{test.testName}</td>
-                    <td>{test.result || '—'}{test.unit ? ` ${test.unit}` : ''}</td>
-                    <td><span className={`badge ${test.status === 'Completed' ? 'badge-green' : 'badge-gray'}`}><CheckCircle2 size={11} /> {test.status}</span></td>
+                {labRows.map(row => (
+                  <tr key={row.key}>
+                    <td>
+                      <strong>{row.testName}</strong>
+                      {row.priority && <div className="record-list-note">{row.priority} priority</div>}
+                    </td>
+                    <td className="record-lab-result">{row.result || 'Pending'}{row.unit ? ` ${row.unit}` : ''}</td>
+                    <td className="record-lab-muted">{row.referenceRange || 'Standard'}</td>
+                    <td>
+                      <span className={`badge ${row.status === 'Completed' ? 'badge-green' : row.status === 'Requested' ? 'badge-amber' : 'badge-blue'}`}>
+                        {row.status === 'Completed' ? <CheckCircle2 size={11} /> : <CircleDashed size={11} />} {row.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -461,7 +746,17 @@ function RecordView({ record }: { record: MedicalRecord }) {
         </section>
       )}
 
-      {record.notes && <section className="record-detail-section"><h3><FileText size={16} /> Notes</h3><p className="record-notes">{record.notes}</p></section>}
+      {/* Clinical Consultation Notes */}
+      {record.notes && (
+        <section className="record-detail-section">
+          <h4 className="record-section-title"><FileText size={15} /> Examination Findings &amp; Clinical Notes</h4>
+          <p className="record-notes">{record.notes}</p>
+        </section>
+      )}
+
+      {!record.notes && !record.diagnosis && !pharmacyRows.length && !labRows.length && (
+        <div className="record-empty-note"><Ban size={16} /> No clinical detail was recorded for this encounter.</div>
+      )}
     </div>
   );
 }

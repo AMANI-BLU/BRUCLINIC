@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
-import type { ClinicQueueItem, QueueStage, QueuePriority, BloodGroup, Patient } from '../../types';
+import type { ClinicQueueItem, QueueStage, QueuePriority, Patient } from '../../types';
 import { firstError, validateDate, validatePhone, validateRequired, validateEmail, validateTextLength, sanitizeInput } from '../../utils/validation';
 import { patientCode, patientCodeFor, patientFullName, patientMatchesSearch, patientOptionLabel } from '../../utils/patient';
 import {
   CreditCard, UserPlus, Search, Plus,
   CheckCircle2, Clock, Activity, X,
-  ArrowRight, ShieldAlert, Send
+  ArrowRight, ShieldAlert, Send, AlertTriangle
 } from 'lucide-react';
 import './ReceptionDashboard.css';
+import ModalPortal from '../../components/ModalPortal';
 
 export default function ReceptionDashboard() {
   const {
@@ -45,7 +46,7 @@ export default function ReceptionDashboard() {
     address: '',
     patientType: 'Student' as const,
     department: 'Computer Science',
-    bloodGroup: 'O+' as BloodGroup,
+    bloodGroup: null,
     allergies: '',
     chronicConditions: '',
     emergencyContactName: '',
@@ -98,7 +99,7 @@ export default function ReceptionDashboard() {
     setFormError(null);
     const validationError = formType === 'existing'
       ? firstError(
-        ...Object.values(validateRequired({ selectedPatientId, chiefComplaint }, { selectedPatientId: 'Patient', chiefComplaint: 'Reason / Chief Complaint' })),
+        ...Object.values(validateRequired({ selectedPatientId }, { selectedPatientId: 'Patient' })),
         validateTextLength(chiefComplaint, 'Reason / Chief Complaint', { max: 500 }),
       )
       : firstError(
@@ -125,6 +126,12 @@ export default function ReceptionDashboard() {
       if (formType === 'existing') {
         if (!selectedPatient) {
           setFormError('Please select a registered patient.');
+          return;
+        }
+
+        const activeVisit = queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed');
+        if (activeVisit) {
+          setFormError(`This patient already has an active visit in progress (${activeVisit.stage}, ${activeVisit.tokenNumber}). Complete that visit before sending another request.`);
           return;
         }
 
@@ -157,7 +164,7 @@ export default function ReceptionDashboard() {
           address: sanitizeInput(newPatient.address),
           patientType: newPatient.patientType,
           department: sanitizeInput(newPatient.department),
-          bloodGroup: newPatient.bloodGroup,
+          bloodGroup: newPatient.bloodGroup || null,
           allergies: allergyArr,
           chronicConditions: chronicArr,
           emergencyContactName: sanitizeInput(newPatient.emergencyContactName),
@@ -210,7 +217,7 @@ export default function ReceptionDashboard() {
       {/* KPI Cards */}
       <div className="row reception-kpi-grid">
         <div className="col-md-6 col-xl-3">
-          <div className="small-box bg-info">
+          <div className="small-box text-bg-info">
             <div className="inner">
               <h3>{patients.length}</h3>
               <p>Patient cards</p>
@@ -220,7 +227,7 @@ export default function ReceptionDashboard() {
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box bg-success">
+          <div className="small-box text-bg-success">
             <div className="inner">
               <h3>{queue.filter(q => q.stage === 'Doctor Consultation').length}</h3>
               <p>OPD queue</p>
@@ -230,7 +237,7 @@ export default function ReceptionDashboard() {
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box bg-warning">
+          <div className="small-box text-bg-warning">
             <div className="inner">
               <h3>{queue.filter(q => q.stage === 'Laboratory').length}</h3>
               <p>At laboratory</p>
@@ -240,7 +247,7 @@ export default function ReceptionDashboard() {
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box bg-primary">
+          <div className="small-box text-bg-primary">
             <div className="inner">
               <h3>{queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}</h3>
               <p>Completed</p>
@@ -252,13 +259,13 @@ export default function ReceptionDashboard() {
 
       {/* Quick Card Lookup & Dispatch Widget */}
       <div className="card reception-panel reception-lookup-panel">
-        <div className="card-header reception-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="card-header reception-card-header reception-patient-card-header">
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CreditCard size={18} className="text-primary" /> Patient cards
+            <h3>
+              <span className="reception-heading-icon"><CreditCard size={17} /></span> Patient cards
             </h3>
-            <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', margin: 0 }}>
-              Quick patient lookup & OPD dispatch
+            <p>
+              Quick patient lookup and OPD dispatch
             </p>
           </div>
 
@@ -402,8 +409,8 @@ export default function ReceptionDashboard() {
 
         <div className="card-body reception-card-body">
         <div className="table-wrapper">
-          <table className="table table-bordered table-hover mb-0">
-            <thead className="thead-light">
+          <table className="table table-hover mb-0">
+            <thead>
               <tr>
                 <th>Token</th>
                 <th>Patient</th>
@@ -458,40 +465,44 @@ export default function ReceptionDashboard() {
                       </span>
                     </td>
                     <td>
-                      <div className="reception-queue-actions">
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          title="Forward to Doctor Consultation"
-                          onClick={() => handleForwardStage(item, 'Doctor Consultation')}
-                          style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
-                        >
-                          Doctor
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          title="Forward to Nurse Triage"
-                          onClick={() => handleForwardStage(item, 'Nurse Triage')}
-                          style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
-                        >
-                          Triage
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          title="Fast-Track to Emergency"
-                          onClick={() => handleForwardStage(item, 'Emergency')}
-                          style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
-                        >
-                          ER
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: 'var(--clr-rose-400)', fontSize: '0.72rem', padding: '0.25rem 0.45rem' }}
-                          title="Discharge / Remove"
-                          onClick={() => removeFromQueue(item.id)}
-                        >
-                          End
-                        </button>
-                      </div>
+                      {item.stage === 'Completed' ? (
+                        <span className="badge text-bg-secondary">Closed</span>
+                      ) : (
+                        <div className="reception-queue-actions">
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Forward to Doctor Consultation"
+                            onClick={() => handleForwardStage(item, 'Doctor Consultation')}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            Doctor
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Forward to Nurse Triage"
+                            onClick={() => handleForwardStage(item, 'Nurse Triage')}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            Triage
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            title="Fast-Track to Emergency"
+                            onClick={() => handleForwardStage(item, 'Emergency')}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            ER
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: 'var(--clr-rose-400)', fontSize: '0.72rem', padding: '0.25rem 0.45rem' }}
+                            title="Discharge / Remove"
+                            onClick={() => removeFromQueue(item.id)}
+                          >
+                            End
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -504,6 +515,7 @@ export default function ReceptionDashboard() {
 
       {/* Compact card lookup and dispatch dialog */}
       {modalOpen && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal reception-request-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header reception-request-header">
@@ -606,6 +618,14 @@ export default function ReceptionDashboard() {
                       {selectedPatient.allergies && (Array.isArray(selectedPatient.allergies) ? selectedPatient.allergies.length > 0 : Boolean(selectedPatient.allergies)) && (
                         <div className="reception-allergy-alert">
                           <ShieldAlert size={14} /> {Array.isArray(selectedPatient.allergies) ? selectedPatient.allergies.join(', ') : String(selectedPatient.allergies)}
+                        </div>
+                      )}
+                      {queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed') && (
+                        <div className="alert alert-warning py-2 px-3 mt-2" style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <AlertTriangle size={15} />
+                          <span>
+                            <strong>Active visit in progress:</strong> Currently in <strong>{queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed')?.stage}</strong> (#{queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed')?.tokenNumber}). You cannot send duplicate requests until completed.
+                          </span>
                         </div>
                       )}
                     </div>
@@ -733,13 +753,12 @@ export default function ReceptionDashboard() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Reason *</label>
+                  <label className="form-label">Reason (Optional)</label>
                   <textarea
                     rows={2}
-                    required
                     value={chiefComplaint}
                     onChange={(e) => setChiefComplaint(e.target.value)}
-                    placeholder="Reason for visit"
+                    placeholder="Reason for visit or chief complaint (optional)"
                   />
                 </div>
 
@@ -749,13 +768,18 @@ export default function ReceptionDashboard() {
                 <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={Boolean(formType === 'existing' && selectedPatient && queue.some(q => q.patientId === selectedPatient.id && q.stage !== 'Completed'))}
+                >
                   <Send size={16} /> Send
                 </button>
               </div>
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

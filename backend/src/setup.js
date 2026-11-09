@@ -256,7 +256,7 @@ async function main() {
   } else {
     config.adminName = await prompt('Admin full name', 'Clinic Administrator');
     config.adminUsername = await prompt('Admin username', 'admin');
-    config.adminEmail = await prompt('Admin email', `admin@boru.edu.et`);
+    config.adminEmail = await prompt('Admin email', `admin@bru.edu.et`);
     let adminPass = '';
     let attempts = 0;
     while (attempts < 3) {

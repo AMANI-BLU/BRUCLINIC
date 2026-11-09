@@ -224,18 +224,24 @@ export default function AdminBackup() {
           </div>
 
           <div className="backup-options">
-            <label className="backup-option">
+            <label className={`backup-option ${includeUsers ? 'selected' : ''}`}>
               <input type="checkbox" checked={includeUsers} onChange={event => setIncludeUsers(event.target.checked)} />
-              <span>
-                <strong>Include staff accounts</strong>
-                <small>Required for a complete disaster-recovery file. Includes password hashes.</small>
+              <span className="backup-option-content">
+                <span className="backup-option-title">
+                  <strong>Include staff accounts</strong>
+                  <span className="backup-option-badge sensitive">Sensitive</span>
+                </span>
+                <small id="backup-staff-help">Includes staff login records and password hashes. Store the downloaded file encrypted and access-restricted.</small>
               </span>
             </label>
-            <label className="backup-option">
+            <label className={`backup-option ${includeAudit ? 'selected' : ''}`}>
               <input type="checkbox" checked={includeAudit} onChange={event => setIncludeAudit(event.target.checked)} />
-              <span>
-                <strong>Include audit &amp; security logs</strong>
-                <small>Adds historical audit entries; makes the file much larger.</small>
+              <span className="backup-option-content">
+                <span className="backup-option-title">
+                  <strong>Include audit &amp; security logs</strong>
+                  <span className="backup-option-badge optional">Optional · Larger file</span>
+                </span>
+                <small id="backup-audit-help">Adds historical security events and audit entries to the snapshot.</small>
               </span>
             </label>
           </div>
