@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Search, CheckCircle2, ArrowRight, Trash2, CheckCheck,
-  RotateCcw, AlertTriangle, HeartPulse
+  RotateCcw, AlertTriangle, HeartPulse, Clock
 } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
@@ -31,8 +31,8 @@ export default function Notifications() {
   // Compute category pill tabs with real counts
   const categories = useMemo(() => {
     const counts: Record<string, number> = { all: visibleNotifications.length };
-    const criticalCount = visibleNotifications.filter(n => n.priority === 'critical').length;
-    counts.critical = criticalCount;
+    const critical = visibleNotifications.filter(n => n.priority === 'critical').length;
+    counts.critical = critical;
 
     visibleNotifications.forEach(n => {
       counts[n.category] = (counts[n.category] || 0) + 1;
@@ -40,7 +40,7 @@ export default function Notifications() {
 
     return [
       { id: 'all' as const, label: `All Alerts (${visibleNotifications.length})` },
-      ...(criticalCount > 0 ? [{ id: 'critical' as const, label: `Critical (${criticalCount})` }] : []),
+      ...(critical > 0 ? [{ id: 'critical' as const, label: `Critical (${critical})` }] : []),
       ...(counts.er ? [{ id: 'er' as const, label: `Emergency (${counts.er})` }] : []),
       ...(counts.pharmacy ? [{ id: 'pharmacy' as const, label: `Pharmacy (${counts.pharmacy})` }] : []),
       ...(counts.stock ? [{ id: 'stock' as const, label: `Stock Warnings (${counts.stock})` }] : []),
@@ -89,7 +89,7 @@ export default function Notifications() {
       <div className="notif-header-card">
         <div className="notif-header-info">
           <div className="notif-header-icon-wrap">
-            <Bell size={24} />
+            <Bell size={22} />
           </div>
           <div>
             <h1 className="notif-header-title">Notifications &amp; Live Alerts</h1>
@@ -149,196 +149,232 @@ export default function Notifications() {
         </div>
       </div>
 
-      {/* KPI Cards Strip */}
-      <div className="notif-kpi-grid">
-        <div className="notif-kpi-card">
-          <div className="notif-kpi-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>
-            <Bell size={20} />
-          </div>
-          <div>
-            <div className="notif-kpi-val">{visibleNotifications.length}</div>
-            <div className="notif-kpi-lbl">Total Active Alerts</div>
-          </div>
-        </div>
-
-        <div className="notif-kpi-card">
-          <div className="notif-kpi-icon" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626' }}>
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <div className="notif-kpi-val" style={{ color: criticalCount > 0 ? '#dc2626' : undefined }}>
-              {criticalCount}
+      {/* AdminLTE v3 Info Boxes Strip */}
+      <div className="row g-3">
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="info-box shadow-sm mb-0">
+            <span className="info-box-icon bg-primary elevation-1">
+              <Bell size={20} />
+            </span>
+            <div className="info-box-content">
+              <span className="info-box-text text-muted" style={{ fontSize: '0.82rem' }}>Total Active</span>
+              <span className="info-box-number" style={{ fontSize: '1.4rem' }}>{visibleNotifications.length}</span>
             </div>
-            <div className="notif-kpi-lbl">Critical Priority (Immediate)</div>
           </div>
         </div>
 
-        <div className="notif-kpi-card">
-          <div className="notif-kpi-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#d97706' }}>
-            <HeartPulse size={20} />
-          </div>
-          <div>
-            <div className="notif-kpi-val" style={{ color: urgentCount > 0 ? '#d97706' : undefined }}>
-              {urgentCount}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="info-box shadow-sm mb-0">
+            <span className="info-box-icon bg-danger elevation-1">
+              <AlertTriangle size={20} />
+            </span>
+            <div className="info-box-content">
+              <span className="info-box-text text-muted" style={{ fontSize: '0.82rem' }}>Critical Priority</span>
+              <span className="info-box-number text-danger" style={{ fontSize: '1.4rem' }}>{criticalCount}</span>
             </div>
-            <div className="notif-kpi-lbl">Urgent Clinical Tasks</div>
           </div>
         </div>
 
-        <div className="notif-kpi-card">
-          <div className="notif-kpi-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
-            <CheckCircle2 size={20} />
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="info-box shadow-sm mb-0">
+            <span className="info-box-icon bg-warning elevation-1">
+              <HeartPulse size={20} />
+            </span>
+            <div className="info-box-content">
+              <span className="info-box-text text-muted" style={{ fontSize: '0.82rem' }}>Urgent Tasks</span>
+              <span className="info-box-number text-warning-emphasis" style={{ fontSize: '1.4rem' }}>{urgentCount}</span>
+            </div>
           </div>
-          <div>
-            <div className="notif-kpi-val">{normalCount}</div>
-            <div className="notif-kpi-lbl">Routine &amp; Waiting Queue</div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="info-box shadow-sm mb-0">
+            <span className="info-box-icon bg-success elevation-1">
+              <CheckCircle2 size={20} />
+            </span>
+            <div className="info-box-content">
+              <span className="info-box-text text-muted" style={{ fontSize: '0.82rem' }}>Routine Queue</span>
+              <span className="info-box-number text-success" style={{ fontSize: '1.4rem' }}>{normalCount}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="notif-filter-bar">
-        <div className="notif-filter-top">
-          <div className="notif-search-box">
-            <Search size={15} className="notif-search-icon" />
-            <input
-              type="text"
-              className="notif-search-input"
-              placeholder="Search notifications by title, patient, or medicine..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label htmlFor="priority-select" style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', fontWeight: 600 }}>
-              Priority:
-            </label>
-            <select
-              id="priority-select"
-              className="form-select form-select-sm"
-              style={{ width: 'auto', fontSize: '0.8rem' }}
-              value={selectedPriority}
-              onChange={e => setSelectedPriority(e.target.value as any)}
-            >
-              <option value="all">All Priorities</option>
-              <option value="critical">Critical Only</option>
-              <option value="urgent">Urgent Only</option>
-              <option value="normal">Routine / Normal</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Pill Category Tabs */}
-        <div className="notif-pill-tabs">
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`notif-pill-btn ${selectedCategory === cat.id ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat.id)}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Notification List or Empty State */}
-      <div className="notif-list-container">
-        {filteredNotifications.length === 0 ? (
-          <div className="notif-empty-card">
-            <div className="notif-empty-icon-wrap">
-              <CheckCircle2 size={32} />
+      {/* AdminLTE v3 Filter Card */}
+      <div className="card notif-filter-card shadow-sm mb-0">
+        <div className="card-body p-3 d-flex flex-column gap-3">
+          <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div className="position-relative flex-grow-1" style={{ maxWidth: 460 }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                className="form-control form-control-sm notif-search-input"
+                style={{ paddingLeft: '2.25rem' }}
+                placeholder="Search notifications by title, patient, or medicine..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
             </div>
-            <h3 className="notif-empty-title">
-              {searchQuery.trim() || selectedCategory !== 'all' || selectedPriority !== 'all'
-                ? 'No matching notifications found'
-                : 'All caught up! No active alerts'}
-            </h3>
-            <p className="notif-empty-desc">
-              {searchQuery.trim() || selectedCategory !== 'all' || selectedPriority !== 'all'
-                ? 'Try adjusting your search query, priority selector, or category filters.'
-                : `There are currently no active alerts requiring attention for ${currentUser?.roleTitle || role}. New notifications will appear automatically when emergencies or workflow orders arrive.`}
-            </p>
-            {dismissedAlertIds.length > 0 && (
+
+            <div className="d-flex align-items-center gap-2">
+              <label htmlFor="priority-select" className="m-0 text-muted small fw-bold">
+                Priority:
+              </label>
+              <select
+                id="priority-select"
+                className="form-select form-select-sm"
+                style={{ width: 'auto', fontSize: '0.8rem' }}
+                value={selectedPriority}
+                onChange={e => setSelectedPriority(e.target.value as any)}
+              >
+                <option value="all">All Priorities</option>
+                <option value="critical">Critical Only</option>
+                <option value="urgent">Urgent Only</option>
+                <option value="normal">Routine / Normal</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Pill Category Tabs */}
+          <div className="d-flex flex-wrap gap-2">
+            {categories.map(cat => (
               <button
+                key={cat.id}
                 type="button"
-                className="btn btn-sm btn-outline-primary mt-2"
-                onClick={restoreAllAlerts}
+                className={`notif-pill-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(cat.id)}
               >
-                Restore {dismissedAlertIds.length} dismissed alerts
+                {cat.label}
               </button>
-            )}
+            ))}
           </div>
-        ) : (
-          filteredNotifications.map(alert => {
-            const IconComponent = alert.icon || Bell;
-            const isCritical = alert.priority === 'critical';
-            const isUrgent = alert.priority === 'urgent';
-            const iconBg = isCritical
-              ? 'rgba(239, 68, 68, 0.12)'
-              : isUrgent
-              ? 'rgba(245, 158, 11, 0.12)'
-              : 'rgba(59, 130, 246, 0.12)';
-            const iconColor = isCritical ? '#dc2626' : isUrgent ? '#d97706' : '#2563eb';
+        </div>
+      </div>
 
-            return (
-              <div
-                key={alert.id}
-                className={`notif-card-item priority-${alert.priority}`}
-              >
-                <div className="notif-card-main">
-                  <div className="notif-item-icon-box" style={{ background: iconBg, color: iconColor }}>
-                    <IconComponent size={20} />
-                  </div>
+      {/* AdminLTE v3 Main Card: Notifications List */}
+      <div className="card card-outline card-primary shadow-sm mb-0">
+        <div className="card-header py-2 px-3 d-flex align-items-center justify-content-between">
+          <h3 className="card-title m-0 fw-bold d-flex align-items-center gap-2" style={{ fontSize: '0.95rem' }}>
+            <Bell size={16} className="text-primary" />
+            <span>Active Alerts</span>
+            <span className="badge text-bg-primary rounded-pill">{filteredNotifications.length}</span>
+          </h3>
+          <span className="text-muted small">
+            Filtered by: <strong>{selectedCategory === 'all' ? 'All categories' : selectedCategory}</strong>
+          </span>
+        </div>
 
-                  <div className="notif-card-body">
-                    <div className="notif-card-body-head">
-                      <span className="notif-card-title">{alert.title}</span>
-                      <span className={`notif-badge-pill notif-badge-${alert.priority}`}>
-                        {alert.priority}
-                      </span>
-                      <span className="badge text-bg-light border" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
-                        {alert.categoryLabel}
-                      </span>
-                    </div>
-
-                    <p className="notif-card-msg">{alert.message}</p>
-
-                    <div className="notif-card-meta">
-                      {alert.time && <span>Time: <strong>{alert.time}</strong></span>}
-                      <span>•</span>
-                      <span>Target: {alert.link}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="notif-card-actions">
-                  <button
-                    type="button"
-                    className="notif-btn-goto"
-                    onClick={() => navigate(alert.link)}
-                    title={`Go to ${alert.categoryLabel}`}
-                  >
-                    <span>View</span>
-                    <ArrowRight size={14} />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="notif-btn-dismiss"
-                    onClick={() => dismissAlert(alert.id)}
-                    title="Dismiss notification"
-                    aria-label="Dismiss notification"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+        <div className="card-body p-0">
+          {filteredNotifications.length === 0 ? (
+            <div className="notif-empty-state">
+              <div className="notif-empty-icon-wrap">
+                <CheckCircle2 size={30} />
               </div>
-            );
-          })
-        )}
+              <h5 className="m-0 fw-bold">
+                {searchQuery.trim() || selectedCategory !== 'all' || selectedPriority !== 'all'
+                  ? 'No matching notifications found'
+                  : 'All caught up! No active alerts'}
+              </h5>
+              <p className="text-muted small m-0" style={{ maxWidth: 440 }}>
+                {searchQuery.trim() || selectedCategory !== 'all' || selectedPriority !== 'all'
+                  ? 'Try adjusting your search query, priority selector, or category filters.'
+                  : `There are currently no active alerts requiring attention for ${currentUser?.roleTitle || role}. New notifications will appear automatically when emergencies or workflow orders arrive.`}
+              </p>
+              {dismissedAlertIds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary mt-2"
+                  onClick={restoreAllAlerts}
+                >
+                  Restore {dismissedAlertIds.length} dismissed alerts
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              {filteredNotifications.map(alert => {
+                const IconComponent = alert.icon || Bell;
+                const isCritical = alert.priority === 'critical';
+                const isUrgent = alert.priority === 'urgent';
+                const iconClass = isCritical ? 'icon-critical' : isUrgent ? 'icon-urgent' : 'icon-normal';
+
+                return (
+                  <div key={alert.id} className="notif-list-item">
+                    <div className="notif-item-main">
+                      <div className={`notif-icon-box ${iconClass}`}>
+                        <IconComponent size={20} />
+                      </div>
+
+                      <div className="notif-item-body">
+                        <div className="notif-item-head">
+                          <span className="notif-item-title">{alert.title}</span>
+
+                          {/* AdminLTE v3 Priority Badges */}
+                          {isCritical && (
+                            <span className="badge bg-danger" style={{ fontSize: '0.68rem', fontWeight: 700 }}>
+                              CRITICAL
+                            </span>
+                          )}
+                          {isUrgent && (
+                            <span className="badge bg-warning text-dark" style={{ fontSize: '0.68rem', fontWeight: 700 }}>
+                              URGENT
+                            </span>
+                          )}
+                          {!isCritical && !isUrgent && (
+                            <span className="badge bg-primary" style={{ fontSize: '0.68rem', fontWeight: 700 }}>
+                              NORMAL
+                            </span>
+                          )}
+
+                          {/* Department Badge */}
+                          <span className="badge bg-light text-dark border" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                            {alert.categoryLabel}
+                          </span>
+                        </div>
+
+                        <p className="notif-item-msg">{alert.message}</p>
+
+                        <div className="notif-item-meta">
+                          {alert.time && (
+                            <span className="d-inline-flex align-items-center gap-1">
+                              <Clock size={12} />
+                              <span>{alert.time}</span>
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>Destination: <code>{alert.link}</code></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="notif-item-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 shadow-sm"
+                        onClick={() => navigate(alert.link)}
+                        title={`Go to ${alert.categoryLabel}`}
+                      >
+                        <span>View</span>
+                        <ArrowRight size={13} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                        style={{ width: 32, height: 32, padding: 0 }}
+                        onClick={() => dismissAlert(alert.id)}
+                        title="Dismiss notification"
+                        aria-label="Dismiss notification"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Confirmation modal before clearing all alerts */}
@@ -357,4 +393,3 @@ export default function Notifications() {
     </div>
   );
 }
-
