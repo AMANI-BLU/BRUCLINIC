@@ -531,7 +531,6 @@ export default function Patients() {
                               onChange={e => setRequestDetails(d => ({ ...d, destination: e.target.value as QueueStage }))}
                             >
                               <option value="Doctor Consultation">OPD Doctor Consultation</option>
-                              <option value="Nurse Triage">Nurse Triage</option>
                               <option value="Emergency">Emergency (ER)</option>
                             </select>
                           </div>

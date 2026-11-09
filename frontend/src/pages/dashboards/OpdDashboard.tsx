@@ -46,7 +46,6 @@ export default function OpdDashboard() {
   } = useClinic();
   const { currentUser } = useAuth();
 
-  const [activeStation, setActiveStation] = useState<'doctor' | 'nurse'>('doctor');
   const [selectedQueueItem, setSelectedQueueItem] = useState<ClinicQueueItem | null>(null);
   const [opdTabFilter, setOpdTabFilter] = useState<'all' | 'card_requests' | 'lab_returned' | 'completed'>('all');
   const [doctorQueueScope, setDoctorQueueScope] = useState<'my' | 'all'>('my');
@@ -77,14 +76,14 @@ export default function OpdDashboard() {
     allergies?: string[];
   } | null>(null);
 
-  // Nurse vitals form
+  // Vitals form - start empty, do not fill with fake default numbers
   const [vitalsForm, setVitalsForm] = useState<Vitals>({
-    bloodPressure: '120/80',
-    heartRate: 75,
-    temperature: 36.8,
-    spo2: 98,
-    respiratoryRate: 18,
-    weightKg: 65,
+    bloodPressure: '',
+    heartRate: undefined,
+    temperature: undefined,
+    spo2: undefined,
+    respiratoryRate: undefined,
+    weightKg: undefined,
   });
 
   // Doctor consultation core notes
@@ -98,7 +97,7 @@ export default function OpdDashboard() {
   const [labTestName, setLabTestName] = useState('');
   const [labCategory, setLabCategory] = useState('Hematology');
   const [labSpecimenType, setLabSpecimenType] = useState('');
-  const [labPriority, setLabPriority] = useState<Priority>('High');
+  const [labPriority, setLabPriority] = useState<Priority>('Medium');
   const [labClinicalNotes, setLabClinicalNotes] = useState('');
   const [labTechInstructions, setLabTechInstructions] = useState('');
   const [labTests, setLabTests] = useState<Array<{ testName: string; category: string; specimenType: string; technologistInstructions: string }>>([]);
@@ -141,9 +140,6 @@ export default function OpdDashboard() {
 
     return false;
   }, [currentUser, doctors]);
-
-  // Queue item categorized lists
-  const waitingForNurse = queue.filter(q => q.stage === 'Nurse Triage');
 
   // Categorized lists filtered by assigned doctor when in "my" scope
   const waitingForDoctor = queue.filter(q =>
@@ -198,50 +194,28 @@ export default function OpdDashboard() {
       setVitalsForm({ ...item.vitals });
     } else {
       setVitalsForm({
-        bloodPressure: '120/80',
-        heartRate: 75,
-        temperature: 37.0,
-        spo2: 98,
-        respiratoryRate: 18,
-        weightKg: 65,
+        bloodPressure: '',
+        heartRate: undefined,
+        temperature: undefined,
+        spo2: undefined,
+        respiratoryRate: undefined,
+        weightKg: undefined,
       });
     }
 
     setConsultation({
       diagnosis: item.doctorDiagnosis || '',
-      symptoms: item.chiefComplaint || '',
+      symptoms: (item as any).symptoms ? (Array.isArray((item as any).symptoms) ? (item as any).symptoms.join(', ') : (item as any).symptoms) : '',
       clinicalNotes: item.consultationNotes || '',
     });
     setPrescriptionItems([]);
     setLabTestName('');
     setLabSpecimenType('');
+    setLabPriority('Medium');
+    setLabTechInstructions('');
     setLabTests([]);
 
-    setLabClinicalNotes(item.labNotes || `Clinical indication: ${item.chiefComplaint}`);
-  };
-
-  const handleSaveNurseVitals = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedQueueItem) return;
-    const error = firstError(...Object.values(validateRequired({ bloodPressure: vitalsForm.bloodPressure }, { bloodPressure: 'Blood pressure' })));
-    if (error) {
-      setFormError(error);
-      return;
-    }
-
-    try {
-      await updateQueueItem(selectedQueueItem.id, {
-        vitals: vitalsForm,
-        stage: 'Doctor Consultation',
-        requestSource: 'Nurse Triage',
-        requestDestination: 'Doctor Consultation',
-        requestNotes: `Vitals recorded (BP ${vitalsForm.bloodPressure}, Temp ${vitalsForm.temperature}°C). Sent to OPD Doctor.`,
-      });
-      setFormError(null);
-      setSelectedQueueItem(null);
-    } catch (cause) {
-      setFormError(cause instanceof Error ? cause.message : 'Could not save vitals.');
-    }
+    setLabClinicalNotes(item.labNotes || '');
   };
 
   // Action 1: Dispatch Diagnostic Request from OPD to Laboratory
@@ -502,29 +476,9 @@ export default function OpdDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Station switcher */}
-      <div className="department-action-row">
-        <div className="department-action-control" style={{ display: 'flex', flexWrap: 'wrap', width: '100%', background: 'var(--clr-bg-hover)', padding: 4, borderRadius: 10, border: '1px solid var(--clr-border)', gap: 4 }}>
-          <button
-            className={`btn btn-sm ${activeStation === 'doctor' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => { setActiveStation('doctor'); setSelectedQueueItem(null); }}
-            style={{ flex: '1 1 200px', borderRadius: 7, padding: '0.45rem 0.95rem', fontWeight: 700, justifyContent: 'center' }}
-          >
-            <Stethoscope size={14} /> Doctor Consultation ({waitingForDoctor.length})
-          </button>
-          <button
-            className={`btn btn-sm ${activeStation === 'nurse' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => { setActiveStation('nurse'); setSelectedQueueItem(null); }}
-            style={{ flex: '1 1 200px', borderRadius: 7, padding: '0.45rem 0.95rem', fontWeight: 700, justifyContent: 'center' }}
-          >
-            <Activity size={14} /> Nurse Triage Vitals ({waitingForNurse.length})
-          </button>
-        </div>
-      </div>
-
       {/* OPD KPI Pipeline Flow Metrics */}
       <div className="opd-kpi-grid">
-        <InfoBox tone="info" icon={<Stethoscope size={22} />} value={waitingForDoctor.length} label="In OPD Consultation Queue" detail="From Card Room and Triage" />
+        <InfoBox tone="info" icon={<Stethoscope size={22} />} value={waitingForDoctor.length} label="In OPD Consultation Queue" detail="From Card Room and Clinical Queue" />
         <InfoBox tone="success" icon={<FlaskConical size={22} />} value={atLaboratory.length} label="Diagnostic Tests Ordered" detail="En route to Laboratory" />
         <InfoBox tone="warning" icon={<Pill size={22} />} value={atPharmacy.length} label="Prescriptions Sent" detail="Pending dispensary" />
         <InfoBox tone="secondary" icon={<CheckCircle2 size={22} />} value={completedToday.length} label="Completed Consultations" detail="Archived to patient files" />
@@ -537,86 +491,76 @@ export default function OpdDashboard() {
           <div className="opd-queue-header">
             <div className="opd-queue-heading">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, width: '100%' }}>
-                <h3 style={{ margin: 0 }}>
-                  {activeStation === 'doctor' ? (
-                    <><Stethoscope size={18} className="text-primary" /> OPD Doctor Consultation Queue</>
-                  ) : (
-                    <><Activity size={18} className="text-primary" /> Nurse Triage Vitals Queue</>
-                  )}
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Stethoscope size={18} className="text-primary" /> OPD Doctor Consultation Queue
                 </h3>
 
-                {activeStation === 'doctor' && (
-                  <div className="pill-tabs" style={{ background: 'var(--clr-bg-hover)', padding: '2px 4px', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
-                    <button
-                      type="button"
-                      className={`pill-tab ${doctorQueueScope === 'my' ? 'active' : ''}`}
-                      onClick={() => setDoctorQueueScope('my')}
-                      title="Only patients assigned to you by Receptionist"
-                    >
-                      Assigned to Me ({totalAssignedToMe})
-                    </button>
-                    <button
-                      type="button"
-                      className={`pill-tab ${doctorQueueScope === 'all' ? 'active' : ''}`}
-                      onClick={() => setDoctorQueueScope('all')}
-                      title="All patients in OPD consultation queue"
-                    >
-                      All Doctors ({totalOpdDoctorQueue})
-                    </button>
-                  </div>
-                )}
+                <div className="pill-tabs" style={{ background: 'var(--clr-bg-hover)', padding: '2px 4px', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
+                  <button
+                    type="button"
+                    className={`pill-tab ${doctorQueueScope === 'my' ? 'active' : ''}`}
+                    onClick={() => setDoctorQueueScope('my')}
+                    title="Only patients assigned to you by Receptionist"
+                  >
+                    Assigned to Me ({totalAssignedToMe})
+                  </button>
+                  <button
+                    type="button"
+                    className={`pill-tab ${doctorQueueScope === 'all' ? 'active' : ''}`}
+                    onClick={() => setDoctorQueueScope('all')}
+                    title="All patients in OPD consultation queue"
+                  >
+                    All Doctors ({totalOpdDoctorQueue})
+                  </button>
+                </div>
               </div>
               <span className="opd-queue-subtitle">
-                {activeStation === 'doctor'
-                  ? (doctorQueueScope === 'my'
-                      ? `Patients specifically assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'} by receptionist`
-                      : 'All Card Room requests and patients returning from Laboratory across all OPD clinicians')
-                  : 'Patients awaiting triage and vital signs'}
+                {doctorQueueScope === 'my'
+                  ? `Patients specifically assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'} by receptionist`
+                  : 'All Card Room requests and patients returning from Laboratory across all OPD clinicians'}
               </span>
             </div>
 
-            {activeStation === 'doctor' && (
-              <div className="pill-tabs opd-queue-filters">
-                <button
-                  className={`pill-tab ${opdTabFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setOpdTabFilter('all')}
-                >
-                  All ({waitingForDoctor.length})
-                </button>
-                <button
-                  className={`pill-tab ${opdTabFilter === 'card_requests' ? 'active' : ''}`}
-                  onClick={() => setOpdTabFilter('card_requests')}
-                >
-                  From Card Room
-                </button>
-                <button
-                  className={`pill-tab ${opdTabFilter === 'lab_returned' ? 'active' : ''}`}
-                  onClick={() => setOpdTabFilter('lab_returned')}
-                  style={{
-                    color: waitingForDoctor.filter(q => q.labStatus === 'Completed').length > 0 ? 'var(--clr-primary-400)' : undefined,
-                    fontWeight: 700
-                  }}
-                >
-                  Lab Ready ({waitingForDoctor.filter(q => q.labStatus === 'Completed').length})
-                </button>
-                <button
-                  className={`pill-tab ${opdTabFilter === 'completed' ? 'active' : ''}`}
-                  onClick={() => setOpdTabFilter('completed')}
-                >
-                  Completed ({completedToday.length})
-                </button>
-              </div>
-            )}
+            <div className="pill-tabs opd-queue-filters">
+              <button
+                className={`pill-tab ${opdTabFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setOpdTabFilter('all')}
+              >
+                All ({waitingForDoctor.length})
+              </button>
+              <button
+                className={`pill-tab ${opdTabFilter === 'card_requests' ? 'active' : ''}`}
+                onClick={() => setOpdTabFilter('card_requests')}
+              >
+                From Card Room
+              </button>
+              <button
+                className={`pill-tab ${opdTabFilter === 'lab_returned' ? 'active' : ''}`}
+                onClick={() => setOpdTabFilter('lab_returned')}
+                style={{
+                  color: waitingForDoctor.filter(q => q.labStatus === 'Completed').length > 0 ? 'var(--clr-primary-400)' : undefined,
+                  fontWeight: 700
+                }}
+              >
+                Lab Ready ({waitingForDoctor.filter(q => q.labStatus === 'Completed').length})
+              </button>
+              <button
+                className={`pill-tab ${opdTabFilter === 'completed' ? 'active' : ''}`}
+                onClick={() => setOpdTabFilter('completed')}
+              >
+                Completed ({completedToday.length})
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {(activeStation === 'doctor' ? doctorStationQueue : waitingForNurse).length === 0 ? (
+            {doctorStationQueue.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--clr-text-muted)', fontSize: '0.875rem' }}>
                 <CheckCircle2 size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
                 No patients waiting in this station queue right now.
               </div>
             ) : (
-              (activeStation === 'doctor' ? doctorStationQueue : waitingForNurse).map((item) => {
+              doctorStationQueue.map((item) => {
                 const isSelected = selectedQueueItem?.id === item.id;
                 const hasLabResults = item.labStatus === 'Completed';
 
@@ -695,7 +639,7 @@ export default function OpdDashboard() {
                         Registered: {item.registeredTime} · {item.assignedOpdRoom || 'OPD 1'}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--clr-primary-400)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                        {opdTabFilter === 'completed' ? 'Review Visit' : activeStation === 'doctor' ? 'Start Consultation' : 'Record Vitals'} <ChevronRight size={14} />
+                        {opdTabFilter === 'completed' ? 'Review Visit' : 'Start Consultation'} <ChevronRight size={14} />
                       </span>
                     </div>
                   </div>
@@ -797,79 +741,8 @@ export default function OpdDashboard() {
               </div>
             )}
 
-            {/* ── NURSE FORM ── */}
-            {activeStation === 'nurse' && (
-              <form onSubmit={handleSaveNurseVitals}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Activity size={16} className="text-primary" /> Vitals
-                </h4>
-
-                <div className="form-grid" style={{ marginBottom: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Blood Pressure (mmHg) *</label>
-                    <input
-                      required
-                      value={vitalsForm.bloodPressure}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, bloodPressure: e.target.value })}
-                      placeholder="120/80"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Heart Rate (bpm)</label>
-                    <input
-                      type="number"
-                      value={vitalsForm.heartRate}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, heartRate: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Body Temperature (°C)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={vitalsForm.temperature}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Oxygen SpO2 (%)</label>
-                    <input
-                      type="number"
-                      value={vitalsForm.spo2}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Weight (kg)</label>
-                    <input
-                      type="number"
-                      value={vitalsForm.weightKg}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, weightKg: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Respiratory Rate (/min)</label>
-                    <input
-                      type="number"
-                      value={vitalsForm.respiratoryRate}
-                      onChange={(e) => setVitalsForm({ ...vitalsForm, respiratoryRate: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-
-                <div className="opd-form-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedQueueItem(null)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    <CheckCircle2 size={16} /> Save Vitals &amp; Forward to Doctor Consultation
-                  </button>
-                </div>
-              </form>
-            )}
-
             {/* ── DOCTOR STATION WORKSPACE WITH WORKFLOW ROUTING ── */}
-            {activeStation === 'doctor' && isCompletedReview && (
+            {isCompletedReview && (
               <section className="alert alert-info mb-3" aria-label="Completed visit review">
                 <strong>Completed visit, read-only.</strong> This encounter is closed. Review the saved diagnosis, notes, and patient history; create a new queue visit for another consultation.
                 <div className="mt-2"><strong>Diagnosis:</strong> {selectedQueueItem.doctorDiagnosis || 'Not recorded'}</div>
@@ -878,7 +751,7 @@ export default function OpdDashboard() {
               </section>
             )}
 
-            {activeStation === 'doctor' && !isCompletedReview && (
+            {!isCompletedReview && (
               <div>
                 {/* Returned Lab Results Display Banner */}
                 {selectedQueueItem.labStatus === 'Completed' && (

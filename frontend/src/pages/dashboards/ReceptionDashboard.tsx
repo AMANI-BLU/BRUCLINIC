@@ -511,14 +511,6 @@ export default function ReceptionDashboard() {
                             Doctor
                           </button>
                           <button
-                            className="btn btn-secondary btn-sm"
-                            title="Forward to Nurse Triage"
-                            onClick={() => handleForwardStage(item, 'Nurse Triage')}
-                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            Triage
-                          </button>
-                          <button
                             className="btn btn-danger btn-sm"
                             title="Fast-Track to Emergency"
                             onClick={() => handleForwardStage(item, 'Emergency')}
@@ -767,7 +759,6 @@ export default function ReceptionDashboard() {
                       onChange={(e) => setDestinationStage(e.target.value as QueueStage)}
                     >
                       <option value="Doctor Consultation">OPD doctor</option>
-                      <option value="Nurse Triage">Nurse triage</option>
                       <option value="Emergency">Emergency</option>
                     </select>
                   </div>

@@ -546,11 +546,10 @@ function RecordView({ record }: { record: MedicalRecord }) {
   const allPharmacyDispensed = linkedPharmacyOrders.length === 0 || linkedPharmacyOrders.every(order => order.status === 'Dispensed');
   const closed = linkedQueueItem?.stage === 'Completed';
   const completedSteps = 2
-    + (vitals ? 1 : 0)
     + (record.diagnosis ? 1 : 0)
     + (allLabsCompleted ? 1 : 0)
     + (allPharmacyDispensed ? 1 : 0);
-  const journeyPercent = Math.round((completedSteps / 6) * 100);
+  const journeyPercent = Math.round((completedSteps / 5) * 100);
 
   return (
     <div className="patient-view">
@@ -608,7 +607,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
           className={`pill-tab ${activeTab === 'journey' ? 'active' : ''}`}
           onClick={() => setActiveTab('journey')}
         >
-          <Activity size={14} /> Workflow &amp; Progress ({completedSteps}/6)
+          <Activity size={14} /> Workflow &amp; Progress ({completedSteps}/5)
         </button>
         <button
           type="button"
@@ -674,7 +673,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
             )}
           </div>
 
-          {/* Nurse Triage Vitals */}
+          {/* Clinical Vital Signs */}
           <div
             style={{
               border: '1px solid var(--clr-border)',
@@ -685,7 +684,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: '0.85rem', fontWeight: 700 }}>
               <HeartPulse size={16} className="text-danger" />
-              <span>Triage Vital Signs</span>
+              <span>Clinical Vital Signs</span>
               <span className={`badge ${vitals ? 'badge-green' : 'badge-gray'}`} style={{ marginLeft: 'auto', fontSize: '0.68rem' }}>
                 {vitals ? 'Recorded' : 'Not Recorded'}
               </span>
@@ -701,7 +700,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
               </div>
             ) : (
               <div style={{ color: 'var(--clr-text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
-                No triage vitals were recorded for this encounter.
+                No clinical vitals recorded for this encounter.
               </div>
             )}
           </div>
@@ -741,11 +740,11 @@ function RecordView({ record }: { record: MedicalRecord }) {
             <div className="record-journey-head">
               <div>
                 <h4><Activity size={16} /> Encounter Workflow &amp; Department Progress</h4>
-                <p>Tracking of this visit across Reception, Triage, OPD, Lab, and Pharmacy.</p>
+                <p>Tracking of this visit across Reception, OPD Consultation, Lab, Pharmacy, and Archive.</p>
               </div>
               <div className="record-journey-progress-copy">
                 <strong>{journeyPercent}%</strong>
-                <span>{completedSteps} of 6 steps complete</span>
+                <span>{completedSteps} of 5 steps complete</span>
               </div>
             </div>
             <div className="record-journey-progress" aria-hidden="true">
@@ -768,26 +767,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
                 </div>
               </div>
 
-              {/* 2. Nurse Triage */}
-              <div className="record-step-card">
-                <div className="record-step-head">
-                  <span className="record-step-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}><HeartPulse size={15} /></span>
-                  <strong>Nurse Triage &amp; Vitals</strong>
-                  <StepStatus label={vitals ? 'Completed' : 'Pending'} tone={vitals ? 'green' : 'amber'} />
-                </div>
-                {vitals ? (
-                  <div className="record-step-body record-vitals-grid">
-                    <span>BP: <strong>{vitals.bloodPressure || '—'}</strong></span>
-                    <span>Pulse: <strong>{vitals.heartRate ? `${vitals.heartRate} bpm` : '—'}</strong></span>
-                    <span>Temp: <strong>{vitals.temperature ? `${vitals.temperature}°C` : '—'}</strong></span>
-                    <span>SpO2: <strong>{vitals.spo2 ? `${vitals.spo2}%` : '—'}</strong></span>
-                  </div>
-                ) : (
-                  <div className="record-step-note">No triage vitals were recorded for this encounter.</div>
-                )}
-              </div>
-
-              {/* 3. OPD Consultation */}
+              {/* 2. OPD Consultation */}
               <div className="record-step-card">
                 <div className="record-step-head">
                   <span className="record-step-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}><Stethoscope size={15} /></span>
