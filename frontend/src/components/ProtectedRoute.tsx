@@ -23,7 +23,7 @@ interface ProtectedRouteProps {
 /** Maps each role to its home landing page (mirrors getRoleLandingPage in App.tsx). */
 export function roleLandingPage(role: UserRole | undefined): string {
   switch (role) {
-    case 'admin':        return '/admin';
+    case 'admin':        return '/patients';
     case 'receptionist': return '/reception';
     case 'opd':          return '/opd';
     case 'emergency':    return '/emergency';

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, CalendarDays,
   Pill, Stethoscope, BarChart2, Menu, Bell, Settings,
   ChevronRight, LogOut, HeartPulse, ClipboardList, Sun, Moon,
-  ShieldCheck, ShieldAlert, Database, Wrench, AlertTriangle, MessageSquare, KeyRound,
+  ShieldCheck, ShieldAlert, Database, Wrench, AlertTriangle, MessageSquare,
   FlaskConical, CheckCircle2
 } from 'lucide-react';
 import './Layout.css';
@@ -79,8 +79,25 @@ export default function Layout({ children }: LayoutProps) {
 
   const notifRef = useRef<HTMLLIElement>(null);
   const actionToastTimer = useRef<number | null>(null);
-  const lastActivityAt = useRef(Date.now());
-  const [sessionLocked, setSessionLocked] = useState(false);
+
+  const isInitialSessionLocked = () => {
+    if (typeof window === 'undefined') return false;
+    if (localStorage.getItem('bruclinic:session_locked') === 'true') return true;
+    const lastActive = Number(localStorage.getItem('bruclinic:last_activity') || '0');
+    const storedLockMinutes = Number(localStorage.getItem('bruclinic:idle_lock_minutes') || '15');
+    if (lastActive > 0 && Date.now() - lastActive >= storedLockMinutes * 60_000) {
+      localStorage.setItem('bruclinic:session_locked', 'true');
+      return true;
+    }
+    return false;
+  };
+
+  const [sessionLocked, setSessionLocked] = useState<boolean>(isInitialSessionLocked);
+  const lastActivityAt = useRef<number>(
+    typeof window !== 'undefined' && Number(localStorage.getItem('bruclinic:last_activity') || '0') > 0
+      ? Number(localStorage.getItem('bruclinic:last_activity'))
+      : Date.now()
+  );
   const [unlockPassword, setUnlockPassword] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [unlocking, setUnlocking] = useState(false);
@@ -139,14 +156,33 @@ export default function Layout({ children }: LayoutProps) {
   }, [refresh]);
 
   useEffect(() => {
+    if (idleLockMinutes) {
+      localStorage.setItem('bruclinic:idle_lock_minutes', String(idleLockMinutes));
+    }
+  }, [idleLockMinutes]);
+
+  useEffect(() => {
     const markActivity = () => {
-      if (!sessionLocked) lastActivityAt.current = Date.now();
+      const isLocked = localStorage.getItem('bruclinic:session_locked') === 'true';
+      if (!sessionLocked && !isLocked) {
+        const now = Date.now();
+        lastActivityAt.current = now;
+        localStorage.setItem('bruclinic:last_activity', String(now));
+      }
     };
-    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
     events.forEach(event => window.addEventListener(event, markActivity, { passive: true }));
     const timer = window.setInterval(() => {
-      if (!sessionLocked && Date.now() - lastActivityAt.current >= idleLockMinutes * 60_000) {
+      const isExplicitlyLocked = localStorage.getItem('bruclinic:session_locked') === 'true';
+      if (isExplicitlyLocked) {
+        if (!sessionLocked) setSessionLocked(true);
+        return;
+      }
+      const lastActive = Number(localStorage.getItem('bruclinic:last_activity') || String(lastActivityAt.current));
+      const effectiveLockMinutes = idleLockMinutes || Number(localStorage.getItem('bruclinic:idle_lock_minutes') || '15');
+      if (Date.now() - lastActive >= effectiveLockMinutes * 60_000) {
         setSessionLocked(true);
+        localStorage.setItem('bruclinic:session_locked', 'true');
         setUnlockPassword('');
         setUnlockError('');
       }
@@ -168,11 +204,32 @@ export default function Layout({ children }: LayoutProps) {
       return;
     }
     setSessionLocked(false);
+    localStorage.removeItem('bruclinic:session_locked');
+    const now = Date.now();
+    lastActivityAt.current = now;
+    localStorage.setItem('bruclinic:last_activity', String(now));
     setUnlockPassword('');
-    lastActivityAt.current = Date.now();
   };
 
-  const navItems = ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role));
+  const directSignOut = () => {
+    localStorage.removeItem('bruclinic:session_locked');
+    localStorage.removeItem('bruclinic:last_activity');
+    logout();
+    navigate('/login');
+  };
+
+  const ADMIN_NAV_ITEMS: NavItemDef[] = [
+    { to: '/patients',     icon: Users,         label: 'Patients' },
+    { to: '/appointments', icon: CalendarDays,  label: 'Appointments' },
+    { to: '/records',      icon: ClipboardList, label: 'Medical Records' },
+    { to: '/pharmacy',     icon: Pill,          label: 'Pharmacy & Inventory' },
+  ];
+
+  const navItems: NavItemDef[] = role === 'admin'
+    ? ADMIN_NAV_ITEMS
+    : ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role)).map(item =>
+        item.to === '/pharmacy' ? { ...item, label: 'Pharmacy & Inventory' } : item
+      );
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const criticalER = erCases.filter(item => item.acuity === 'Red');
@@ -190,7 +247,13 @@ export default function Layout({ children }: LayoutProps) {
   });
   const unreadAlerts = alertKey === readAlertKey ? 0 : totalAlerts;
   const handleLogout = () => setLogoutConfirmOpen(true);
-  const confirmLogout = () => { setLogoutConfirmOpen(false); logout(); navigate('/login'); };
+  const confirmLogout = () => {
+    localStorage.removeItem('bruclinic:session_locked');
+    localStorage.removeItem('bruclinic:last_activity');
+    setLogoutConfirmOpen(false);
+    logout();
+    navigate('/login');
+  };
   const closeMobile = () => setMobileOpen(false);
   const toggleNotifications = () => {
     if (!showNotifications) setReadAlertKey(alertKey);
@@ -306,17 +369,25 @@ export default function Layout({ children }: LayoutProps) {
         onConfirm={confirmLogout}
       />
       {sessionLocked && (
-        <div role="dialog" aria-modal="true" aria-labelledby="session-lock-title" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9, 18, 35, .9)', display: 'grid', placeItems: 'center', padding: 20 }}>
-          <form onSubmit={submitUnlock} style={{ width: 'min(100%, 400px)', borderRadius: 16, padding: 28, background: 'var(--clr-bg-card, #fff)', color: 'var(--clr-text-primary, #172033)', boxShadow: '0 24px 80px rgba(0,0,0,.4)' }}>
-            <KeyRound size={28} />
-            <h2 id="session-lock-title" className="mt-3">Session locked</h2>
-            <p>Your session was locked after inactivity. Enter your password to continue.</p>
-            {unlockError && <div className="alert alert-danger py-2" role="alert">{unlockError}</div>}
-            <label className="form-label" htmlFor="unlock-password">Password</label>
-            <PasswordField id="unlock-password" className="form-control mb-3" autoComplete="current-password" autoFocus value={unlockPassword} onChange={event => setUnlockPassword(event.target.value)} required />
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary" type="submit" disabled={unlocking}>{unlocking ? 'Unlocking…' : 'Unlock session'}</button>
-              <button className="btn btn-secondary" type="button" onClick={() => { logout(); navigate('/login'); }}>Sign out</button>
+        <div role="dialog" aria-modal="true" aria-labelledby="session-lock-title" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9, 18, 35, .94)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 20 }}>
+          <form onSubmit={submitUnlock} style={{ width: 'min(100%, 420px)', borderRadius: 16, padding: 30, background: 'var(--clr-bg-card, #fff)', color: 'var(--clr-text-primary, #172033)', boxShadow: '0 24px 80px rgba(0,0,0,.5)', border: '1px solid var(--clr-border, #e2e8f0)' }}>
+            <div style={{ textAlign: 'center', marginBottom: 18 }}>
+              <div style={{ width: 62, height: 62, borderRadius: '50%', background: currentUser?.badgeColor || '#0284c7', color: '#fff', fontSize: '1.4rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
+                {currentUser?.avatarInitials || 'ST'}
+              </div>
+              <h2 id="session-lock-title" style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>Session Locked</h2>
+              <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)', fontSize: '0.94rem' }}>{currentUser?.name || 'Staff User'}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>{currentUser?.roleTitle || role}</div>
+            </div>
+            <p style={{ margin: '0 0 16px', color: 'var(--clr-text-muted, #5f6c87)', fontSize: '.84rem', textAlign: 'center', lineHeight: 1.45 }}>
+              This workstation was locked after inactivity. Enter your account password to resume your session.
+            </p>
+            {unlockError && <div className="alert alert-danger py-2 mb-3" role="alert" style={{ fontSize: '0.84rem' }}>{unlockError}</div>}
+            <label className="form-label" htmlFor="unlock-password" style={{ fontWeight: 600, fontSize: '0.82rem' }}>Account Password</label>
+            <PasswordField id="unlock-password" className="form-control mb-3" autoComplete="current-password" autoFocus value={unlockPassword} onChange={event => setUnlockPassword(event.target.value)} required placeholder="Enter password to unlock..." />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+              <button className="btn btn-secondary btn-sm" type="button" onClick={directSignOut}>Sign out</button>
+              <button className="btn btn-primary btn-sm" type="submit" disabled={unlocking}>{unlocking ? 'Unlocking…' : 'Unlock Workstation'}</button>
             </div>
           </form>
         </div>

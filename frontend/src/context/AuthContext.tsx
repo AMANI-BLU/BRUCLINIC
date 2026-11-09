@@ -42,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     localStorage.removeItem(STORAGE_USER_KEY);
     localStorage.removeItem(STORAGE_TOKEN_KEY);
+    localStorage.removeItem('bruclinic:session_locked');
+    localStorage.removeItem('bruclinic:last_activity');
   }, []);
 
   useEffect(() => {
@@ -53,7 +55,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiGet<{ user: UserProfile; idleLockMinutes?: number }>('/auth/me', token)
       .then(response => {
         setCurrentUser(response.user);
-        if (response.idleLockMinutes) setIdleLockMinutes(response.idleLockMinutes);
+        if (response.idleLockMinutes) {
+          setIdleLockMinutes(response.idleLockMinutes);
+          localStorage.setItem('bruclinic:idle_lock_minutes', String(response.idleLockMinutes));
+        }
         localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
       })
       .catch(() => clearSession())
@@ -71,7 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await apiPost<{ token: string; user: UserProfile; idleLockMinutes?: number }>('/auth/login', { username: cleanUsername, password });
       setToken(response.token);
       setCurrentUser(response.user);
-      if (response.idleLockMinutes) setIdleLockMinutes(response.idleLockMinutes);
+      if (response.idleLockMinutes) {
+        setIdleLockMinutes(response.idleLockMinutes);
+        localStorage.setItem('bruclinic:idle_lock_minutes', String(response.idleLockMinutes));
+      }
+      localStorage.setItem('bruclinic:last_activity', String(Date.now()));
+      localStorage.removeItem('bruclinic:session_locked');
       localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
       return { success: true, user: response.user };
     } catch (error) {

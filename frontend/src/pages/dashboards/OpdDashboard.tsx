@@ -8,12 +8,13 @@ import { patientCodeFor, patientNameFor } from '../../utils/patient';
 import {
   Stethoscope, Activity, Pill, FlaskConical, CheckCircle2,
   FileText, ChevronRight, X, ShieldAlert, Send, Plus, Trash2,
-  HeartPulse, History, Building2, ShoppingBag
+  HeartPulse, History, Building2, ShoppingBag, Printer
 } from 'lucide-react';
 import ConfirmModal from '../../components/ConfirmModal';
 import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import DiagnosisField from '../../components/DiagnosisField';
 import ModalPortal from '../../components/ModalPortal';
+import ReferralPrintModal from '../../components/ReferralPrintModal';
 import { LAB_PANELS } from '../../utils/labPresets';
 import './OpdDashboard.css';
 
@@ -24,6 +25,17 @@ interface PrescriptionLine {
   stockAvailable?: number;
   unit?: string;
   isExternal?: boolean;
+}
+
+function calculateAge(dateOfBirth?: string): number | undefined {
+  if (!dateOfBirth) return undefined;
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return undefined;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+  return age >= 0 ? age : undefined;
 }
 
 export default function OpdDashboard() {
@@ -47,6 +59,22 @@ export default function OpdDashboard() {
   const [referralReason, setReferralReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [printedReferral, setPrintedReferral] = useState<{
+    patientName: string;
+    patientCode?: string;
+    patientAge?: number;
+    patientGender?: string;
+    patientType?: string;
+    patientDepartment?: string;
+    doctorName: string;
+    destination: string;
+    reason: string;
+    diagnosis?: string;
+    vitals?: Vitals;
+    symptoms?: string[];
+    notes?: string;
+    allergies?: string[];
+  } | null>(null);
 
   // Nurse vitals form
   const [vitalsForm, setVitalsForm] = useState<Vitals>({
@@ -324,6 +352,24 @@ export default function OpdDashboard() {
     )));
     if (error) { setFormError(error); return; }
     try {
+      const patient = patients.find(p => p.id === selectedQueueItem.patientId);
+      const referralSlipData = {
+        patientName: patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName),
+        patientCode: patientCodeFor(patients, selectedQueueItem.patientId),
+        patientAge: calculateAge(patient?.dateOfBirth),
+        patientGender: patient?.gender,
+        patientType: patient?.patientType,
+        patientDepartment: patient?.department,
+        doctorName: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+        destination: referralDestination.trim(),
+        reason: referralReason.trim(),
+        diagnosis: consultation.diagnosis,
+        vitals: vitalsForm,
+        symptoms: consultation.symptoms.split(',').map(value => value.trim()).filter(Boolean),
+        notes: consultation.clinicalNotes,
+        allergies: Array.isArray(selectedQueueItem.allergies) ? selectedQueueItem.allergies : selectedQueueItem.allergies ? [String(selectedQueueItem.allergies)] : [],
+      };
+
       await referOutside(selectedQueueItem.id, {
         destination: referralDestination.trim(),
         reason: referralReason.trim(),
@@ -341,6 +387,8 @@ export default function OpdDashboard() {
       setSelectedQueueItem(null);
       setReferralDestination('');
       setReferralReason('');
+      setPrintedReferral(referralSlipData);
+      window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient referred outside successfully. Referral slip ready for printing.' }));
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not record this referral.');
     }
@@ -601,6 +649,35 @@ export default function OpdDashboard() {
               </div>
 
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {selectedQueueItem.externalReferral && (
+                  <button
+                    type="button"
+                    className="btn btn-warning btn-sm"
+                    title="Print Official Referral Document"
+                    onClick={() => {
+                      const patient = patients.find(p => p.id === selectedQueueItem.patientId);
+                      setPrintedReferral({
+                        patientName: patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName),
+                        patientCode: patientCodeFor(patients, selectedQueueItem.patientId),
+                        patientAge: calculateAge(patient?.dateOfBirth),
+                        patientGender: patient?.gender,
+                        patientType: patient?.patientType,
+                        patientDepartment: patient?.department,
+                        doctorName: selectedQueueItem.externalReferral?.referredBy || currentUser?.name || 'OPD clinician',
+                        destination: selectedQueueItem.externalReferral?.destination || 'Hospital',
+                        reason: selectedQueueItem.externalReferral?.reason || '',
+                        diagnosis: consultation.diagnosis,
+                        vitals: selectedQueueItem.vitals,
+                        symptoms: consultation.symptoms.split(',').map(v => v.trim()).filter(Boolean),
+                        notes: consultation.clinicalNotes,
+                        allergies: Array.isArray(selectedQueueItem.allergies) ? selectedQueueItem.allergies : selectedQueueItem.allergies ? [String(selectedQueueItem.allergies)] : [],
+                      });
+                    }}
+                    style={{ fontSize: '0.74rem' }}
+                  >
+                    <Printer size={14} /> Print Referral Slip
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -1522,6 +1599,28 @@ export default function OpdDashboard() {
             </div>
           </div>
         </ModalPortal>
+      )}
+
+      {/* Official Referral Print Slip Modal */}
+      {printedReferral && (
+        <ReferralPrintModal
+          isOpen={Boolean(printedReferral)}
+          onClose={() => setPrintedReferral(null)}
+          patientName={printedReferral.patientName}
+          patientCode={printedReferral.patientCode}
+          patientAge={printedReferral.patientAge}
+          patientGender={printedReferral.patientGender}
+          patientType={printedReferral.patientType}
+          patientDepartment={printedReferral.patientDepartment}
+          doctorName={printedReferral.doctorName}
+          destination={printedReferral.destination}
+          reason={printedReferral.reason}
+          diagnosis={printedReferral.diagnosis}
+          vitals={printedReferral.vitals}
+          symptoms={printedReferral.symptoms}
+          notes={printedReferral.notes}
+          allergies={printedReferral.allergies}
+        />
       )}
     </div>
   );

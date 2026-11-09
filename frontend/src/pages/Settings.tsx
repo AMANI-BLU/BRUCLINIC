@@ -35,12 +35,13 @@ interface RoleSetting {
 const ROLE_SETTINGS: Record<UserRole, RoleSetting> = {
   admin: {
     label: 'Administration workspace',
-    description: 'Manage clinic access, operational setup, and reporting.',
+    description: 'Clinic patients, appointments, medical records, and pharmacy inventory.',
     icon: ShieldCheck,
     items: [
-      { label: 'Staff accounts', to: '/staff-accounts' },
-      { label: 'Clinic-wide reports', to: '/reports' },
-      { label: 'Security center', to: '/security' },
+      { label: 'Patients', to: '/patients' },
+      { label: 'Appointments', to: '/appointments' },
+      { label: 'Medical records', to: '/records' },
+      { label: 'Pharmacy & inventory', to: '/pharmacy' },
     ],
   },
   receptionist: {

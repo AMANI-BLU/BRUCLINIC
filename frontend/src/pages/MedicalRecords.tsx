@@ -8,17 +8,29 @@ import { firstError, validateDate, validateRequired } from '../utils/validation'
 import {
   Activity, Calendar, CheckCircle2, Clock, Eye, FilePlus, FileText,
   FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2, HeartPulse,
-  PackageCheck, ClipboardCheck, CircleDashed, Ban
+  PackageCheck, ClipboardCheck, CircleDashed, Ban, Printer
 } from 'lucide-react';
 import './Patients.css';
 import './MedicalRecords.css';
 import DiagnosisField from '../components/DiagnosisField';
 import ModalPortal from '../components/ModalPortal';
+import ReferralPrintModal from '../components/ReferralPrintModal';
 
 function getInitials(name: string) {
   const parts = name.replace(/^Dr\.\s*/i, '').trim().split(/\s+/);
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return (parts[0] ? parts[0].slice(0, 2) : 'PT').toUpperCase();
+}
+
+function calculateAge(dateOfBirth?: string): number | undefined {
+  if (!dateOfBirth) return undefined;
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return undefined;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+  return age >= 0 ? age : undefined;
 }
 
 type RecordFilter = 'all' | 'rx' | 'lab' | 'followup';
@@ -468,6 +480,22 @@ function StepStatus({ label, tone }: { label: string; tone: 'green' | 'amber' | 
 
 function RecordView({ record }: { record: MedicalRecord }) {
   const { patients, queue, labOrders, pharmacyOrders } = useClinic();
+  const [printReferral, setPrintReferral] = useState<{
+    patientName: string;
+    patientCode?: string;
+    patientAge?: number;
+    patientGender?: string;
+    patientType?: string;
+    patientDepartment?: string;
+    doctorName: string;
+    destination: string;
+    reason: string;
+    diagnosis?: string;
+    vitals?: any;
+    symptoms?: string[];
+    notes?: string;
+    date?: string;
+  } | null>(null);
   const patient = findPatient(patients, record.patientId);
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
   const linkedQueueItem = (record.queueItemId ? queue.find(q => q.id === record.queueItemId) : null) || queue.find(q => q.patientId === record.patientId);
@@ -677,6 +705,31 @@ function RecordView({ record }: { record: MedicalRecord }) {
               </div>
               <div className="record-step-body">To: <strong>{externalRef.destination}</strong></div>
               <div className="record-step-note">Reason: {externalRef.reason}</div>
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-warning btn-sm"
+                  style={{ fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: 5 }}
+                  onClick={() => setPrintReferral({
+                    patientName: patientFullName(patient, record.patientName),
+                    patientCode: patientCode(patient, record.patientId),
+                    patientAge: calculateAge(patient?.dateOfBirth),
+                    patientGender: patient?.gender,
+                    patientType: patient?.patientType,
+                    patientDepartment: patient?.department,
+                    doctorName: record.doctorName,
+                    destination: externalRef.destination,
+                    reason: externalRef.reason,
+                    diagnosis: record.diagnosis,
+                    vitals: vitals,
+                    symptoms: record.symptoms,
+                    notes: record.notes,
+                    date: record.visitDate,
+                  })}
+                >
+                  <Printer size={13} /> Print Official Referral Document
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -756,6 +809,27 @@ function RecordView({ record }: { record: MedicalRecord }) {
 
       {!record.notes && !record.diagnosis && !pharmacyRows.length && !labRows.length && (
         <div className="record-empty-note"><Ban size={16} /> No clinical detail was recorded for this encounter.</div>
+      )}
+
+      {printReferral && (
+        <ReferralPrintModal
+          isOpen={Boolean(printReferral)}
+          onClose={() => setPrintReferral(null)}
+          patientName={printReferral.patientName}
+          patientCode={printReferral.patientCode}
+          patientAge={printReferral.patientAge}
+          patientGender={printReferral.patientGender}
+          patientType={printReferral.patientType}
+          patientDepartment={printReferral.patientDepartment}
+          doctorName={printReferral.doctorName}
+          destination={printReferral.destination}
+          reason={printReferral.reason}
+          diagnosis={printReferral.diagnosis}
+          vitals={printReferral.vitals}
+          symptoms={printReferral.symptoms}
+          notes={printReferral.notes}
+          date={printReferral.date}
+        />
       )}
     </div>
   );
