@@ -90,7 +90,7 @@ export default function MedicalRecords() {
     diagnosis: '', symptoms: '', notes: '', followUpDate: '', medications: '',
   });
 
-  const canAddRecord = role === 'admin' || role === 'opd' || role === 'emergency';
+  const canAddRecord = role === 'opd' || role === 'emergency';
   const recordLinks = buildRecordLinks(records, labOrders, pharmacyOrders);
   const prescriptionRecords = records.filter(record => (record.prescription?.length || 0) > 0 || (recordLinks.get(record.id)?.pharmacyOrders.length || 0) > 0).length;
   const labRecords = records.filter(record => labTestCount(record, recordLinks.get(record.id)) > 0).length;

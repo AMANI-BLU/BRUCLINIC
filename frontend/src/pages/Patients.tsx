@@ -78,8 +78,10 @@ export default function Patients() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  // Desk roles that can create a card-to-OPD dispatch
-  const canDispatch = role === 'admin' || role === 'receptionist';
+  // Only receptionist can add/edit/delete patients
+  const canManagePatients = role === 'receptionist';
+  // Desk roles that can create a card-to-OPD dispatch (receptionist only now)
+  const canDispatch = role === 'receptionist';
 
   const filtered = patients.filter(p => {
     const matchType = filterType === 'All' || p.patientType === filterType;
@@ -212,7 +214,7 @@ export default function Patients() {
           <h1 className="page-title"><Users size={26} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />Patients</h1>
           <p className="page-subtitle">{patients.length} registered patient files &amp; clinic cards</p>
         </div>
-        {role !== 'opd' && role !== 'laboratory' && (
+        {canManagePatients && (
           <button type="button" className="btn btn-primary" id="add-patient-btn" onClick={openAdd}>
             <UserPlus size={16} /> New patient
           </button>
@@ -282,8 +284,12 @@ export default function Patients() {
                 <td>
                   <div className="action-btns">
                     <button type="button" className="btn btn-secondary btn-sm btn-icon" title="View Patient Card & History" onClick={() => openView(p)}><Eye size={15} /></button>
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Edit Patient Details" onClick={() => openEdit(p)}><Edit2 size={15} /></button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" title="Delete Patient" onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
+                    {canManagePatients && (
+                      <>
+                        <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Edit Patient Details" onClick={() => openEdit(p)}><Edit2 size={15} /></button>
+                        <button type="button" className="btn btn-danger btn-sm btn-icon" title="Delete Patient" onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

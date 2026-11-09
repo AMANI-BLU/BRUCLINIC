@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
+import { useAuth } from '../context/AuthContext';
 import type { Appointment, AppointmentStatus, AppointmentType, Priority } from '../types';
 import { Plus, Search, X, Edit2, Trash2, CalendarDays, Clock } from 'lucide-react';
 import { firstError, validateDate, validateRequired, validateTime, validateTextLength, sanitizeInput } from '../utils/validation';
@@ -20,6 +21,8 @@ const EMPTY_APPT: Omit<Appointment, 'id'> = {
 
 export default function Appointments() {
   const { appointments, patients, doctors, addAppointment, updateAppointment, deleteAppointment } = useClinic();
+  const { role } = useAuth();
+  const canManageAppointments = role === 'receptionist' || role === 'opd';
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<AppointmentStatus | 'All'>('All');
   const [modal, setModal] = useState<{ open: boolean; appt?: Appointment }>({ open: false });
@@ -101,9 +104,11 @@ export default function Appointments() {
           <h1 className="page-title">Appointments</h1>
           <p className="page-subtitle">{appointments.length} total appointments</p>
         </div>
-        <button className="btn btn-primary" id="add-appointment-btn" onClick={openAdd}>
-          <Plus size={16} /> New Appointment
-        </button>
+        {canManageAppointments && (
+          <button className="btn btn-primary" id="add-appointment-btn" onClick={openAdd}>
+            <Plus size={16} /> New Appointment
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -132,12 +137,12 @@ export default function Appointments() {
               <th>Type</th>
               <th>Priority</th>
               <th>Status</th>
-              <th>Actions</th>
+              {canManageAppointments && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>No appointments found.</td></tr>
+              <tr><td colSpan={canManageAppointments ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>No appointments found.</td></tr>
             ) : filtered.map(a => (
               <tr key={a.id}>
                 <td>
@@ -154,23 +159,29 @@ export default function Appointments() {
                 <td><span className="badge badge-blue">{a.type}</span></td>
                 <td><span className={`badge ${PRIORITY_COLORS[a.priority]}`}>{a.priority}</span></td>
                 <td>
-                  <select
-                    value={a.status}
-                    onChange={e => handleStatusChange(a.id, e.target.value as AppointmentStatus)}
-                    className="status-select"
-                    style={{ background: 'var(--clr-bg-hover)', border: '1px solid var(--clr-border)', borderRadius: 6, color: 'var(--clr-text-primary)', padding: '0.2rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                  >
-                    {(['Scheduled', 'Completed', 'Cancelled', 'No-Show'] as AppointmentStatus[]).map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  {canManageAppointments ? (
+                    <select
+                      value={a.status}
+                      onChange={e => handleStatusChange(a.id, e.target.value as AppointmentStatus)}
+                      className="status-select"
+                      style={{ background: 'var(--clr-bg-hover)', border: '1px solid var(--clr-border)', borderRadius: 6, color: 'var(--clr-text-primary)', padding: '0.2rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      {(['Scheduled', 'Completed', 'Cancelled', 'No-Show'] as AppointmentStatus[]).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="badge badge-gray">{a.status}</span>
+                  )}
                 </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.375rem' }}>
-                    <button className="btn btn-secondary btn-sm btn-icon" title="Edit" onClick={() => openEdit(a)}><Edit2 size={15} /></button>
-                    <button className="btn btn-danger btn-sm btn-icon" title="Delete" onClick={() => handleDelete(a.id)}><Trash2 size={15} /></button>
-                  </div>
-                </td>
+                {canManageAppointments && (
+                  <td>
+                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                      <button className="btn btn-secondary btn-sm btn-icon" title="Edit" onClick={() => openEdit(a)}><Edit2 size={15} /></button>
+                      <button className="btn btn-danger btn-sm btn-icon" title="Delete" onClick={() => handleDelete(a.id)}><Trash2 size={15} /></button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

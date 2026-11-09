@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
+import { useAuth } from '../context/AuthContext';
 import InfoBox from '../components/AdminLTE/InfoBox';
 import AddMedicineModal from '../components/AddMedicineModal';
 import AdjustMedicineStockModal from '../components/AdjustMedicineStockModal';
@@ -9,6 +10,8 @@ import './Pharmacy.css';
 
 export default function Pharmacy() {
   const { medicines, updateMedicineStock } = useClinic();
+  const { role } = useAuth();
+  const canManageInventory = role === 'pharmacy';
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'lowStock' | 'expiringSoon' | 'expired'>('all');
   const [showAddMedicine, setShowAddMedicine] = useState(false);
@@ -103,9 +106,11 @@ export default function Pharmacy() {
           <button className="btn btn-secondary" onClick={() => setShowExpiryReport(true)}>
             <ClipboardList size={16} /> Best Before Report
           </button>
-          <button className="btn btn-primary" onClick={() => setShowAddMedicine(true)}>
-            <Plus size={16} /> Add Medicine
-          </button>
+          {canManageInventory && (
+            <button className="btn btn-primary" onClick={() => setShowAddMedicine(true)}>
+              <Plus size={16} /> Add Medicine
+            </button>
+          )}
         </div>
       </div>
 
@@ -168,7 +173,7 @@ export default function Pharmacy() {
               <th>Expiry</th>
               <th>Supplier</th>
               <th>Status</th>
-              <th>Adjust stock</th>
+              {canManageInventory && <th>Adjust stock</th>}
             </tr>
           </thead>
           <tbody>
@@ -233,11 +238,13 @@ export default function Pharmacy() {
                   </td>
                   <td style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>{m.supplier}</td>
                   <td><span className={`badge ${cls}`}>{label}</span></td>
-                  <td>
-                    <button type="button" className="btn btn-secondary btn-sm pharmacy-adjust-trigger" onClick={() => setAdjustTarget(m)}>
-                      <SlidersHorizontal size={14} /> Adjust stock
-                    </button>
-                  </td>
+                  {canManageInventory && (
+                    <td>
+                      <button type="button" className="btn btn-secondary btn-sm pharmacy-adjust-trigger" onClick={() => setAdjustTarget(m)}>
+                        <SlidersHorizontal size={14} /> Adjust stock
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
