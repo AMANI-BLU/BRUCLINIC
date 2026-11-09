@@ -10,15 +10,24 @@ export async function messagesHandler(request, response, segments) {
   if (request.method === 'GET' && segments.length === 2) {
     const result = await query(
       `SELECT m.id, m.sender_id, m.recipient_id, m.body, m.read_at, m.created_at,
-              s.name AS sender_name, r.name AS recipient_name
+              s.name AS sender_name, s.role AS sender_role, s.role_title AS sender_role_title,
+              r.name AS recipient_name, r.role AS recipient_role, r.role_title AS recipient_role_title
        FROM user_messages m
        JOIN users s ON s.id = m.sender_id
        JOIN users r ON r.id = m.recipient_id
        WHERE m.sender_id = $1 OR m.recipient_id = $1
-       ORDER BY m.created_at DESC LIMIT 300`,
+       ORDER BY m.created_at ASC LIMIT 500`,
       [userId],
     );
     return sendJson(response, 200, { data: result.rows });
+  }
+
+  if (request.method === 'GET' && segments[2] === 'unread-count') {
+    const result = await query(
+      `SELECT COUNT(*)::int AS count FROM user_messages WHERE recipient_id = $1 AND read_at IS NULL`,
+      [userId],
+    );
+    return sendJson(response, 200, { count: result.rows[0]?.count || 0 });
   }
 
   if (request.method === 'POST' && segments.length === 2) {
@@ -27,7 +36,7 @@ export async function messagesHandler(request, response, segments) {
     validateText(request.body.body, 'Message', { required: true, max: 2000 });
     if (request.body.recipientId === userId) return sendError(response, 422, 'Choose another staff member');
     const recipient = await query(
-      'SELECT id FROM users WHERE id = $1 AND is_active = TRUE LIMIT 1',
+      'SELECT id, name, role, role_title FROM users WHERE id = $1 AND is_active = TRUE LIMIT 1',
       [request.body.recipientId],
     );
     if (!recipient.rows[0]) return sendError(response, 404, 'Recipient is not an active staff account');
@@ -38,7 +47,22 @@ export async function messagesHandler(request, response, segments) {
        RETURNING id, sender_id, recipient_id, body, read_at, created_at`,
       [id, userId, request.body.recipientId, String(request.body.body).trim()],
     );
-    return sendJson(response, 201, { data: inserted.rows[0] });
+    const row = inserted.rows[0];
+    row.sender_name = request.user?.name || 'Staff';
+    row.sender_role = request.user?.role || 'staff';
+    row.recipient_name = recipient.rows[0].name;
+    row.recipient_role = recipient.rows[0].role;
+    return sendJson(response, 201, { data: row });
+  }
+
+  if (request.method === 'PATCH' && segments[2] === 'read-all' && segments[3]) {
+    const partnerId = segments[3];
+    await query(
+      `UPDATE user_messages SET read_at = COALESCE(read_at, NOW())
+       WHERE recipient_id = $1 AND sender_id = $2 AND read_at IS NULL`,
+      [userId, partnerId],
+    );
+    return sendJson(response, 200, { message: 'All messages marked as read' });
   }
 
   if (request.method === 'PATCH' && segments[2] && segments[3] === 'read') {
@@ -49,6 +73,15 @@ export async function messagesHandler(request, response, segments) {
     );
     if (!result.rows.length) return sendError(response, 404, 'Message not found');
     return sendJson(response, 200, { message: 'Message marked as read' });
+  }
+
+  if (request.method === 'DELETE' && segments[2]) {
+    const result = await query(
+      `DELETE FROM user_messages WHERE id = $1 AND (sender_id = $2 OR recipient_id = $2) RETURNING id`,
+      [segments[2], userId],
+    );
+    if (!result.rows.length) return sendError(response, 404, 'Message not found or not permitted');
+    return sendJson(response, 200, { message: 'Message deleted' });
   }
 
   return sendError(response, 404, 'Messages route not found');

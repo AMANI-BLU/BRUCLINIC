@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { query } from '../db/pool.js';
+import { query, withTransaction } from '../db/pool.js';
 
 const common = {
   patients: {
@@ -228,6 +228,19 @@ export async function updateResource(resource, id, changes) {
 
 export async function deleteResource(resource, id) {
   const definition = ensureResource(resource);
+  if (resource === 'patients') {
+    return withTransaction(async ({ query: txQuery }) => {
+      // Clean up dependent child records to avoid foreign key violations
+      await txQuery('DELETE FROM clinic_queue WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM emergency_cases WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM lab_orders WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM pharmacy_orders WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM appointments WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM medical_records WHERE patient_id = $1', [id]);
+      const res = await txQuery(`DELETE FROM ${definition.table} WHERE id = $1`, [id]);
+      return res.affectedRows ? { id } : null;
+    });
+  }
   const result = await query(`DELETE FROM ${definition.table} WHERE id = $1`, [id]);
   return result.affectedRows ? { id } : null;
 }

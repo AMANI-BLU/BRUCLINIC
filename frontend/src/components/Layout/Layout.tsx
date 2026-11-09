@@ -16,6 +16,7 @@ import { useMaintenance } from '../../context/MaintenanceContext';
 import type { UserRole } from '../../types';
 import ConfirmModal from '../ConfirmModal';
 import PasswordField from '../PasswordField';
+import { apiGet } from '../../api/client';
 
 interface NavItemDef {
   to: string;
@@ -73,9 +74,9 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [readAlertKey, setReadAlertKey] = useState('');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [actionToast, setActionToast] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState<number>(0);
 
   const notifRef = useRef<HTMLLIElement>(null);
   const actionToastTimer = useRef<number | null>(null);
@@ -104,9 +105,51 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, role, logout, idleLockMinutes, unlockSession } = useAuth();
+  const { currentUser, role, logout, idleLockMinutes, unlockSession, token } = useAuth();
   const { loading: clinicLoading, error: clinicError, erCases, labOrders, medicines, pharmacyOrders, refresh } = useClinic();
   const { enabled: maintenance } = useMaintenance();
+
+  const readAlertStorageKey = `bruclinic:read_alert_key_${currentUser?.id || 'guest'}`;
+  const [readAlertKey, setReadAlertKey] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return localStorage.getItem(readAlertStorageKey) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const markAlertsRead = (key: string) => {
+    setReadAlertKey(key);
+    try {
+      localStorage.setItem(readAlertStorageKey, key);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    try {
+      const stored = localStorage.getItem(`bruclinic:read_alert_key_${currentUser.id}`);
+      if (stored) setReadAlertKey(stored);
+    } catch {}
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!token) return;
+    let mounted = true;
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await apiGet<{ count: number }>('/messages/unread-count', token);
+        if (mounted) setUnreadMessages(res.count || 0);
+      } catch {}
+    };
+    void fetchUnreadCount();
+    const interval = window.setInterval(fetchUnreadCount, 12_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [token]);
 
   useEffect(() => {
     document.body.classList.add('app-body', 'layout-fixed', 'sidebar-expand-lg', 'sidebar-mini', 'sidebar-without-hover');
@@ -245,7 +288,7 @@ export default function Layout({ children }: LayoutProps) {
   };
   const closeMobile = () => setMobileOpen(false);
   const toggleNotifications = () => {
-    if (!showNotifications) setReadAlertKey(alertKey);
+    if (!showNotifications) markAlertsRead(alertKey);
     setShowNotifications(previous => !previous);
   };
 
@@ -270,6 +313,18 @@ export default function Layout({ children }: LayoutProps) {
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
           </li>
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link app-header-btn app-notification ${location.pathname === '/messages' ? 'active' : ''}`}
+              title="Staff Messenger"
+              aria-label={`Staff Messenger${unreadMessages > 0 ? `, ${unreadMessages} unread messages` : ''}`}
+              onClick={() => navigate('/messages')}
+            >
+              <MessageSquare size={18} />
+              {unreadMessages > 0 && <span className="navbar-badge badge text-bg-primary">{unreadMessages}</span>}
+            </button>
+          </li>
           <li className="nav-item app-alert-menu" ref={notifRef}>
             <button type="button" className={`nav-link app-header-btn app-notification ${showNotifications ? 'active' : ''}`} title="Clinic live alerts" aria-label={`Clinic live alerts${unreadAlerts ? `, ${unreadAlerts} unread` : ''}`} aria-expanded={showNotifications} onClick={toggleNotifications}>
               <Bell size={18} />
@@ -277,9 +332,21 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             {showNotifications && (
               <div className="app-notification-dropdown">
-                <div className="app-notification-heading">
-                  <strong><Bell size={14} /> Live Alerts &amp; Notifications</strong>
-                  <span className="badge text-bg-primary">{totalAlerts} active</span>
+                <div className="app-notification-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <strong><Bell size={14} /> Live Alerts &amp; Notifications</strong>
+                    <span className="badge text-bg-primary">{totalAlerts} active</span>
+                  </div>
+                  {totalAlerts > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-link btn-sm p-0 text-decoration-none"
+                      style={{ fontSize: '0.72rem', color: 'var(--clr-primary-400)', cursor: 'pointer' }}
+                      onClick={() => markAlertsRead(alertKey)}
+                    >
+                      Mark all read
+                    </button>
+                  )}
                 </div>
                 <div className="app-notification-list">
                   {criticalER.length > 0 && <div className="notif-item-hover"><strong><HeartPulse size={14} /> Critical ER Cases ({criticalER.length})</strong>{criticalER.slice(0, 3).map(item => <span key={item.id}>{item.patientName} · {item.chiefComplaint.slice(0, 40)}...</span>)}</div>}

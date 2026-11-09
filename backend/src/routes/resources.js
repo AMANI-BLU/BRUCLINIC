@@ -9,6 +9,7 @@
  *   - Doctor record auto-sync when listing doctors
  */
 
+import { randomUUID } from 'node:crypto';
 import {
   deleteResource, findResource, insertResource, listResource, resourceDefinitions, updateResource,
 } from '../data/resourceRepository.js';
@@ -65,6 +66,51 @@ function databaseError(error) {
     error.publicMessage = 'The submitted data is not valid';
   }
   return error;
+}
+
+async function notifyAdminsOnDeletion({ resource, id, item, user }) {
+  try {
+    const adminUsers = await query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE");
+    if (!adminUsers.rows.length) return;
+
+    let itemDesc = id;
+    if (item) {
+      if (resource === 'patients') itemDesc = `${item.firstName || ''} ${item.lastName || ''} (ID: ${item.studentId || item.staffId || id})`.trim();
+      else if (resource === 'appointments') itemDesc = `Appointment for ${item.patientName || 'Patient'} with ${item.doctorName || 'Doctor'} on ${item.date || ''}`;
+      else if (resource === 'medicines') itemDesc = `${item.name || 'Medicine'} (${item.category || ''})`;
+      else if (resource === 'records') itemDesc = `Medical Record (${item.diagnosis || id})`;
+      else if (resource === 'queue') itemDesc = `Queue item #${item.tokenNumber || id} (${item.patientName || ''})`;
+    }
+
+    const senderId = user?.id;
+    const senderName = user?.name || 'Clinic Staff';
+    const senderRole = user?.role || 'Staff';
+    const body = `🚨 [Deletion Alert] ${resource.slice(0, 1).toUpperCase() + resource.slice(1, -1)} "${itemDesc}" was deleted by ${senderName} (${senderRole}).`;
+
+    // Audit log entry
+    try {
+      await query(
+        `INSERT INTO security_audit_logs (id, user_id, user_name, user_role, action, status, details, ip_address)
+         VALUES ($1, $2, $3, $4, $5, 'SUCCESS', $6, 'internal')`,
+        [`AUD-${randomUUID().slice(0, 12)}`, senderId || 'SYSTEM', senderName, senderRole, `DELETE_${resource.toUpperCase()}`, JSON.stringify({ resource, id, itemDesc })]
+      );
+    } catch (_) {}
+
+    // Send notification message to active admins
+    for (const admin of adminUsers.rows) {
+      if (senderId && senderId === admin.id) continue;
+      const msgId = `MSG-DEL-${randomUUID().slice(0, 10).toUpperCase()}`;
+      await query(
+        `INSERT INTO user_messages (id, sender_id, recipient_id, body)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [msgId, senderId || admin.id, admin.id, body]
+      );
+    }
+  } catch (err) {
+    // Non-fatal, deletion still completes
+    console.error('Failed to notify admins on deletion:', err);
+  }
 }
 
 export function createResourceHandler(resource) {
@@ -159,9 +205,11 @@ export function createResourceHandler(resource) {
     // ── DELETE ────────────────────────────────────────────────
     if (request.method === 'DELETE' && id) {
       try {
+        const existingItem = await findResource(resource, id);
         const item = await deleteResource(resource, id);
         if (item) {
           auditResourceMutation(request, resource, 'DELETE', id, null);
+          await notifyAdminsOnDeletion({ resource, id, item: existingItem, user: request.user });
           return sendNoContent(response);
         }
         return sendError(response, 404, 'Resource not found');
