@@ -455,9 +455,27 @@ export default function ReceptionDashboard() {
             </thead>
             <tbody>
               {filteredQueue.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--clr-text-muted)' }}>
-                    No requests found.
+                <tr className="empty-state-row">
+                  <td colSpan={6}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon tone-green">
+                        <CheckCircle2 size={28} />
+                      </div>
+                      <h5 className="empty-state-title">
+                        {filterStage === 'Completed' ? 'No completed visits yet' :
+                         filterStage === 'Laboratory' ? 'No laboratory orders active' :
+                         filterStage === 'Pharmacy' ? 'No pharmacy orders active' :
+                         filterStage === 'CardToOpd' ? 'No OPD requests in pipeline' :
+                         'All caught up! Request pipeline is empty'}
+                      </h5>
+                      <p className="empty-state-body">
+                        {filterStage === 'Completed'
+                          ? 'Completed patient visits will appear here once consultations are finished and closed.'
+                          : filterStage !== 'All'
+                          ? 'No requests match the selected filter. Try a different category or check another tab.'
+                          : 'No active OPD or department requests. Use the Send to OPD button to dispatch a patient card to a clinician.'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

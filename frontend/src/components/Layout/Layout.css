@@ -1,11 +1,10 @@
 /* BruClinic refinements for the AdminLTE v4 application shell. */
 
 .app-shell {
-  height: 100vh;
   min-height: 100vh;
   background: var(--clr-bg-base);
   color: var(--clr-text-primary);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app-sidebar {
@@ -13,6 +12,11 @@
   background: #343a40;
   color: #c2c7d0;
   transition: width 180ms ease, transform 180ms ease;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .app-sidebar .sidebar-brand { min-height: 57px; display: flex; justify-content: flex-start; }
@@ -119,7 +123,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 body.sidebar-collapse .app-shell .app-sidebar { border-right: 1px solid var(--clr-border); }
@@ -232,7 +236,7 @@ body.sidebar-collapse .app-shell .nav-item:hover .app-nav-tooltip {
 .app-header-user-copy small { color: var(--clr-text-muted); font-size: 0.59rem; font-weight: 700; margin-top: 0.15rem; }
 .app-logout { color: #dc3545 !important; }
 
-.app-content { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; background: var(--clr-bg-base); }
+.app-content { flex: 1 1 auto; min-width: 0; background: var(--clr-bg-base); overflow: visible; }
 .app-content-header { min-height: 40px; padding: 0.75rem 1rem 0.2rem; }
 .app-content-header .breadcrumb { margin: 0; padding: 0; background: transparent; font-size: 0.74rem; }
 .app-content-header .breadcrumb a { color: #007bff; }

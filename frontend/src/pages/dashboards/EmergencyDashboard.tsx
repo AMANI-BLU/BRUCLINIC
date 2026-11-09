@@ -213,9 +213,17 @@ export default function EmergencyDashboard() {
             </thead>
             <tbody>
               {erCases.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>
-                    No active emergency cases currently in ER
+                <tr className="empty-state-row">
+                  <td colSpan={8}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon tone-green">
+                        <CheckCircle2 size={28} />
+                      </div>
+                      <h5 className="empty-state-title">All clear! No active emergency cases</h5>
+                      <p className="empty-state-body">
+                        There are currently no patients in the Emergency Room. New admissions will appear here automatically when a patient is fast-tracked from reception or OPD.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

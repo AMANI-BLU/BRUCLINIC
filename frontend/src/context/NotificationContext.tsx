@@ -175,7 +175,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           categoryLabel: 'Laboratory',
           priority: 'normal',
           title: `Lab Ready: ${l.patientName} (${l.testName})`,
-          message: `Result ready: ${l.result || 'Completed'}`,
+          message: `Result: ${l.result ? `${l.result}${l.unit ? ' ' + l.unit : ''}` : 'Completed'} · Ordered by ${l.doctorName || 'Clinician'}`,
           time: l.completedAt || 'Recently',
           link: '/opd',
           icon: FlaskConical,

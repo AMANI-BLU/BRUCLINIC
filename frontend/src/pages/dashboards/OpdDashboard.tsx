@@ -555,9 +555,27 @@ export default function OpdDashboard() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {doctorStationQueue.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--clr-text-muted)', fontSize: '0.875rem' }}>
-                <CheckCircle2 size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
-                No patients waiting in this station queue right now.
+              <div className="empty-state">
+                <div className={`empty-state-icon ${opdTabFilter === 'completed' ? 'tone-green' : 'tone-blue'}`}>
+                  <CheckCircle2 size={28} />
+                </div>
+                <h5 className="empty-state-title">
+                  {opdTabFilter === 'completed' ? 'No completed consultations today' :
+                   opdTabFilter === 'lab_returned' ? 'No lab results ready' :
+                   opdTabFilter === 'card_requests' ? 'No card room requests' :
+                   'All caught up! No patients waiting'}
+                </h5>
+                <p className="empty-state-body">
+                  {opdTabFilter === 'completed'
+                    ? 'Completed consultations will appear here once patients are discharged and records are archived.'
+                    : opdTabFilter === 'lab_returned'
+                    ? 'Lab result notifications will appear here automatically when diagnostic tests are completed and ready for review.'
+                    : opdTabFilter === 'card_requests'
+                    ? 'Patient requests from the Card Room will appear here when receptionist dispatches to this OPD station.'
+                    : doctorQueueScope === 'my'
+                    ? `There are currently no patients assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'}. New patients will appear automatically when receptionist routes them here.`
+                    : 'The OPD consultation queue is currently empty. New patient requests will appear here automatically when dispatched from the Card Room.'}
+                </p>
               </div>
             ) : (
               doctorStationQueue.map((item) => {

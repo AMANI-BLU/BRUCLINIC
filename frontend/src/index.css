@@ -416,6 +416,44 @@ select option { background: var(--clr-bg-card); color: var(--clr-text-primary); 
 .app-content .small-box > .icon { position: absolute; top: 0.8rem; right: 0.9rem; bottom: auto; }
 .app-content .small-box > .icon svg { width: 3.2rem; height: 3.2rem; opacity: 0.22; stroke-width: 1.5; }
 
+/* Force white text on all colored small-box cards */
+.app-content .small-box.text-bg-primary,
+.app-content .small-box.text-bg-secondary,
+.app-content .small-box.text-bg-info,
+.app-content .small-box.text-bg-success,
+.app-content .small-box.text-bg-warning,
+.app-content .small-box.text-bg-danger {
+  color: #fff !important;
+}
+.app-content .small-box.text-bg-primary > .inner h3,
+.app-content .small-box.text-bg-primary > .inner p,
+.app-content .small-box.text-bg-primary > .inner small,
+.app-content .small-box.text-bg-secondary > .inner h3,
+.app-content .small-box.text-bg-secondary > .inner p,
+.app-content .small-box.text-bg-secondary > .inner small,
+.app-content .small-box.text-bg-info > .inner h3,
+.app-content .small-box.text-bg-info > .inner p,
+.app-content .small-box.text-bg-info > .inner small,
+.app-content .small-box.text-bg-success > .inner h3,
+.app-content .small-box.text-bg-success > .inner p,
+.app-content .small-box.text-bg-success > .inner small,
+.app-content .small-box.text-bg-warning > .inner h3,
+.app-content .small-box.text-bg-warning > .inner p,
+.app-content .small-box.text-bg-warning > .inner small,
+.app-content .small-box.text-bg-danger > .inner h3,
+.app-content .small-box.text-bg-danger > .inner p,
+.app-content .small-box.text-bg-danger > .inner small {
+  color: #fff !important;
+}
+.app-content .small-box.text-bg-info > .icon svg,
+.app-content .small-box.text-bg-primary > .icon svg,
+.app-content .small-box.text-bg-success > .icon svg,
+.app-content .small-box.text-bg-warning > .icon svg,
+.app-content .small-box.text-bg-danger > .icon svg {
+  color: rgba(255, 255, 255, 0.4);
+  stroke: rgba(255, 255, 255, 0.4);
+}
+
 @media (max-width: 575.98px) {
   .app-content .small-box { min-height: 7.5rem; }
   .app-content .small-box > .inner { padding: 0.85rem; }
@@ -1021,7 +1059,7 @@ tbody td { padding: 0.75rem 1rem; }
   inset: auto !important;
   width: 100% !important;
   height: auto !important;
-  min-height: auto !important;
+  min-height: 0 !important;
   margin: auto !important;
   transform: none !important;
   max-height: 90vh;
@@ -1035,7 +1073,8 @@ tbody td { padding: 0.75rem 1rem; }
   width: min(92vw, 420px) !important;
   max-width: 420px !important;
   height: auto !important;
-  min-height: auto !important;
+  min-height: 0 !important;
+  max-height: fit-content !important;
   overflow: visible !important;
   padding: 1.25rem !important;
 }
@@ -1046,6 +1085,48 @@ tbody td { padding: 0.75rem 1rem; }
 
 /* Keep interactive icons optically balanced with AdminLTE's larger controls. */
 .app-shell svg { flex: 0 0 auto; }
+
+/* ── Shared Empty State Component ─────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  color: var(--clr-text-muted);
+}
+.empty-state-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.empty-state-icon.tone-green  { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.empty-state-icon.tone-blue   { background: rgba(37, 99, 235, 0.12);  color: var(--clr-primary-400); }
+.empty-state-icon.tone-amber  { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.empty-state-icon.tone-muted  { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+.empty-state h5, .empty-state .empty-state-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--clr-text-primary);
+}
+.empty-state p, .empty-state .empty-state-body {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  max-width: 400px;
+  color: var(--clr-text-muted);
+}
+
+/* Table empty state (inside <td>) */
+.empty-state-row td { padding: 0 !important; border: none !important; }
+.empty-state-row .empty-state { padding: 2.5rem 1rem; }
 .app-sidebar .nav-sidebar .nav-link .nav-icon {
   width: 1.5rem !important;
   height: 1.5rem !important;

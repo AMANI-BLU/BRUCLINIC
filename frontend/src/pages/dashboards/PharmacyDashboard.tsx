@@ -139,10 +139,16 @@ export default function PharmacyDashboard() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {displayedOrders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', fontSize: '0.875rem' }}>
-                {statusFilter === 'Dispensed'
-                  ? 'No dispensed orders yet. Dispensed prescriptions will be listed here.'
-                  : 'No prescriptions found matching filter.'}
+              <div className="empty-state">
+                <div className="empty-state-icon tone-green"><CheckCircle2 size={28} /></div>
+                <h5 className="empty-state-title">
+                  {statusFilter === 'Dispensed' ? 'No dispensed orders yet' : 'All caught up! No pending prescriptions'}
+                </h5>
+                <p className="empty-state-body">
+                  {statusFilter === 'Dispensed'
+                    ? 'Dispensed prescriptions will appear here once medications have been issued to patients.'
+                    : 'There are currently no prescription orders requiring attention. New orders will appear automatically when doctors send medications from OPD.'}
+                </p>
               </div>
             ) : (
               displayedOrders.map((order) => (
@@ -274,8 +280,10 @@ export default function PharmacyDashboard() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {lowStock.length === 0 ? (
-                <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>
-                  All medicine stock levels are currently adequate.
+                <div className="empty-state" style={{ padding: '1.25rem' }}>
+                  <div className="empty-state-icon tone-green"><CheckCircle2 size={22} /></div>
+                  <h5 className="empty-state-title" style={{ fontSize: '0.875rem' }}>Stock levels are adequate</h5>
+                  <p className="empty-state-body">All medicines are above their minimum reorder thresholds.</p>
                 </div>
               ) : (
                 lowStock.map(med => (

@@ -226,9 +226,15 @@ export default function LaboratoryDashboard() {
               </thead>
               <tbody>
                 {filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--clr-text-muted)' }}>
-                      No laboratory orders match your current filters.
+                  <tr className="empty-state-row">
+                    <td colSpan={7}>
+                      <div className="empty-state">
+                        <div className="empty-state-icon tone-blue"><FlaskConical size={28} /></div>
+                        <h5 className="empty-state-title">No laboratory orders found</h5>
+                        <p className="empty-state-body">
+                          No diagnostic orders match the current filters. Orders will appear here automatically when OPD doctors request laboratory investigations.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
