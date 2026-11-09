@@ -4,8 +4,9 @@
  */
 
 import { useClinic } from '../../context/ClinicContext';
+import InfoBox from '../../components/AdminLTE/InfoBox';
 import {
-  Activity, Building2, ChevronRight, CreditCard, FlaskConical,
+  Activity, Building2, CreditCard, FlaskConical,
   HeartPulse, Pill, Stethoscope, Users
 } from 'lucide-react';
 import {
@@ -52,13 +53,13 @@ export default function AdminDashboard() {
     }));
 
   const kpis = [
-    { label: 'Patients', value: patients.length, detail: 'Database total', icon: Users, tone: 'info' },
-    { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: 'Coverage today', icon: Stethoscope, tone: 'success' },
-    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} red priority`, icon: HeartPulse, tone: 'danger' },
-    { label: 'Prescriptions', value: pendingRx, detail: 'Pharmacy queue', icon: Pill, tone: 'warning' },
-    { label: 'Lab Tests', value: pendingLab, detail: 'Open orders', icon: FlaskConical, tone: 'primary' },
-    { label: 'Queue Tokens', value: queue.length, detail: 'Real-time tokens', icon: CreditCard, tone: 'secondary' },
-  ] as const;
+    { label: 'Patients', value: patients.length, detail: 'Database total', icon: Users, tone: 'info' as const, to: '/patients' },
+    { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: 'Coverage today', icon: Stethoscope, tone: 'success' as const, to: '/doctors' },
+    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} red priority`, icon: HeartPulse, tone: 'danger' as const, to: '/records' },
+    { label: 'Prescriptions', value: pendingRx, detail: 'Pharmacy queue', icon: Pill, tone: 'warning' as const, to: '/pharmacy' },
+    { label: 'Lab Tests', value: pendingLab, detail: 'Open orders', icon: FlaskConical, tone: 'primary' as const, to: '/records' },
+    { label: 'Queue Tokens', value: queue.length, detail: 'Real-time tokens', icon: CreditCard, tone: 'secondary' as const, to: '/' },
+  ];
 
   const departments: Array<{
     name: string; status: string; metric: string; value: string | number;
@@ -84,13 +85,17 @@ export default function AdminDashboard() {
       <div className="adm-dashboard-body">
         <section aria-label="Executive key performance indicators" className="adm-dashboard-section">
           <div className="row g-3 admin-kpi-grid">
-            {kpis.map(({ label, value, detail, icon: Icon, tone }) => (
+            {kpis.map(({ label, value, detail, icon: Icon, tone, to }) => (
               <div className="col-xl-2 col-lg-4 col-md-6" key={label}>
-                <div className={`small-box text-bg-${tone} admin-kpi-box`}>
-                  <div className="inner"><h3>{value}</h3><p>{label}</p><small>{detail}</small></div>
-                  <div className="icon"><Icon aria-hidden="true" /></div>
-                  <div className="small-box-footer admin-kpi-footer"><span>Live metrics</span><ChevronRight aria-hidden="true" /></div>
-                </div>
+                <InfoBox
+                  tone={tone}
+                  icon={<Icon aria-hidden="true" size={24} />}
+                  value={value}
+                  label={label}
+                  detail={detail}
+                  to={to}
+                  footerText="More info"
+                />
               </div>
             ))}
           </div>

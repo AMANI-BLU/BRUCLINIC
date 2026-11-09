@@ -420,9 +420,15 @@ export default function StaffAccounts() {
                 </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)' }}>
-                  No staff accounts found.
+              <tr className="empty-state-row">
+                <td colSpan={7}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon tone-blue"><ShieldCheck size={28} /></div>
+                    <h5 className="empty-state-title">No staff accounts found</h5>
+                    <p className="empty-state-body">
+                      No staff profiles match your search criteria or role filters. Provision a new user account using the button above.
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (

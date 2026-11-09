@@ -259,10 +259,15 @@ export default function MedicalRecords() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)' }}>
-                  <strong>No medical records found</strong>
-                  <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Try adjusting your search query or filter.</div>
+              <tr className="empty-state-row">
+                <td colSpan={6}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon tone-blue"><FileText size={28} /></div>
+                    <h5 className="empty-state-title">No medical records found</h5>
+                    <p className="empty-state-body">
+                      No electronic health encounters match your current search query or date filters. Create a new encounter record or adjust filters.
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : filtered.map(record => (
@@ -865,9 +870,10 @@ function RecordView({ record }: { record: MedicalRecord }) {
       {activeTab === 'prescriptions' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pharmacyRows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-              <Pill size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-              <div>No medications or prescriptions were ordered for this visit.</div>
+            <div className="empty-state" style={{ background: 'var(--clr-bg-hover)', borderRadius: 8, padding: '2rem' }}>
+              <div className="empty-state-icon tone-muted"><Pill size={26} /></div>
+              <h5 className="empty-state-title">No medications ordered</h5>
+              <p className="empty-state-body">No prescription orders were issued during this clinical consultation.</p>
             </div>
           ) : (
             pharmacyRows.map((item, index) => (
@@ -907,9 +913,10 @@ function RecordView({ record }: { record: MedicalRecord }) {
       {activeTab === 'labs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {labRows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-              <FlaskConical size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-              <div>No laboratory diagnostic orders recorded for this encounter.</div>
+            <div className="empty-state" style={{ background: 'var(--clr-bg-hover)', borderRadius: 8, padding: '2rem' }}>
+              <div className="empty-state-icon tone-muted"><FlaskConical size={26} /></div>
+              <h5 className="empty-state-title">No laboratory orders recorded</h5>
+              <p className="empty-state-body">No laboratory investigations or diagnostic tests were requested for this visit.</p>
             </div>
           ) : (
             <div className="record-lab-table-wrap">

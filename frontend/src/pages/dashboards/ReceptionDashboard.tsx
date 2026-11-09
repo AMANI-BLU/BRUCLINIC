@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import './ReceptionDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
+import InfoBox from '../../components/AdminLTE/InfoBox';
 
 export default function ReceptionDashboard() {
   const {
@@ -215,45 +216,53 @@ export default function ReceptionDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="row reception-kpi-grid">
+      <div className="row reception-kpi-grid g-3 mb-3">
         <div className="col-md-6 col-xl-3">
-          <div className="small-box text-bg-info">
-            <div className="inner">
-              <h3>{patients.length}</h3>
-              <p>Patient cards</p>
-            </div>
-            <div className="icon"><CreditCard aria-hidden="true" /></div>
-          </div>
+          <InfoBox
+            tone="info"
+            icon={<CreditCard size={24} />}
+            value={patients.length}
+            label="Patient cards"
+            detail="Registered in database"
+            to="/patients"
+            footerText="Manage cards"
+          />
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box text-bg-success">
-            <div className="inner">
-              <h3>{queue.filter(q => q.stage === 'Doctor Consultation').length}</h3>
-              <p>OPD queue</p>
-            </div>
-            <div className="icon"><Activity aria-hidden="true" /></div>
-          </div>
+          <InfoBox
+            tone="success"
+            icon={<Activity size={24} />}
+            value={queue.filter(q => q.stage === 'Doctor Consultation').length}
+            label="OPD queue"
+            detail="In doctor consultation"
+            onClick={() => setFilterStage('Doctor Consultation')}
+            footerText="Filter OPD queue"
+          />
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box text-bg-warning">
-            <div className="inner">
-              <h3>{queue.filter(q => q.stage === 'Laboratory').length}</h3>
-              <p>At laboratory</p>
-            </div>
-            <div className="icon"><Clock aria-hidden="true" /></div>
-          </div>
+          <InfoBox
+            tone="warning"
+            icon={<Clock size={24} />}
+            value={queue.filter(q => q.stage === 'Laboratory').length}
+            label="At laboratory"
+            detail="Under diagnostic testing"
+            onClick={() => setFilterStage('Laboratory')}
+            footerText="Filter lab queue"
+          />
         </div>
 
         <div className="col-md-6 col-xl-3">
-          <div className="small-box text-bg-primary">
-            <div className="inner">
-              <h3>{queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}</h3>
-              <p>Completed</p>
-            </div>
-            <div className="icon"><CheckCircle2 aria-hidden="true" /></div>
-          </div>
+          <InfoBox
+            tone="primary"
+            icon={<CheckCircle2 size={24} />}
+            value={queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}
+            label="Completed"
+            detail="Prescriptions & discharged"
+            onClick={() => setFilterStage('Completed')}
+            footerText="Filter completed"
+          />
         </div>
       </div>
 
@@ -628,10 +637,12 @@ export default function ReceptionDashboard() {
                   </div>
 
                   {matchedPatients.length === 0 && (
-                    <div className="reception-empty-search">
-                      No patient found.
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFormType('new')}>
-                        <UserPlus size={13} /> New patient
+                    <div className="empty-state" style={{ padding: '1.25rem', background: 'var(--clr-bg-hover)', borderRadius: 8, margin: '0.5rem 0' }}>
+                      <div className="empty-state-icon tone-blue" style={{ width: 38, height: 38, margin: '0 auto 0.5rem' }}><Search size={18} /></div>
+                      <h5 className="empty-state-title" style={{ fontSize: '0.88rem' }}>No matching patient card</h5>
+                      <p className="empty-state-body" style={{ fontSize: '0.78rem', marginBottom: '0.75rem' }}>No registered patient matches "{cardSearchQuery}". You can register them directly.</p>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setFormType('new')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
+                        <UserPlus size={13} /> Register New Patient
                       </button>
                     </div>
                   )}

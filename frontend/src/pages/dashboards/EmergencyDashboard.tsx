@@ -29,6 +29,7 @@ export default function EmergencyDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [filterAcuity, setFilterAcuity] = useState<string>('All');
 
   // New emergency admission form
   const [newCase, setNewCase] = useState({
@@ -51,6 +52,7 @@ export default function EmergencyDashboard() {
   const redCases = erCases.filter(c => c.acuity === 'Red');
   const yellowCases = erCases.filter(c => c.acuity === 'Yellow');
   const greenCases = erCases.filter(c => c.acuity === 'Green');
+  const displayedCases = erCases.filter(c => filterAcuity === 'All' || c.acuity === filterAcuity);
 
   const handleCreateAdmission = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,10 +117,42 @@ export default function EmergencyDashboard() {
 
       {/* ER Acuity KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
-        <InfoBox tone="danger" icon={<ShieldAlert size={22} />} value={redCases.length} label="RED: Immediate Resuscitation" detail="Continuous monitoring required" />
-        <InfoBox tone="warning" icon={<AlertTriangle size={22} />} value={yellowCases.length} label="YELLOW: Emergent / Urgent" detail="Assessed within 15 minutes" />
-        <InfoBox tone="success" icon={<Activity size={22} />} value={greenCases.length} label="GREEN: Non-Urgent Minor" detail="Stable walking patients" />
-        <InfoBox tone="info" icon={<Bed size={22} />} value={`${ER_BAYS.length - erCases.length} / ${ER_BAYS.length}`} label="Available ER Bays" detail={`${erCases.length} occupied currently`} />
+        <InfoBox
+          tone="danger"
+          icon={<ShieldAlert size={22} />}
+          value={redCases.length}
+          label="RED: Immediate Resuscitation"
+          detail="Continuous monitoring required"
+          onClick={() => setFilterAcuity('Red')}
+          footerText="Filter RED cases"
+        />
+        <InfoBox
+          tone="warning"
+          icon={<AlertTriangle size={22} />}
+          value={yellowCases.length}
+          label="YELLOW: Emergent / Urgent"
+          detail="Assessed within 15 minutes"
+          onClick={() => setFilterAcuity('Yellow')}
+          footerText="Filter YELLOW cases"
+        />
+        <InfoBox
+          tone="success"
+          icon={<Activity size={22} />}
+          value={greenCases.length}
+          label="GREEN: Non-Urgent Minor"
+          detail="Stable walking patients"
+          onClick={() => setFilterAcuity('Green')}
+          footerText="Filter GREEN cases"
+        />
+        <InfoBox
+          tone="info"
+          icon={<Bed size={22} />}
+          value={`${ER_BAYS.length - erCases.length} / ${ER_BAYS.length}`}
+          label="Available ER Bays"
+          detail={`${erCases.length} occupied currently`}
+          onClick={() => setFilterAcuity('All')}
+          footerText="View all bays"
+        />
       </div>
 
       {/* ER Trauma Bays Visual Grid */}
@@ -212,22 +246,26 @@ export default function EmergencyDashboard() {
               </tr>
             </thead>
             <tbody>
-              {erCases.length === 0 ? (
+              {displayedCases.length === 0 ? (
                 <tr className="empty-state-row">
                   <td colSpan={8}>
                     <div className="empty-state">
                       <div className="empty-state-icon tone-green">
                         <CheckCircle2 size={28} />
                       </div>
-                      <h5 className="empty-state-title">All clear! No active emergency cases</h5>
+                      <h5 className="empty-state-title">
+                        {filterAcuity === 'All' ? 'All clear! No active emergency cases' : `No ${filterAcuity} priority cases`}
+                      </h5>
                       <p className="empty-state-body">
-                        There are currently no patients in the Emergency Room. New admissions will appear here automatically when a patient is fast-tracked from reception or OPD.
+                        {filterAcuity === 'All'
+                          ? 'There are currently no patients in the Emergency Room. New admissions will appear here automatically when a patient is fast-tracked from reception or OPD.'
+                          : `There are currently no active emergency patients classified under ${filterAcuity} triage priority.`}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                erCases.map((c) => (
+                displayedCases.map((c) => (
                   <tr key={c.id}>
                     <td>
                       <span className={`badge ${c.acuity === 'Red' ? 'badge-red' : c.acuity === 'Yellow' ? 'badge-amber' : 'badge-green'}`}>

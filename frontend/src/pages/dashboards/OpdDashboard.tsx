@@ -478,10 +478,42 @@ export default function OpdDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* OPD KPI Pipeline Flow Metrics */}
       <div className="opd-kpi-grid">
-        <InfoBox tone="info" icon={<Stethoscope size={22} />} value={waitingForDoctor.length} label="In OPD Consultation Queue" detail="From Card Room and Clinical Queue" />
-        <InfoBox tone="success" icon={<FlaskConical size={22} />} value={atLaboratory.length} label="Diagnostic Tests Ordered" detail="En route to Laboratory" />
-        <InfoBox tone="warning" icon={<Pill size={22} />} value={atPharmacy.length} label="Prescriptions Sent" detail="Pending dispensary" />
-        <InfoBox tone="secondary" icon={<CheckCircle2 size={22} />} value={completedToday.length} label="Completed Consultations" detail="Archived to patient files" />
+        <InfoBox
+          tone="info"
+          icon={<Stethoscope size={22} />}
+          value={waitingForDoctor.length}
+          label="In OPD Consultation Queue"
+          detail="From Card Room and Clinical Queue"
+          onClick={() => { setOpdTabFilter('all'); setDoctorQueueScope('all'); }}
+          footerText="View queue"
+        />
+        <InfoBox
+          tone="success"
+          icon={<FlaskConical size={22} />}
+          value={atLaboratory.length}
+          label="Diagnostic Tests Ordered"
+          detail="En route to Laboratory"
+          onClick={() => setOpdTabFilter('lab_returned')}
+          footerText="Check lab results"
+        />
+        <InfoBox
+          tone="warning"
+          icon={<Pill size={22} />}
+          value={atPharmacy.length}
+          label="Prescriptions Sent"
+          detail="Pending dispensary"
+          to="/pharmacy"
+          footerText="View pharmacy"
+        />
+        <InfoBox
+          tone="secondary"
+          icon={<CheckCircle2 size={22} />}
+          value={completedToday.length}
+          label="Completed Consultations"
+          detail="Archived to patient files"
+          onClick={() => setOpdTabFilter('completed')}
+          footerText="View completed"
+        />
       </div>
 
       {/* Main OPD Station Work Area */}
@@ -1030,9 +1062,13 @@ export default function OpdDashboard() {
                             </thead>
                             <tbody>
                               {labTests.length === 0 ? (
-                                <tr>
-                                  <td colSpan={6} style={{ textAlign: 'center', padding: '1.75rem', color: 'var(--clr-text-muted)' }}>
-                                    No investigations added to the grid yet. Click any quick panel test above or add a custom test below.
+                                <tr className="empty-state-row">
+                                  <td colSpan={6}>
+                                    <div className="empty-state" style={{ padding: '1.5rem' }}>
+                                      <div className="empty-state-icon tone-blue" style={{ width: 40, height: 40 }}><FlaskConical size={20} /></div>
+                                      <h5 className="empty-state-title" style={{ fontSize: '0.9rem' }}>No investigations added yet</h5>
+                                      <p className="empty-state-body">Click any quick diagnostic panel test above or search and add a custom investigation below.</p>
+                                    </div>
                                   </td>
                                 </tr>
                               ) : (

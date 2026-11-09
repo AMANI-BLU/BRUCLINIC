@@ -34,19 +34,23 @@
   min-height: 8.5rem;
   height: 100%;
   border-radius: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .opd-kpi-grid .clinic-metric-box > .inner {
-  display: grid;
-  grid-template-rows: auto minmax(2.35rem, auto) minmax(1.15rem, auto);
-  align-content: start;
-  padding: 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  padding: 0.95rem 1rem 0.5rem;
 }
 
 .opd-kpi-grid .clinic-metric-box h3 {
   margin-bottom: 0.35rem;
-  font-size: 1.55rem;
+  font-size: 1.85rem;
   line-height: 1.1;
+  font-weight: 700;
 }
 
 .opd-kpi-grid .clinic-metric-box p {

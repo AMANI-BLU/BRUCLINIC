@@ -263,7 +263,17 @@ export default function Patients() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>No patients found.</td></tr>
+              <tr className="empty-state-row">
+                <td colSpan={8}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon tone-blue"><Users size={28} /></div>
+                    <h5 className="empty-state-title">No patient records found</h5>
+                    <p className="empty-state-body">
+                      No patient profiles match your current search query or category filters. Register a new student or staff patient using the button above.
+                    </p>
+                  </div>
+                </td>
+              </tr>
             ) : filtered.map(p => (
               <tr key={p.id}>
                 <td>

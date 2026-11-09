@@ -19,6 +19,8 @@ export default function LaboratoryDashboard() {
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [priorityFilter, setPriorityFilter] = useState<string>('All');
   const [resultModal, setResultModal] = useState<LabOrder | null>(null);
 
   // Result entry form state
@@ -38,10 +40,12 @@ export default function LaboratoryDashboard() {
 
   const filteredOrders = labOrders.filter(o => {
     const matchCat = filterCategory === 'All' || o.category === filterCategory;
+    const matchStatus = statusFilter === 'All' || o.status === statusFilter;
+    const matchPriority = priorityFilter === 'All' || o.priority === priorityFilter;
     const matchSearch = o.patientName.toLowerCase().includes(search.toLowerCase()) ||
       o.testName.toLowerCase().includes(search.toLowerCase()) ||
       o.id.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
+    return matchCat && matchStatus && matchPriority && matchSearch;
   });
 
   const handleOpenResultEntry = (order: LabOrder) => {
@@ -181,10 +185,42 @@ export default function LaboratoryDashboard() {
 
       {/* Laboratory KPIs */}
       <div className="lab-kpi-grid">
-        <InfoBox tone="info" icon={<FlaskConical size={22} />} value={pendingTests.length} label="Pending Lab Requests" detail="From OPD and Emergency" />
-        <InfoBox tone="success" icon={<CheckCircle2 size={22} />} value={completedTests.length} label="Completed Tests" detail="Released to doctors" />
-        <InfoBox tone="danger" icon={<AlertTriangle size={22} />} value={criticalResults.length} label="Critical Abnormal Flags" detail="Urgent clinician alert" />
-        <InfoBox tone="primary" icon={<Clock size={22} />} value={labOrders.filter(order => order.status === 'Analyzing').length} label="Tests In Analysis" detail="Live laboratory queue" />
+        <InfoBox
+          tone="info"
+          icon={<FlaskConical size={22} />}
+          value={pendingTests.length}
+          label="Pending Lab Requests"
+          detail="From OPD and Emergency"
+          onClick={() => { setStatusFilter('Requested'); setPriorityFilter('All'); }}
+          footerText="Filter pending"
+        />
+        <InfoBox
+          tone="success"
+          icon={<CheckCircle2 size={22} />}
+          value={completedTests.length}
+          label="Completed Tests"
+          detail="Released to doctors"
+          onClick={() => { setStatusFilter('Completed'); setPriorityFilter('All'); }}
+          footerText="Filter completed"
+        />
+        <InfoBox
+          tone="danger"
+          icon={<AlertTriangle size={22} />}
+          value={criticalResults.length}
+          label="Critical Abnormal Flags"
+          detail="Urgent clinician alert"
+          onClick={() => { setPriorityFilter('Critical'); setStatusFilter('All'); }}
+          footerText="Filter critical"
+        />
+        <InfoBox
+          tone="primary"
+          icon={<Clock size={22} />}
+          value={labOrders.filter(order => order.status === 'Analyzing').length}
+          label="Tests In Analysis"
+          detail="Live laboratory queue"
+          onClick={() => { setStatusFilter('Analyzing'); setPriorityFilter('All'); }}
+          footerText="Filter in-progress"
+        />
       </div>
 
       {/* Main Laboratory Workbench Table */}

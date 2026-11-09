@@ -83,10 +83,42 @@ export default function PharmacyDashboard() {
 
       {/* Pharmacy KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-        <InfoBox tone="info" icon={<Pill size={22} />} value={pendingOrders.length} label="Pending Dispenses" detail="From OPD and Emergency" />
-        <InfoBox tone="danger" icon={<AlertTriangle size={22} />} value={lowStock.length} label="Low Stock Warnings" detail={`${outOfStock.length} completely empty`} />
-        <InfoBox tone="success" icon={<CheckCircle2 size={22} />} value={dispensedOrders.length} label="Dispensed Orders" detail="Fulfilled prescriptions" />
-        <InfoBox tone="primary" icon={<DollarSign size={22} />} value={`${totalValue.toFixed(0)} ETB`} label="Total Drug Inventory" detail={`${medicines.length} tracked items`} />
+        <InfoBox
+          tone="info"
+          icon={<Pill size={22} />}
+          value={pendingOrders.length}
+          label="Pending Dispenses"
+          detail="From OPD and Emergency"
+          onClick={() => setStatusFilter('Pending')}
+          footerText="Filter pending"
+        />
+        <InfoBox
+          tone="danger"
+          icon={<AlertTriangle size={22} />}
+          value={lowStock.length}
+          label="Low Stock Warnings"
+          detail={`${outOfStock.length} completely empty`}
+          to="/pharmacy"
+          footerText="Manage inventory"
+        />
+        <InfoBox
+          tone="success"
+          icon={<CheckCircle2 size={22} />}
+          value={dispensedOrders.length}
+          label="Dispensed Orders"
+          detail="Fulfilled prescriptions"
+          onClick={() => setStatusFilter('Dispensed')}
+          footerText="Filter dispensed"
+        />
+        <InfoBox
+          tone="primary"
+          icon={<DollarSign size={22} />}
+          value={`${totalValue.toFixed(0)} ETB`}
+          label="Total Drug Inventory"
+          detail={`${medicines.length} tracked items`}
+          to="/pharmacy"
+          footerText="Full catalog"
+        />
       </div>
 
       {/* Main Grid: Live Prescriptions & Stock Monitor */}

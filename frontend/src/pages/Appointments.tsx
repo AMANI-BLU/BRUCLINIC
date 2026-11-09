@@ -142,7 +142,17 @@ export default function Appointments() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={canManageAppointments ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>No appointments found.</td></tr>
+              <tr className="empty-state-row">
+                <td colSpan={canManageAppointments ? 7 : 6}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon tone-blue"><CalendarDays size={28} /></div>
+                    <h5 className="empty-state-title">No appointments scheduled</h5>
+                    <p className="empty-state-body">
+                      There are currently no patient consultations or appointments matching your filters. Book a new appointment using the button above.
+                    </p>
+                  </div>
+                </td>
+              </tr>
             ) : filtered.map(a => (
               <tr key={a.id}>
                 <td>

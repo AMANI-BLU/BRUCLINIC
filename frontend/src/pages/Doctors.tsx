@@ -32,8 +32,17 @@ export default function Doctors() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-        {doctors.map(d => {
+      {doctors.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon tone-blue"><Stethoscope size={28} /></div>
+            <h5 className="empty-state-title">No doctors on duty</h5>
+            <p className="empty-state-body">There are currently no clinical doctors or specialists registered in the directory.</p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+          {doctors.map(d => {
           const SpecIcon = SPEC_ICONS[d.specialization] ?? Stethoscope;
           const apptCount = appointments.filter(a => a.doctorId === d.id).length;
           const completedCount = appointments.filter(a => a.doctorId === d.id && a.status === 'Completed').length;
@@ -116,7 +125,8 @@ export default function Doctors() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -116,10 +116,42 @@ export default function Pharmacy() {
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-        <InfoBox tone="danger" icon={<AlertTriangle size={22} />} value={lowCount} label="Low Stock Items" detail={`${outCount} out of stock`} />
-        <InfoBox tone="warning" icon={<Clock size={22} />} value={expiringCount} label="Expiring Soon (< 90d)" detail={`${expiredCount} past best-before`} />
-        <InfoBox tone="success" icon={<TrendingDown size={22} />} value={`${totalValue.toFixed(0)} ETB`} label="Inventory Value" />
-        <InfoBox tone="info" icon={<Package size={22} />} value={medicines.length} label="Total SKUs Tracked" />
+        <InfoBox
+          tone="danger"
+          icon={<AlertTriangle size={22} />}
+          value={lowCount}
+          label="Low Stock Items"
+          detail={`${outCount} out of stock`}
+          onClick={() => setFilterMode('lowStock')}
+          footerText="Filter low stock"
+        />
+        <InfoBox
+          tone="warning"
+          icon={<Clock size={22} />}
+          value={expiringCount}
+          label="Expiring Soon (< 90d)"
+          detail={`${expiredCount} past best-before`}
+          onClick={() => setFilterMode('expiringSoon')}
+          footerText="Filter expiring"
+        />
+        <InfoBox
+          tone="success"
+          icon={<TrendingDown size={22} />}
+          value={`${totalValue.toFixed(0)} ETB`}
+          label="Inventory Value"
+          detail="Active clinical valuation"
+          onClick={() => setFilterMode('all')}
+          footerText="All medicines"
+        />
+        <InfoBox
+          tone="info"
+          icon={<Package size={22} />}
+          value={medicines.length}
+          label="Total SKUs Tracked"
+          detail="Full catalog"
+          onClick={() => setFilterMode('all')}
+          footerText="Reset filter"
+        />
       </div>
 
       {/* Filters */}

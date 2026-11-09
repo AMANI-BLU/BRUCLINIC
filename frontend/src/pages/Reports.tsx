@@ -119,12 +119,12 @@ export default function Reports() {
       </div>
 
       <section className="row report-kpis" aria-label="Clinic summary">
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="info" icon={<Users size={22} />} value={patients.length} label="Total Patients" /></div>
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="success" icon={<Users size={22} />} value={studentCount} label="Students" /></div>
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="warning" icon={<Users size={22} />} value={staffCount} label="Staff" /></div>
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="primary" icon={<CalendarDays size={22} />} value={appointments.length} label="Appointments" /></div>
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="success" icon={<Activity size={22} />} value={completedAppointments} label="Completed" /></div>
-        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="secondary" icon={<Stethoscope size={22} />} value={doctors.length} label="Doctors" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="info" icon={<Users size={22} />} value={patients.length} label="Total Patients" to="/patients" footerText="View patients" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="success" icon={<Users size={22} />} value={studentCount} label="Students" to="/patients" footerText="View students" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="warning" icon={<Users size={22} />} value={staffCount} label="Staff" to="/patients" footerText="View staff" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="primary" icon={<CalendarDays size={22} />} value={appointments.length} label="Appointments" to="/appointments" footerText="Appointments" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="success" icon={<Activity size={22} />} value={completedAppointments} label="Completed" to="/appointments" footerText="Completed appts" /></div>
+        <div className="col-6 col-lg-4 col-xxl-2"><InfoBox tone="secondary" icon={<Stethoscope size={22} />} value={doctors.length} label="Doctors" to="/doctors" footerText="View doctors" /></div>
       </section>
 
       <section className="row report-charts" aria-label="Clinic analytics">
