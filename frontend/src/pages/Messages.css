@@ -263,6 +263,30 @@
   box-sizing: border-box;
 }
 
+/* Borana University Clinic Logo Watermark */
+.tg-chat-main::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(340px, 46vw);
+  height: min(340px, 46vw);
+  background-image: url('/bu-logo.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.075;
+  pointer-events: none;
+  z-index: 0;
+  filter: grayscale(10%);
+}
+
+[data-bs-theme="dark"] .tg-chat-main::before {
+  opacity: 0.055;
+  filter: brightness(1.2);
+}
+
 /* Telegram Header */
 .tg-chat-header {
   height: 60px;
@@ -329,10 +353,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background-color: var(--clr-bg-main, #f1f5f9);
-  background-image: radial-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-color: transparent;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
   background-size: 20px 20px;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 /* Date Divider Group */
@@ -548,6 +574,8 @@
   text-align: center;
   color: var(--clr-text-muted, #94a3b8);
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .tg-empty-icon {
