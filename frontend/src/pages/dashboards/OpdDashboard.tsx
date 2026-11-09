@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { useAuth } from '../../context/AuthContext';
@@ -40,7 +40,7 @@ function calculateAge(dateOfBirth?: string): number | undefined {
 
 export default function OpdDashboard() {
   const {
-    queue, records, medicines, patients,
+    queue, records, medicines, patients, doctors,
     updateQueueItem, sendOpdToLabRequest, sendOpdToPharmacyRequest,
     completeOpdConsultation, saveOpdAssessment, referOutside, addERCase
   } = useClinic();
@@ -49,6 +49,7 @@ export default function OpdDashboard() {
   const [activeStation, setActiveStation] = useState<'doctor' | 'nurse'>('doctor');
   const [selectedQueueItem, setSelectedQueueItem] = useState<ClinicQueueItem | null>(null);
   const [opdTabFilter, setOpdTabFilter] = useState<'all' | 'card_requests' | 'lab_returned' | 'completed'>('all');
+  const [doctorQueueScope, setDoctorQueueScope] = useState<'my' | 'all'>('my');
 
   // Consultation modal / action tab
   const [activeConsultationTab, setActiveConsultationTab] = useState<'overview' | 'lab' | 'pharmacy' | 'vitals'>('overview');
@@ -105,15 +106,70 @@ export default function OpdDashboard() {
   // OPD to Pharmacy multi-item prescription state
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionLine[]>([]);
 
+  // Check if a queue item was assigned by the receptionist to this OPD clinician
+  const isAssignedToCurrentDoctor = useCallback((q: ClinicQueueItem) => {
+    // Admin can view all patients across all doctor stations
+    if (currentUser?.role === 'admin') return true;
+
+    // If no specific doctor was selected (unassigned pool), it's visible to all OPD doctors
+    if (!q.assignedDoctorId && !q.assignedDoctorName) return true;
+
+    // Check doctor match by user ID
+    if (q.assignedDoctorId && currentUser?.id && q.assignedDoctorId === currentUser.id) {
+      return true;
+    }
+
+    // Check doctor match by doctor record in doctors list
+    if (q.assignedDoctorId && doctors?.length) {
+      const docMatch = doctors.find(d => d.id === q.assignedDoctorId);
+      if (docMatch && (
+        docMatch.id === currentUser?.id ||
+        (currentUser?.email && docMatch.email?.toLowerCase() === currentUser.email.toLowerCase())
+      )) {
+        return true;
+      }
+    }
+
+    // Check doctor match by name (case-insensitive substring/equality without Dr. prefix)
+    if (q.assignedDoctorName && currentUser?.name) {
+      const cleanDoc = q.assignedDoctorName.replace(/^(dr\.?|doctor)\s+/i, '').trim().toLowerCase();
+      const cleanUser = currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '').trim().toLowerCase();
+      if (cleanDoc === cleanUser || cleanDoc.includes(cleanUser) || cleanUser.includes(cleanDoc)) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [currentUser, doctors]);
+
   // Queue item categorized lists
   const waitingForNurse = queue.filter(q => q.stage === 'Nurse Triage');
-  const waitingForDoctor = queue.filter(q => q.stage === 'Doctor Consultation');
-  const atLaboratory = queue.filter(q => q.stage === 'Laboratory');
-  const atPharmacy = queue.filter(q => q.stage === 'Pharmacy');
-  const completedToday = queue.filter(q => q.stage === 'Completed');
+
+  // Categorized lists filtered by assigned doctor when in "my" scope
+  const waitingForDoctor = queue.filter(q =>
+    q.stage === 'Doctor Consultation' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+  );
+  const atLaboratory = queue.filter(q =>
+    q.stage === 'Laboratory' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+  );
+  const atPharmacy = queue.filter(q =>
+    q.stage === 'Pharmacy' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+  );
+  const completedToday = queue.filter(q =>
+    q.stage === 'Completed' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+  );
+
+  const totalAssignedToMe = useMemo(() => {
+    return queue.filter(q => q.stage === 'Doctor Consultation' && isAssignedToCurrentDoctor(q)).length;
+  }, [queue, isAssignedToCurrentDoctor]);
+
+  const totalOpdDoctorQueue = useMemo(() => {
+    return queue.filter(q => q.stage === 'Doctor Consultation').length;
+  }, [queue]);
 
   // Filtered list for the doctor station
   const doctorStationQueue = queue.filter(q => {
+    if (doctorQueueScope === 'my' && !isAssignedToCurrentDoctor(q)) return false;
     if (opdTabFilter === 'completed') {
       return q.stage === 'Completed';
     }
@@ -480,15 +536,42 @@ export default function OpdDashboard() {
         <div className="card opd-queue-panel">
           <div className="opd-queue-header">
             <div className="opd-queue-heading">
-              <h3>
-                {activeStation === 'doctor' ? (
-                  <><Stethoscope size={18} className="text-primary" /> OPD Doctor Consultation Queue</>
-                ) : (
-                  <><Activity size={18} className="text-primary" /> Nurse Triage Vitals Queue</>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, width: '100%' }}>
+                <h3 style={{ margin: 0 }}>
+                  {activeStation === 'doctor' ? (
+                    <><Stethoscope size={18} className="text-primary" /> OPD Doctor Consultation Queue</>
+                  ) : (
+                    <><Activity size={18} className="text-primary" /> Nurse Triage Vitals Queue</>
+                  )}
+                </h3>
+
+                {activeStation === 'doctor' && (
+                  <div className="pill-tabs" style={{ background: 'var(--clr-bg-hover)', padding: '2px 4px', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
+                    <button
+                      type="button"
+                      className={`pill-tab ${doctorQueueScope === 'my' ? 'active' : ''}`}
+                      onClick={() => setDoctorQueueScope('my')}
+                      title="Only patients assigned to you by Receptionist"
+                    >
+                      Assigned to Me ({totalAssignedToMe})
+                    </button>
+                    <button
+                      type="button"
+                      className={`pill-tab ${doctorQueueScope === 'all' ? 'active' : ''}`}
+                      onClick={() => setDoctorQueueScope('all')}
+                      title="All patients in OPD consultation queue"
+                    >
+                      All Doctors ({totalOpdDoctorQueue})
+                    </button>
+                  </div>
                 )}
-              </h3>
+              </div>
               <span className="opd-queue-subtitle">
-                {activeStation === 'doctor' ? 'Card Room requests and patients returning from Laboratory' : 'Patients awaiting triage and vital signs'}
+                {activeStation === 'doctor'
+                  ? (doctorQueueScope === 'my'
+                      ? `Patients specifically assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'} by receptionist`
+                      : 'All Card Room requests and patients returning from Laboratory across all OPD clinicians')
+                  : 'Patients awaiting triage and vital signs'}
               </span>
             </div>
 

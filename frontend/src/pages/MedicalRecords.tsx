@@ -6,9 +6,9 @@ import type { MedicalRecord, Patient, LabOrder, PharmacyOrder } from '../types';
 import { findPatient, patientCode, patientFullName, patientInitials, patientOptionLabel, patientTypeClass } from '../utils/patient';
 import { firstError, validateDate, validateRequired } from '../utils/validation';
 import {
-  Activity, Calendar, CheckCircle2, Clock, Eye, FilePlus, FileText,
+  Activity, Calendar, CheckCircle2, Clock, FilePlus, FileText,
   FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2, HeartPulse,
-  PackageCheck, ClipboardCheck, CircleDashed, Ban, Printer
+  ClipboardCheck, CircleDashed, Ban, Printer
 } from 'lucide-react';
 import './Patients.css';
 import './MedicalRecords.css';
@@ -261,7 +261,6 @@ export default function MedicalRecords() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)' }}>
-                  <Search size={22} style={{ display: 'block', margin: '0 auto 0.5rem', opacity: 0.5 }} />
                   <strong>No medical records found</strong>
                   <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Try adjusting your search query or filter.</div>
                 </td>
@@ -408,9 +407,8 @@ function RecordRow({ record, patient, links, onView }: {
         </div>
       </td>
       <td>
-        <div style={{ fontWeight: 600, color: 'var(--clr-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span className="record-diagnosis-icon"><Activity size={13} /></span>
-          <span>{record.diagnosis}</span>
+        <div style={{ fontWeight: 600, color: 'var(--clr-text-primary)' }}>
+          {record.diagnosis}
         </div>
         {record.symptoms.length > 0 && (
           <div style={{ fontSize: '0.74rem', color: 'var(--clr-text-muted)', marginTop: '0.15rem' }}>
@@ -419,19 +417,17 @@ function RecordRow({ record, patient, links, onView }: {
         )}
       </td>
       <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem' }}>
-          <span className="record-doctor-icon"><Stethoscope size={13} /></span>
-          <span>{record.doctorName}</span>
+        <div style={{ fontSize: '0.84rem', color: 'var(--clr-text-primary)' }}>
+          {record.doctorName}
         </div>
       </td>
       <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.84rem' }}>
-          <Calendar size={13} style={{ color: 'var(--clr-text-muted)' }} />
-          <span>{record.visitDate}</span>
+        <div style={{ fontSize: '0.84rem' }}>
+          {record.visitDate}
         </div>
         {record.followUpDate && (
           <span className="badge badge-amber" style={{ fontSize: '0.68rem', marginTop: '0.2rem' }}>
-            <Clock size={10} /> {record.followUpDate}
+            Follow-up: {record.followUpDate}
           </span>
         )}
       </td>
@@ -439,19 +435,16 @@ function RecordRow({ record, patient, links, onView }: {
         <div className="records-items">
           {medicationCount > 0 && (
             <span className="record-item-chip record-item-chip-green" title={`${medicationCount} prescribed medication(s)`}>
-              <span className="record-item-chip-icon"><Pill size={12} /></span>
               {medicationCount} Rx
             </span>
           )}
           {labCount > 0 && (
             <span className="record-item-chip record-item-chip-blue" title={`${labCount} laboratory investigation(s)`}>
-              <span className="record-item-chip-icon"><FlaskConical size={12} /></span>
               {labCount} Lab
             </span>
           )}
           {pharmacyOrder && (
             <span className={`record-item-chip record-item-chip-${pharmacyStatusTone(pharmacyOrder.status)}`} title={`Pharmacy order ${pharmacyOrder.id} · ${pharmacyOrder.status}`}>
-              <span className="record-item-chip-icon"><PackageCheck size={12} /></span>
               Pharmacy: {pharmacyOrder.status}
             </span>
           )}
@@ -459,16 +452,13 @@ function RecordRow({ record, patient, links, onView }: {
         </div>
       </td>
       <td style={{ textAlign: 'right' }}>
-        <div className="action-btns" style={{ justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm btn-icon records-view-btn"
-            onClick={onView}
-            title="View record"
-          >
-            <Eye size={15} />
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={onView}
+        >
+          View Details
+        </button>
       </td>
     </tr>
   );
