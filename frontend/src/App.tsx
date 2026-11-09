@@ -28,6 +28,8 @@ import SecurityCenter      from './pages/SecurityCenter';
 import AdminBackup         from './pages/AdminBackup';
 import PasswordChangeForm  from './components/PasswordChangeForm';
 import Messages            from './pages/Messages';
+import Notifications       from './pages/Notifications';
+import { NotificationProvider } from './context/NotificationContext';
 
 // ── Role permission map ───────────────────────────────────────────
 //
@@ -293,6 +295,14 @@ function AppRoutes() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute allowed={[...ROLE.ALL]}>
+                      <Notifications />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Catch-all → role home */}
                 <Route path="*" element={<Navigate to={landingPage} replace />} />
@@ -315,7 +325,9 @@ export default function App() {
         <AuthProvider>
           <MaintenanceProvider>
             <ClinicProvider>
-              <AppRoutes />
+              <NotificationProvider>
+                <AppRoutes />
+              </NotificationProvider>
             </ClinicProvider>
           </MaintenanceProvider>
         </AuthProvider>
