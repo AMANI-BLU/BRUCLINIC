@@ -249,6 +249,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role));
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const isFullscreenPage = location.pathname === '/messages';
 
   const handleLogout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
@@ -442,12 +443,14 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </aside>
 
-      <main className="app-main">
-        <div className="app-content-header">
-          <div className="container-fluid"><ol className="breadcrumb ms-auto"><li className="breadcrumb-item"><NavLink to="/">Home</NavLink></li><li className="breadcrumb-item active">{currentPage?.label || 'Clinic'}</li></ol></div>
-        </div>
-        <div className="app-content">
-          <div className="container-fluid app-content-container">
+      <main className={`app-main${isFullscreenPage ? ' app-main-fullscreen' : ''}`}>
+        {!isFullscreenPage && (
+          <div className="app-content-header">
+            <div className="container-fluid"><ol className="breadcrumb ms-auto"><li className="breadcrumb-item"><NavLink to="/">Home</NavLink></li><li className="breadcrumb-item active">{currentPage?.label || 'Clinic'}</li></ol></div>
+          </div>
+        )}
+        <div className={`app-content${isFullscreenPage ? ' app-content-fullscreen' : ''}`}>
+          <div className={`container-fluid app-content-container${isFullscreenPage ? ' app-content-container-fullscreen' : ''}`}>
             {maintenance && <div className="alert alert-warning app-maintenance-banner" role="status"><Wrench size={16} /><div><strong>Maintenance mode is on</strong><span>Clinical staff are paused. You still have administrator access.</span></div><NavLink to="/security" className="btn btn-secondary btn-sm">Manage</NavLink></div>}
             {clinicError && <div className="alert alert-warning clinic-data-alert" role="alert"><AlertTriangle size={16} /><div><strong>Clinic data could not be refreshed</strong><span>{clinicError}</span></div></div>}
             {clinicLoading && <div className="alert alert-info py-2" role="status">Loading clinic data…</div>}

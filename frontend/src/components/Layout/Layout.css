@@ -135,6 +135,40 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Fullscreen page mode (e.g. /messages) — no breadcrumb, no padding, flush edge-to-edge ── */
+.app-main-fullscreen {
+  overflow: hidden !important;
+}
+
+.app-main-fullscreen .app-content.app-content-fullscreen {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-main-fullscreen .app-content-container.app-content-container-fullscreen {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.app-main-fullscreen .app-content-container.app-content-container-fullscreen .page-transition-content {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
 body.sidebar-collapse .app-shell .app-sidebar { border-right: 1px solid var(--clr-border); }
 body.sidebar-collapse .app-shell .app-brand { justify-content: center; padding-inline: 0 !important; }
 body.sidebar-collapse .app-shell .app-brand .brand-image { margin: 0 !important; }
