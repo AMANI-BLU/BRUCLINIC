@@ -20,13 +20,19 @@ export function getPool() {
   if (!isDatabaseConfigured()) return null;
   if (!pool) {
     // A full URL (Render Blueprint, Heroku, Neon, Supabase, ...) wins over
-    // the individual DB_* settings. pg reads sslmode=... from the URL, so
-    // managed databases that require TLS work without extra config.
-    // For Supabase: the URL already contains ?sslmode=require; we also set
-    // rejectUnauthorized:false so self-signed certs (common on managed DBs)
-    // don't block connections when DB_SSL=true or the URL has sslmode.
+    // the individual DB_* settings.
+    // For managed cloud databases (Supabase, Neon, Render, Railway) always
+    // use SSL. rejectUnauthorized:false accepts Supabase's self-signed cert
+    // on the transaction pooler (port 6543). This is safe — traffic is still
+    // encrypted; we just skip hostname verification which these providers
+    // don't support on pooler endpoints.
     const hasSSLInUrl = env.databaseUrl?.includes('sslmode=');
-    const sslNeeded = env.dbSsl || hasSSLInUrl;
+    const isCloudDb = env.databaseUrl?.includes('.supabase.com') ||
+                      env.databaseUrl?.includes('.supabase.co') ||
+                      env.databaseUrl?.includes('.neon.tech') ||
+                      env.databaseUrl?.includes('render.com') ||
+                      env.databaseUrl?.includes('railway.app');
+    const sslNeeded = env.dbSsl || hasSSLInUrl || isCloudDb;
 
     const connection = env.databaseUrl
       ? { connectionString: env.databaseUrl }
