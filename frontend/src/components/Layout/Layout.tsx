@@ -146,6 +146,11 @@ export default function Layout({ children }: LayoutProps) {
     document.body.classList.toggle('sidebar-open', mobileOpen);
   }, [sidebarOpen, mobileOpen]);
 
+  // Automatically close mobile sidebar drawer upon navigation
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) setShowNotifications(false);
@@ -250,6 +255,7 @@ export default function Layout({ children }: LayoutProps) {
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const isFullscreenPage = location.pathname === '/messages';
+  const isAsideExpanded = sidebarOpen || mobileOpen;
 
   const handleLogout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
@@ -419,25 +425,50 @@ export default function Layout({ children }: LayoutProps) {
         <div className="sidebar-brand">
           <NavLink to="/" className="brand-link app-brand" onClick={closeMobile}>
             <img src="/bu-logo.png" alt="Borana University" className="brand-image rounded-circle" />
-            {sidebarOpen && <span className="brand-text fw-light"><strong>Bru</strong>Clinic</span>}
+            {isAsideExpanded && <span className="brand-text fw-light"><strong>Bru</strong>Clinic</span>}
           </NavLink>
         </div>
         <div className="sidebar-wrapper">
           <div className="user-panel mt-2 pb-2 mb-2 d-flex app-user-panel">
             <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={currentUser?.name || 'Staff User'}>{currentUser?.avatarInitials || 'AD'}</div></div>
-            {sidebarOpen && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{currentUser?.roleTitle || role}</small></div>}
+            {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{currentUser?.roleTitle || role}</small></div>}
           </div>
           <nav className="mt-1" aria-label="Main navigation">
-            {sidebarOpen && <p className="app-nav-heading">Main Menu</p>}
+            {isAsideExpanded && <p className="app-nav-heading">Main Menu</p>}
             <ul className="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu">
-              {navItems.map(({ to, icon: Icon, label, end }) => <li className="nav-item" key={to}><NavLink to={to} end={end} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}><Icon className="nav-icon" size={18} />{sidebarOpen && <p>{label}<ChevronRight className="right" size={14} /></p>}{!sidebarOpen && <span className="app-nav-tooltip">{label}</span>}</NavLink></li>)}
+              {navItems.map(({ to, icon: Icon, label, end }) => (
+                <li className="nav-item" key={to}>
+                  <NavLink
+                    to={to}
+                    end={end}
+                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                    onClick={closeMobile}
+                  >
+                    <Icon className="nav-icon" size={18} />
+                    {isAsideExpanded && <p>{label}<ChevronRight className="right" size={14} /></p>}
+                    {!isAsideExpanded && <span className="app-nav-tooltip">{label}</span>}
+                  </NavLink>
+                </li>
+              ))}
             </ul>
           </nav>
           <div className="app-sidebar-footer">
-            {sidebarOpen && <p className="app-nav-heading">Account</p>}
+            {isAsideExpanded && <p className="app-nav-heading">Account</p>}
             <ul className="nav sidebar-menu flex-column">
-              <li className="nav-item"><NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}><Settings className="nav-icon" size={18} />{sidebarOpen && <p>Settings</p>}{!sidebarOpen && <span className="app-nav-tooltip">Settings</span>}</NavLink></li>
-              <li className="nav-item app-signout-item"><button type="button" className="nav-link" onClick={handleLogout} title={!sidebarOpen ? 'Sign out' : undefined}><LogOut className="nav-icon" size={18} />{sidebarOpen && <p>Sign out</p>}{!sidebarOpen && <span className="app-nav-tooltip">Sign out</span>}</button></li>
+              <li className="nav-item">
+                <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+                  <Settings className="nav-icon" size={18} />
+                  {isAsideExpanded && <p>Settings</p>}
+                  {!isAsideExpanded && <span className="app-nav-tooltip">Settings</span>}
+                </NavLink>
+              </li>
+              <li className="nav-item app-signout-item">
+                <button type="button" className="nav-link" onClick={handleLogout} title={!isAsideExpanded ? 'Sign out' : undefined}>
+                  <LogOut className="nav-icon" size={18} />
+                  {isAsideExpanded && <p>Sign out</p>}
+                  {!isAsideExpanded && <span className="app-nav-tooltip">Sign out</span>}
+                </button>
+              </li>
             </ul>
           </div>
         </div>
