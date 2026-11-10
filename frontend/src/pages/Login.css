@@ -753,8 +753,8 @@
 
 @media (max-width: 900px) {
   .login-simple-card { min-height: 0; }
-  .login-simple-card .login-brand-panel { padding: 2.5rem 2rem; }
-  .login-simple-card .login-right-panel { padding: 2.5rem 2rem; }
+  .login-simple-card .login-brand-panel { padding: 2rem 1.75rem; }
+  .login-simple-card .login-right-panel { padding: 2rem 1.75rem; }
 }
 
 /* Calm entrance animation for the clinic login screen. */
@@ -826,5 +826,111 @@
     animation: none;
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ── Mobile responsiveness (≤ 640px) ── */
+@media (max-width: 640px) {
+  .login-page-container {
+    padding: 1rem 0.75rem;
+    align-items: flex-start;
+    padding-top: 3.5rem;
+    background-attachment: scroll; /* fixed causes issues on iOS */
+  }
+
+  .login-theme-toggle {
+    top: 0.75rem;
+    right: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  /* Stack brand panel on top, form below — single column */
+  .login-card-wrapper,
+  .login-simple-card {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    border-radius: 0.5rem;
+  }
+
+  /* Brand panel: compact horizontal strip on mobile */
+  .login-simple-card .login-brand-panel {
+    padding: 1.25rem 1.25rem !important;
+    gap: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+  .login-simple-card .login-brand-header {
+    flex-direction: row !important;
+    align-items: center !important;
+    text-align: left !important;
+    gap: 0.75rem !important;
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .login-simple-card .login-brand-logo {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .login-simple-card .login-brand-name {
+    font-size: 1.3rem !important;
+  }
+
+  .login-brand-sub {
+    font-size: 0.72rem !important;
+  }
+
+  /* Right panel: comfortable padding on small screen */
+  .login-right-panel,
+  .login-simple-card .login-right-panel {
+    padding: 1.5rem 1.25rem !important;
+  }
+
+  .login-form-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .login-simple-card .login-form-title,
+  .login-form-title {
+    font-size: 1.25rem !important;
+  }
+
+  .login-form-sub {
+    font-size: 0.8rem !important;
+  }
+
+  .login-input {
+    font-size: 1rem; /* prevents iOS zoom on focus */
+    padding: 0.75rem 2.9rem 0.75rem 2.6rem;
+  }
+
+  .login-btn-submit {
+    padding: 0.85rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  /* Glows are oversized on mobile, hide them */
+  .login-glow-orb {
+    display: none;
+  }
+}
+
+/* ── Very small screens (≤ 380px) ── */
+@media (max-width: 380px) {
+  .login-page-container {
+    padding: 0.75rem 0.5rem;
+    padding-top: 3rem;
+  }
+
+  .login-simple-card .login-brand-logo {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .login-simple-card .login-brand-name {
+    font-size: 1.1rem !important;
   }
 }
