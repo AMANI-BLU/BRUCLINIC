@@ -22,6 +22,12 @@ export function getPool() {
     // A full URL (Render Blueprint, Heroku, Neon, Supabase, ...) wins over
     // the individual DB_* settings. pg reads sslmode=... from the URL, so
     // managed databases that require TLS work without extra config.
+    // For Supabase: the URL already contains ?sslmode=require; we also set
+    // rejectUnauthorized:false so self-signed certs (common on managed DBs)
+    // don't block connections when DB_SSL=true or the URL has sslmode.
+    const hasSSLInUrl = env.databaseUrl?.includes('sslmode=');
+    const sslNeeded = env.dbSsl || hasSSLInUrl;
+
     const connection = env.databaseUrl
       ? { connectionString: env.databaseUrl }
       : {
@@ -34,10 +40,10 @@ export function getPool() {
 
     pool = new Pool({
       ...connection,
-      ...(env.dbSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+      ...(sslNeeded ? { ssl: { rejectUnauthorized: false } } : {}),
       max: env.databasePoolMax,
       idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     });
   }
   return pool;
