@@ -12,6 +12,7 @@ import {
   Pill, AlertTriangle, Package, CheckCircle2,
   Clock, Search, DollarSign, Plus, Printer
 } from 'lucide-react';
+import './PharmacyDashboard.css';
 
 export default function PharmacyDashboard() {
   const {
@@ -66,7 +67,7 @@ export default function PharmacyDashboard() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="pharmacy-dashboard-container">
       {/* Pharmacy queue status */}
       <div className="department-action-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div className="department-action-control">
@@ -82,7 +83,7 @@ export default function PharmacyDashboard() {
       </div>
 
       {/* Pharmacy KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+      <div className="pharmacy-kpi-grid">
         <InfoBox
           tone="info"
           icon={<Pill size={22} />}
@@ -122,7 +123,7 @@ export default function PharmacyDashboard() {
       </div>
 
       {/* Main Grid: Live Prescriptions & Stock Monitor */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '1.25rem' }}>
+      <div className="pharmacy-main-grid">
         {/* Prescription Queue */}
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
