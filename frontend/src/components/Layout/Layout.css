@@ -280,10 +280,10 @@ body.sidebar-collapse .app-shell .nav-item:hover .app-nav-tooltip {
 .app-logout { color: #dc3545 !important; }
 
 .app-content { flex: 1 1 auto; min-width: 0; background: var(--clr-bg-base); overflow: visible; }
-.app-content-header { min-height: 40px; padding: 0.75rem 1rem 0.2rem; }
+.app-content-header { min-height: 40px; padding: 0.75rem 1rem 0.65rem; }
 .app-content-header .breadcrumb { margin: 0; padding: 0; background: transparent; font-size: 0.74rem; }
 .app-content-header .breadcrumb a { color: #007bff; }
-.app-content-container { padding: 0.35rem 0.25rem 1.5rem; }
+.app-content-container { padding: 1rem 0.25rem 1.5rem; }
 .app-content-container, .app-content-container .content, .app-content-container > * { min-width: 0; }
 .app-footer {
   grid-area: lte-app-footer;
