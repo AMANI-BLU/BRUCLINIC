@@ -58,7 +58,132 @@ export default function ReferralPrintModal({
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    window.print();
+    const vitalsHtml = vitals ? `
+      <div class="section-title"><span class="icon">♥</span> Patient Vital Signs at Time of Referral</div>
+      <div class="vitals-grid">
+        <div><span class="label">Blood Pressure</span><strong>${vitals.bloodPressure || '—'}</strong></div>
+        <div><span class="label">Pulse / HR</span><strong>${vitals.heartRate ? `${vitals.heartRate} bpm` : '—'}</strong></div>
+        <div><span class="label">Temperature</span><strong style="color:${(vitals.temperature || 0) > 37.5 ? '#dc2626' : 'inherit'}">${vitals.temperature ? `${vitals.temperature}°C` : '—'}</strong></div>
+        <div><span class="label">SpO₂</span><strong>${vitals.spo2 ? `${vitals.spo2}%` : '—'}</strong></div>
+        <div><span class="label">Resp Rate</span><strong>${vitals.respiratoryRate ? `${vitals.respiratoryRate} /min` : '—'}</strong></div>
+      </div>` : '';
+
+    const allergiesHtml = allergies.length > 0 ? `
+      <div class="allergy-box">⚠ Known Allergies: ${allergies.join(', ')}</div>` : '';
+
+    const symptomsHtml = (symptoms.length > 0 || notes) ? `
+      <div class="notes-section">
+        ${symptoms.length > 0 ? `<div><strong>Presenting Symptoms:</strong> ${symptoms.join(', ')}</div>` : ''}
+        ${notes ? `<div style="margin-top:4px"><strong>Clinical Consultation Notes:</strong> ${notes}</div>` : ''}
+      </div>` : '';
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Referral Letter – ${patientName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Inter, system-ui, sans-serif; color: #0f172a; background: #fff; font-size: 13px; line-height: 1.5; }
+    @page { size: A4; margin: 18mm 15mm; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    /* Header */
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #0369a1; padding-bottom: 10px; margin-bottom: 14px; }
+    .clinic-name { font-size: 1.3rem; font-weight: 800; color: #0369a1; letter-spacing: -0.02em; }
+    .clinic-sub { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+    .badge { font-weight: 800; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 4px; font-size: 0.72rem; letter-spacing: 0.04em; display: inline-block; margin-bottom: 4px; }
+    .meta-right { text-align: right; font-size: 0.72rem; color: #334155; }
+    /* Destination */
+    .destination-box { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+    .dest-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700; }
+    .dest-name { font-size: 1rem; font-weight: 800; color: #14532d; }
+    /* Demo grid */
+    .demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.78rem; }
+    .demo-grid .label { color: #64748b; font-size: 0.65rem; display: block; }
+    /* Vitals */
+    .section-title { font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+    .vitals-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 8px 10px; text-align: center; font-size: 0.75rem; margin-bottom: 14px; }
+    .vitals-grid .label { color: #78716c; font-size: 0.65rem; display: block; }
+    /* Sections */
+    .field-label { font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .field-box { border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; }
+    .diagnosis-box { background: #f8fafc; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a; }
+    .reason-box { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; font-size: 0.82rem; line-height: 1.55; }
+    .allergy-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 7px 10px; margin-bottom: 14px; color: #991b1b; font-weight: 600; font-size: 0.75rem; }
+    .notes-section { font-size: 0.78rem; color: #334155; margin-bottom: 14px; }
+    /* Footer */
+    .transfer-note { font-size: 0.68rem; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 20px; line-height: 1.6; }
+    .signature-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; }
+    .sig-block { text-align: center; width: 220px; }
+    .sig-line { border-bottom: 1px dashed #64748b; height: 36px; margin-bottom: 4px; }
+    .sig-name { font-size: 0.78rem; font-weight: 800; }
+    .sig-sub { font-size: 0.68rem; color: #64748b; }
+    .sig-clinic { font-size: 0.65rem; font-weight: 700; color: #0369a1; margin-top: 2px; }
+    .doc-meta { font-size: 0.68rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc-header">
+    <div>
+      <div class="clinic-name">${CLINIC_NAME}</div>
+      <div class="clinic-sub">Outpatient Department &amp; Clinical Health Services</div>
+      <div class="clinic-sub">Yabelo Campus, Oromia, Ethiopia · Tel: +251 46 441 0000</div>
+    </div>
+    <div class="meta-right">
+      <div class="badge">OFFICIAL REFERRAL LETTER</div>
+      <div>Date: <strong>${date}</strong></div>
+      ${patientCode ? `<div>Card No: <strong>${patientCode}</strong></div>` : ''}
+      <div>Priority: <strong style="color:${urgency.includes('STAT') ? '#dc2626' : '#b45309'}">${urgency}</strong></div>
+    </div>
+  </div>
+
+  <div class="destination-box">
+    <div>
+      <div class="dest-label">Referred To (Receiving Healthcare Facility)</div>
+      <div class="dest-name">${destination}</div>
+    </div>
+  </div>
+
+  <div class="demo-grid">
+    <div><span class="label">Patient Full Name</span><strong>${patientName}</strong></div>
+    <div><span class="label">Patient ID / Card Code</span><strong>${patientCode || '—'}</strong></div>
+    <div><span class="label">Category &amp; Department</span>${patientType || 'Patient'}${patientDepartment ? ` · ${patientDepartment}` : ''}</div>
+    ${(patientAge !== undefined || patientGender) ? `<div><span class="label">Age / Gender</span>${patientAge ? `${patientAge} yrs` : '—'} · ${patientGender || '—'}</div>` : ''}
+    <div><span class="label">Referring Clinician</span><strong>Dr. ${doctorName}</strong></div>
+    <div><span class="label">Referring Department</span>Outpatient Consultation (OPD)</div>
+  </div>
+
+  ${vitalsHtml}
+
+  <div class="field-label">Clinical Impression &amp; Presumptive Diagnosis</div>
+  <div class="field-box diagnosis-box">${diagnosis || 'Clinical evaluation required at receiving center'}</div>
+
+  <div class="field-label">Detailed Reason for Referral &amp; Recommended Interventions</div>
+  <div class="field-box reason-box">${reason}</div>
+
+  ${symptomsHtml}
+  ${allergiesHtml}
+
+  <div class="transfer-note">
+    Please evaluate and manage this patient according to your institutional protocols. After completion of care, please return a counter-referral note to ${CLINIC_NAME} for continuation of outpatient medical follow-up.
+  </div>
+
+  <div class="signature-row">
+    <div class="doc-meta">Document Issued: ${date}<br/>${CLINIC_NAME} Health Records</div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-name">Dr. ${doctorName}</div>
+      <div class="sig-sub">Referring Clinician Signature &amp; Stamp</div>
+      <div class="sig-clinic">${CLINIC_NAME}</div>
+    </div>
+  </div>
+</div>
+<script>window.onload = function(){ window.print(); };<\/script>
+</body></html>`);
+    printWindow.document.close();
   };
 
   return (
@@ -424,31 +549,7 @@ export default function ReferralPrintModal({
           </div>
         </div>
 
-        {/* Global Print Styles */}
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .printable-referral-slip,
-            .printable-referral-slip * {
-              visibility: visible;
-            }
-            .printable-referral-slip {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              border: none !important;
-              padding: 0 !important;
-            }
-            .no-print,
-            .modal-overlay {
-              background: none !important;
-              padding: 0 !important;
-            }
-          }
-        `}</style>
+
       </div>
     </ModalPortal>
   );

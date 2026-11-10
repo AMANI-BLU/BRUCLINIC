@@ -49,7 +49,116 @@ export default function PrescriptionPrintModal({
   const internalMeds = medicines.filter(m => !m.isExternal);
 
   const handlePrint = () => {
-    window.print();
+    const externalRows = externalMeds.map((med, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td><strong>${med.name}</strong></td>
+        <td>${med.instructions || 'As directed by the prescriber'}</td>
+        <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
+      </tr>`).join('');
+
+    const internalRows = internalMeds.map((med, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td><strong>${med.name}</strong></td>
+        <td>${med.instructions || 'As directed by the prescriber'}</td>
+        <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
+      </tr>`).join('');
+
+    const externalSection = externalMeds.length > 0 ? `
+      <div class="section-header ext">🛒 MEDICINES TO PURCHASE FROM OUTSIDE RETAIL PHARMACY</div>
+      <p class="section-note">The following medicine(s) are not currently stocked in the clinic dispensary. Please take this slip to any community pharmacy to purchase.</p>
+      <table>
+        <thead><tr><th>#</th><th>Medication Name</th><th>Instructions</th><th style="text-align:right">Qty</th></tr></thead>
+        <tbody>${externalRows}</tbody>
+      </table>` : '';
+
+    const internalSection = internalMeds.length > 0 ? `
+      <div class="section-header int">✓ MEDICINES DISPENSED AT CLINIC PHARMACY</div>
+      <table>
+        <thead><tr><th>#</th><th>Medication Name</th><th>Instructions</th><th style="text-align:right">Qty</th></tr></thead>
+        <tbody>${internalRows}</tbody>
+      </table>` : '';
+
+    const notesHtml = notes ? `<div class="notes"><strong>Clinician Notes:</strong> ${notes}</div>` : '';
+
+    const printWindow = window.open('', '_blank', 'width=860,height=680');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Prescription – ${patientName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Inter, system-ui, sans-serif; color: #0f172a; background: #fff; font-size: 13px; line-height: 1.5; }
+    @page { size: A4; margin: 18mm 15mm; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    /* Header */
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 14px; }
+    .clinic-name { font-size: 1.25rem; font-weight: 800; color: #0369a1; letter-spacing: -0.02em; }
+    .clinic-sub { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+    .meta-right { text-align: right; font-size: 0.72rem; color: #475569; }
+    .rx-badge { font-weight: 700; color: #0284c7; font-size: 0.82rem; display: block; }
+    /* Patient meta */
+    .patient-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.78rem; }
+    .patient-meta .span2 { grid-column: span 2; }
+    /* Sections */
+    .section-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.82rem; font-weight: 700; margin-top: 14px; }
+    .section-header.ext { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
+    .section-header.int { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .section-note { font-size: 0.7rem; color: #78350f; margin-bottom: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 14px; }
+    thead tr { border-bottom: 1px solid #e2e8f0; }
+    thead th { padding: 6px 8px; text-align: left; }
+    tbody tr { border-bottom: 1px solid #f1f5f9; }
+    tbody td { padding: 8px; }
+    .notes { margin-top: 10px; font-size: 0.72rem; color: #475569; font-style: italic; }
+    /* Signature */
+    .signature-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 32px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+    .sig-block { text-align: center; width: 210px; }
+    .sig-line { border-bottom: 1px dashed #64748b; height: 36px; margin-bottom: 4px; }
+    .sig-name { font-size: 0.75rem; font-weight: 700; color: #0f172a; }
+    .sig-sub { font-size: 0.65rem; color: #64748b; }
+    .validity { font-size: 0.68rem; color: #94a3b8; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc-header">
+    <div>
+      <div class="clinic-name">${CLINIC_NAME}</div>
+      <div class="clinic-sub">Outpatient Department &amp; Clinical Medical Services</div>
+    </div>
+    <div class="meta-right">
+      <span class="rx-badge">OFFICIAL PRESCRIPTION</span>
+      <div>Date: ${date}</div>
+      ${patientCode ? `<div>Patient Code: <strong>${patientCode}</strong></div>` : ''}
+    </div>
+  </div>
+
+  <div class="patient-meta">
+    <div><span style="color:#64748b">Patient Name: </span><strong>${patientName}</strong></div>
+    <div><span style="color:#64748b">Prescribing Clinician: </span><strong>${doctorName}</strong></div>
+    ${doctorDiagnosis ? `<div class="span2"><span style="color:#64748b">Clinical Diagnosis: </span><strong>${doctorDiagnosis}</strong></div>` : ''}
+  </div>
+
+  ${externalSection}
+  ${internalSection}
+  ${notesHtml}
+
+  <div class="signature-row">
+    <div class="validity">Valid for fulfillment within 14 days from issue date.<br/>${CLINIC_NAME} Electronic Health Records System</div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-name">${CLINIC_NAME}</div>
+      <div class="sig-sub">Clinic name and authorized clinic stamp</div>
+    </div>
+  </div>
+</div>
+<script>window.onload = function(){ window.print(); };<\/script>
+</body></html>`);
+    printWindow.document.close();
   };
 
   return (
@@ -330,31 +439,7 @@ export default function PrescriptionPrintModal({
         </div>
       </div>
 
-      {/* Global Print Styles */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .printable-prescription-slip,
-          .printable-prescription-slip * {
-            visibility: visible;
-          }
-          .printable-prescription-slip {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            border: none !important;
-            padding: 0 !important;
-          }
-          .no-print,
-          .modal-overlay {
-            background: none !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
+
     </div>
     </ModalPortal>
   );
