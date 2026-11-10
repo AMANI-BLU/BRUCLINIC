@@ -51,9 +51,9 @@ BruClinic is a multi-role clinical workflow management system handling:
 │    Request ID → Security Headers → CORS →       │
 │    Rate Limit → Body Parse → JWT Auth → Routes  │
 └──────────────────┬──────────────────────────────┘
-                   │ mysql2 connection pool
+                   │ pg connection pool
 ┌──────────────────▼──────────────────────────────┐
-│  MySQL 8+ / MariaDB 10.5+                       │
+│  PostgreSQL 14+                                 │
 │  Database: bruclinic                            │
 └─────────────────────────────────────────────────┘
 ```
@@ -65,7 +65,7 @@ BruClinic is a multi-role clinical workflow management system handling:
 | Requirement | Version | Notes |
 |---|---|---|
 | Node.js | ≥ 20 LTS | Download from nodejs.org |
-| MySQL | ≥ 8.0 | Or MariaDB ≥ 10.5. XAMPP includes both. |
+| PostgreSQL | ≥ 14 | Local install, or a managed provider such as Render |
 | npm | ≥ 10 | Bundled with Node.js |
 
 ---
@@ -79,8 +79,8 @@ BruClinic is a multi-role clinical workflow management system handling:
 cd backend
 npm install
 
-# 2. Create the MySQL database (in phpMyAdmin or MySQL shell)
-#    CREATE DATABASE bruclinic CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+# 2. Create the PostgreSQL database (in psql or your SQL client)
+#    CREATE DATABASE bruclinic;
 
 # 3. Run the interactive setup wizard
 npm run setup
@@ -154,6 +154,12 @@ npm run build
 > **Tip:** Use `pm2` to keep the backend running as a daemon:
 > `pm2 start src/server.js --name bruclinic-api --interpreter node`
 
+### Deploying to Vercel + Render
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for a complete walkthrough: Render Blueprint
+(`render.yaml`), Render PostgreSQL, environment variables, migrations, CORS, and
+Vercel deployment (`frontend/vercel.json`).
+
 ---
 
 ## Database Management
@@ -181,10 +187,12 @@ All variables are documented in [`backend/.env.example`](backend/.env.example).
 | Variable | Required | Description |
 |---|---|---|
 | `JWT_SECRET` | **Yes** | Random secret ≥ 32 chars for signing JWTs |
-| `DB_HOST` | Yes | MySQL hostname |
-| `DB_USER` | Yes | MySQL username |
-| `DB_PASSWORD` | – | MySQL password |
+| `DB_HOST` | Yes | PostgreSQL hostname |
+| `DB_USER` | Yes | PostgreSQL username |
+| `DB_PASSWORD` | – | PostgreSQL password |
 | `DB_NAME` | Yes | Database name (`bruclinic`) |
+| `DATABASE_URL` | – | Full PostgreSQL URL; when set, overrides the `DB_*` values |
+| `DB_SSL` | – | Set `true` for TLS when the provider's CA is not in Node's trust store |
 | `PORT` | – | API port (default: 4000) |
 | `CORS_ORIGIN` | Yes | Frontend URL (e.g. `http://localhost:5173`) |
 | `NODE_ENV` | – | `development` or `production` |
@@ -253,7 +261,7 @@ BruClinic/
 │   │   │   ├── roles.js            # Role names, RBAC matrix, badge colors
 │   │   │   └── events.js           # Security & audit event type enums
 │   │   ├── db/
-│   │   │   ├── pool.js             # MySQL connection pool + transaction helper
+│   │   │   ├── pool.js             # PostgreSQL connection pool + transaction helper
 │   │   │   ├── migrate.js          # Migration runner
 │   │   │   ├── seed.js             # Admin account seeder
 │   │   │   ├── check.js            # DB status report

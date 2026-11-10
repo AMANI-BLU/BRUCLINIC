@@ -21,16 +21,25 @@ PostgreSQL-backed REST API for the BruClinic clinic management system. It uses N
    npm run dev
    ```
 
-The API listens on `http://localhost:4000`. The seed script adds clinic doctors. It creates an administrator only when `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, and `SEED_ADMIN_EMAIL` are explicitly configured; no default credentials are created.
+The API listens on `http://localhost:4000`. The seed script creates an administrator only when `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, and `SEED_ADMIN_EMAIL` are explicitly configured; no default credentials are created.
 
 ## Configuration
 
 ```env
+# Either the individual values...
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=
 DB_NAME=bruclinic
+
+# ...or a full connection string (takes precedence; used by Render)
+# DATABASE_URL=postgresql://user:password@host:5432/bruclinic
+
+# Set true only if the provider requires TLS with a certificate Node
+# does not trust. Prefer ?sslmode=require in DATABASE_URL when available.
+DB_SSL=false
+
 DATABASE_POOL_MAX=10
 JWT_SECRET=replace-with-a-long-random-secret
 BODY_LIMIT_BYTES=1048576

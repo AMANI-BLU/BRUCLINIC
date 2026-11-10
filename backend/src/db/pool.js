@@ -13,18 +13,28 @@ export class DatabaseNotConfiguredError extends Error {
 }
 
 export function isDatabaseConfigured() {
-  return Boolean(env.dbHost && env.dbName && env.dbUser);
+  return Boolean(env.databaseUrl || (env.dbHost && env.dbName && env.dbUser));
 }
 
 export function getPool() {
   if (!isDatabaseConfigured()) return null;
   if (!pool) {
+    // A full URL (Render Blueprint, Heroku, Neon, Supabase, ...) wins over
+    // the individual DB_* settings. pg reads sslmode=... from the URL, so
+    // managed databases that require TLS work without extra config.
+    const connection = env.databaseUrl
+      ? { connectionString: env.databaseUrl }
+      : {
+          host: env.dbHost,
+          port: env.dbPort,
+          user: env.dbUser,
+          password: env.dbPassword,
+          database: env.dbName,
+        };
+
     pool = new Pool({
-      host: env.dbHost,
-      port: env.dbPort,
-      user: env.dbUser,
-      password: env.dbPassword,
-      database: env.dbName,
+      ...connection,
+      ...(env.dbSsl ? { ssl: { rejectUnauthorized: false } } : {}),
       max: env.databasePoolMax,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 5000,
