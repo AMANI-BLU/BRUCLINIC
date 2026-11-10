@@ -109,6 +109,19 @@ const server = http.createServer(async (request, response) => {
       return await healthHandler(request, response);
     }
 
+    // 8a-bis. Friendly root response — browsers hitting the backend URL directly
+    if (url.pathname === '/' || url.pathname === '') {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({
+        service: 'BruClinic API',
+        version: '2.0.0',
+        status: 'running',
+        note: 'This is the BruClinic backend API. The frontend is at a separate URL.',
+        docs: '/api/health',
+      }));
+      return;
+    }
+
     if (segments[0] !== 'api') return sendError(response, 404, 'Route not found');
 
     // 8b. Parse request body for mutations. Restores carry a full snapshot

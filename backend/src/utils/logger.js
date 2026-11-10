@@ -81,7 +81,12 @@ export const logger = Object.freeze({
    * Log an HTTP request completion (called by middleware).
    */
   request(requestId, method, path, statusCode, durationMs, userId) {
-    log(statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info', 'HTTP request', {
+    // 5xx → error, auth failures & real client errors → warn, 404 & 2xx/3xx → info
+    const level =
+      statusCode >= 500 ? 'error' :
+      statusCode === 401 || statusCode === 403 || (statusCode >= 405 && statusCode < 500) ? 'warn' :
+      'info';
+    log(level, 'HTTP request', {
       requestId, method, path, statusCode, durationMs, userId: userId || null,
     });
   },
