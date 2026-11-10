@@ -482,8 +482,8 @@ export default function OpdDashboard() {
           tone="info"
           icon={<Stethoscope size={22} />}
           value={waitingForDoctor.length}
-          label="In OPD Consultation Queue"
-          detail="From Card Room and Clinical Queue"
+          label="OPD queue"
+          detail="In doctor consultation"
           onClick={() => { setOpdTabFilter('all'); setDoctorQueueScope('all'); }}
           footerText="View queue"
         />
@@ -491,8 +491,8 @@ export default function OpdDashboard() {
           tone="success"
           icon={<FlaskConical size={22} />}
           value={atLaboratory.length}
-          label="Diagnostic Tests Ordered"
-          detail="En route to Laboratory"
+          label="At laboratory"
+          detail="Diagnostic tests ordered"
           onClick={() => setOpdTabFilter('lab_returned')}
           footerText="Check lab results"
         />
@@ -500,8 +500,8 @@ export default function OpdDashboard() {
           tone="warning"
           icon={<Pill size={22} />}
           value={atPharmacy.length}
-          label="Prescriptions Sent"
-          detail="Pending dispensary"
+          label="At pharmacy"
+          detail="Prescriptions pending dispensary"
           to="/pharmacy"
           footerText="View pharmacy"
         />
@@ -509,8 +509,8 @@ export default function OpdDashboard() {
           tone="secondary"
           icon={<CheckCircle2 size={22} />}
           value={completedToday.length}
-          label="Completed Consultations"
-          detail="Archived to patient files"
+          label="Completed"
+          detail="Consultations treated today"
           onClick={() => setOpdTabFilter('completed')}
           footerText="View completed"
         />

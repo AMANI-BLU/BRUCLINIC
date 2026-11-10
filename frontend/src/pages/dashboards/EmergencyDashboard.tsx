@@ -116,13 +116,13 @@ export default function EmergencyDashboard() {
       </div>
 
       {/* ER Acuity KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+      <div className="emergency-kpi-grid">
         <InfoBox
           tone="danger"
           icon={<ShieldAlert size={22} />}
           value={redCases.length}
-          label="RED: Immediate Resuscitation"
-          detail="Continuous monitoring required"
+          label="RED: Critical"
+          detail="Immediate resuscitation"
           onClick={() => setFilterAcuity('Red')}
           footerText="Filter RED cases"
         />
@@ -130,8 +130,8 @@ export default function EmergencyDashboard() {
           tone="warning"
           icon={<AlertTriangle size={22} />}
           value={yellowCases.length}
-          label="YELLOW: Emergent / Urgent"
-          detail="Assessed within 15 minutes"
+          label="YELLOW: Urgent"
+          detail="Assessed within 15 mins"
           onClick={() => setFilterAcuity('Yellow')}
           footerText="Filter YELLOW cases"
         />
@@ -139,7 +139,7 @@ export default function EmergencyDashboard() {
           tone="success"
           icon={<Activity size={22} />}
           value={greenCases.length}
-          label="GREEN: Non-Urgent Minor"
+          label="GREEN: Non-urgent"
           detail="Stable walking patients"
           onClick={() => setFilterAcuity('Green')}
           footerText="Filter GREEN cases"
@@ -148,7 +148,7 @@ export default function EmergencyDashboard() {
           tone="info"
           icon={<Bed size={22} />}
           value={`${ER_BAYS.length - erCases.length} / ${ER_BAYS.length}`}
-          label="Available ER Bays"
+          label="Available ER bays"
           detail={`${erCases.length} occupied currently`}
           onClick={() => setFilterAcuity('All')}
           footerText="View all bays"

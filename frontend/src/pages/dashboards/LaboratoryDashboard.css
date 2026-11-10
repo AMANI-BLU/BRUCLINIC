@@ -21,14 +21,35 @@
 .lab-queue-count strong { margin-right: 0.2rem; font-size: 1rem; }
 .lab-queue-count-icon { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 0.25rem; background: rgba(13, 110, 253, 0.1); color: var(--clr-primary-400); }
 .lab-queue-summary-copy { color: var(--clr-text-muted); font-size: 0.74rem; text-align: right; }
-.lab-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.85rem; }
+.lab-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
 .lab-kpi-grid > * { min-width: 0; }
-.lab-kpi-grid .clinic-metric-box { min-height: 7.5rem; border-radius: 0.25rem; }
-.lab-kpi-grid .clinic-metric-box > .inner { padding: 0.85rem 0.95rem; }
-.lab-kpi-grid .clinic-metric-box h3 { font-size: 1.55rem; }
-.lab-kpi-grid .clinic-metric-box p { max-width: calc(100% - 2rem); font-size: 0.76rem; }
-.lab-kpi-grid .clinic-metric-box > .icon { position: absolute; top: 0.7rem; right: 0.7rem; bottom: auto; }
-.lab-kpi-grid .clinic-metric-box > .icon svg { width: 2.25rem; height: 2.25rem; }
+.lab-kpi-grid .clinic-metric-box {
+  min-width: 0;
+  min-height: 8.5rem;
+  height: 100%;
+  border-radius: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 991.98px) {
+  .lab-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .lab-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .lab-workbench-card { min-width: 0; margin-bottom: 0; padding: 0; overflow: hidden; }
 .lab-workbench-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.9rem 1rem !important; }

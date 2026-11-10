@@ -401,7 +401,8 @@ select option { background: var(--clr-bg-card); color: var(--clr-text-primary); 
 .app-content .table-wrapper table tbody tr:hover > * { background: var(--clr-bg-hover); color: var(--clr-text-primary); }
 
 .app-content .small-box {
-  min-height: 8.25rem;
+  min-height: 8.5rem;
+  height: 100%;
   margin-bottom: 0;
   overflow: hidden;
   border-radius: 0.25rem;
@@ -422,6 +423,8 @@ select option { background: var(--clr-bg-card); color: var(--clr-text-primary); 
   position: relative;
   z-index: 2;
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 .app-content .small-box > .inner h3 {
   margin: 0 0 0.35rem;
@@ -470,6 +473,7 @@ select option { background: var(--clr-bg-card); color: var(--clr-text-primary); 
   justify-content: center;
   gap: 0.4rem;
   padding: 0.3rem 0;
+  margin-top: auto;
   background: rgba(0, 0, 0, 0.15);
   color: rgba(255, 255, 255, 0.88) !important;
   font-size: 0.8rem;
@@ -490,6 +494,36 @@ select option { background: var(--clr-bg-card); color: var(--clr-text-primary); 
 }
 .app-content .small-box:hover .small-box-footer .small-box-footer-icon {
   transform: translateX(3px);
+}
+
+.emergency-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.emergency-kpi-grid .clinic-metric-box {
+  min-width: 0;
+  min-height: 8.5rem;
+  height: 100%;
+  border-radius: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 991.98px) {
+  .emergency-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .emergency-kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* AdminLTE v3 Palette with Forced Crisp White Text */

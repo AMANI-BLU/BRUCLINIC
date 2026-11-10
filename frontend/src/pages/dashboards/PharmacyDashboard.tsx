@@ -88,7 +88,7 @@ export default function PharmacyDashboard() {
           tone="info"
           icon={<Pill size={22} />}
           value={pendingOrders.length}
-          label="Pending Dispenses"
+          label="Pending dispenses"
           detail="From OPD and Emergency"
           onClick={() => setStatusFilter('Pending')}
           footerText="Filter pending"
@@ -97,8 +97,8 @@ export default function PharmacyDashboard() {
           tone="danger"
           icon={<AlertTriangle size={22} />}
           value={lowStock.length}
-          label="Low Stock Warnings"
-          detail={`${outOfStock.length} completely empty`}
+          label="Low stock alerts"
+          detail={`${outOfStock.length} items out of stock`}
           to="/pharmacy"
           footerText="Manage inventory"
         />
@@ -106,7 +106,7 @@ export default function PharmacyDashboard() {
           tone="success"
           icon={<CheckCircle2 size={22} />}
           value={dispensedOrders.length}
-          label="Dispensed Orders"
+          label="Dispensed orders"
           detail="Fulfilled prescriptions"
           onClick={() => setStatusFilter('Dispensed')}
           footerText="Filter dispensed"
@@ -115,8 +115,8 @@ export default function PharmacyDashboard() {
           tone="primary"
           icon={<DollarSign size={22} />}
           value={`${totalValue.toFixed(0)} ETB`}
-          label="Total Drug Inventory"
-          detail={`${medicines.length} tracked items`}
+          label="Drug inventory"
+          detail={`${medicines.length} items in catalog`}
           to="/pharmacy"
           footerText="Full catalog"
         />
