@@ -420,6 +420,14 @@ body.sidebar-collapse .app-shell .nav-item:hover .app-nav-tooltip {
   }
 }
 
+@media (max-width: 767.98px) {
+  .app-current-page { display: none !important; }
+  .app-header { padding-inline: 0.45rem; }
+  .app-header-actions { gap: 0; }
+  .app-header-btn { width: 34px; }
+  .app-header-user > .nav-link { padding-inline: 0.25rem; }
+}
+
 @media (max-width: 575.98px) {
   .app-header { padding-inline: 0.45rem; }
   .app-header-actions { gap: 0; }

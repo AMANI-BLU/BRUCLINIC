@@ -153,7 +153,7 @@ export default function Settings() {
       <div className="page-header settings-page-header">
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Personal preferences and {roleSetting.label.toLowerCase()}.</p>
+          <p className="page-subtitle">Personal preferences.</p>
         </div>
         <div className="settings-header-status" aria-label={`${theme} theme active`}>
           <span /> {theme === 'dark' ? 'Dark mode' : 'Light mode'}

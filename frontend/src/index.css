@@ -1613,3 +1613,355 @@ tbody td { padding: 0.75rem 1rem; }
   outline: 2px solid var(--clr-primary-400);
   outline-offset: 1px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED ENTITY VIEW MODALS (patient card / medical record)
+══════════════════════════════════════════════════════════════ */
+.view-modal {
+  width: min(96vw, 900px) !important;
+  max-width: 900px !important;
+  max-height: 92vh !important;
+  overflow-y: auto;
+}
+
+.view-modal .modal-header {
+  position: sticky;
+  top: -1.15rem;
+  z-index: 2;
+  margin: -1.15rem -1.25rem 0.85rem;
+  padding: 0.9rem 1.25rem 0.7rem;
+  background: var(--clr-bg-card);
+}
+
+.view-modal-body {
+  min-width: 0;
+}
+
+.view-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  padding: 0.85rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--clr-border);
+  border-left: 3px solid var(--clr-primary-500);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-hover);
+}
+
+.view-summary-avatar {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border-radius: 0.25rem;
+  background: var(--clr-primary-500);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.view-summary-copy {
+  min-width: 0;
+}
+
+.view-summary-copy h3 {
+  margin: 0;
+  color: var(--clr-text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.view-summary-copy > p {
+  margin: 0.15rem 0 0;
+  color: var(--clr-text-muted);
+  font-size: 0.74rem;
+}
+
+.view-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.view-summary-badges .badge {
+  font-size: 0.66rem;
+}
+
+.view-summary-stats {
+  display: flex;
+  gap: 1.1rem;
+  margin-left: auto;
+  text-align: right;
+}
+
+.view-summary-stats div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.view-summary-stats strong {
+  color: var(--clr-text-primary);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.view-summary-stats span {
+  color: var(--clr-text-muted);
+  font-size: 0.66rem;
+}
+
+.view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.view-stack,
+.view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.view-section,
+.view-card {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+}
+
+.view-section-head,
+.view-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.view-section-head h4,
+.view-card-head h4 {
+  margin: 0;
+  color: var(--clr-text-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.view-diagnosis-section {
+  border-left: 3px solid var(--clr-primary-500);
+}
+
+.view-card-eyebrow {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--clr-text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.view-card-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+}
+
+.view-card-row > span {
+  flex: 0 0 auto;
+  color: var(--clr-text-muted);
+  font-weight: 600;
+}
+
+.view-card-row p {
+  margin: 0;
+  color: var(--clr-text-primary);
+}
+
+.view-card-subsection {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.25rem;
+  background: var(--clr-bg-hover);
+  font-size: 0.78rem;
+}
+
+.view-subsection-title {
+  margin-bottom: 0.3rem;
+  color: var(--clr-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.view-card-subsection ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--clr-text-primary);
+}
+
+.view-card-subsection li span,
+.view-card-meta {
+  color: var(--clr-text-muted);
+  font-weight: 400;
+}
+
+.view-card-note {
+  margin: 0.5rem 0 0;
+  color: var(--clr-text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.view-empty {
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--clr-border);
+  border-radius: 0.25rem;
+  color: var(--clr-text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.view-empty-inline {
+  padding: 0.6rem;
+  border-style: solid;
+}
+
+.view-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+}
+
+.view-info-item {
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+}
+
+.view-info-label {
+  margin-bottom: 0.15rem;
+  color: var(--clr-text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.view-info-value {
+  color: var(--clr-text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.view-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-surface);
+  font-size: 0.8rem;
+}
+
+.view-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.view-row-main strong {
+  color: var(--clr-text-primary);
+}
+
+.view-row-sub {
+  flex-basis: 100%;
+  color: var(--clr-text-muted);
+  font-size: 0.74rem;
+}
+
+.view-row-meta {
+  flex: 0 0 auto;
+  color: var(--clr-text-muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.view-mono {
+  font-family: monospace;
+}
+
+.view-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.25rem;
+  background: var(--clr-bg-hover);
+  font-size: 0.78rem;
+}
+
+.view-result > span {
+  color: var(--clr-text-muted);
+}
+
+.view-followup {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  color: var(--clr-primary-400);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  .view-modal .modal-header {
+    top: -0.9rem;
+    margin: -0.9rem -0.9rem 0.75rem;
+    padding: 0.8rem 0.9rem 0.65rem;
+  }
+
+  .view-summary-stats {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .view-card-row {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .view-row {
+    flex-direction: column;
+  }
+
+  .view-row-meta {
+    text-align: left;
+  }
+}

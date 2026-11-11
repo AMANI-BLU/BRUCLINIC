@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ClinicProvider }  from './context/ClinicContext';
 import { ThemeProvider }   from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
+import { NetworkProvider } from './context/NetworkContext';
 import MaintenancePage     from './components/Maintenance/MaintenancePage';
 import Layout              from './components/Layout/Layout';
 import ProtectedRoute, { roleLandingPage } from './components/ProtectedRoute';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
+import { AppBootstrapSkeleton, LoginSkeleton } from './components/AppSkeletons';
+import './pages/login-skeleton.css';
 
 import Login               from './pages/Login';
 import Dashboard           from './pages/Dashboard';
@@ -54,40 +58,28 @@ const ROLE = {
 // ─────────────────────────────────────────────────────────────────
 
 function AppRoutes() {
-  const { isAuthenticated, currentUser, authLoading } = useAuth();
+  const { token, isAuthenticated, currentUser, authLoading } = useAuth();
   const { enabled: maintenance, message: maintenanceMessage, checking: maintenanceChecking, refresh: refreshMaintenance } = useMaintenance();
   const [adminSignIn, setAdminSignIn] = useState(false);
+  const location = useLocation();
+  const isLoginRoute = location.pathname === '/login';
 
   useEffect(() => {
     if (!maintenance) setAdminSignIn(false);
   }, [maintenance]);
 
-  if (authLoading || maintenanceChecking) {
-    return (
-      <div className="clinic-bootstrap-skeleton" role="status" aria-label="Loading clinic">
-        <div className="clinic-skeleton-topbar">
-          <span className="clinic-skeleton-block clinic-skeleton-brand" />
-          <span className="clinic-skeleton-block clinic-skeleton-top-actions" />
-        </div>
-        <div className="clinic-skeleton-workspace">
-          <aside className="clinic-skeleton-sidebar">
-            {Array.from({ length: 6 }, (_, index) => <span className="clinic-skeleton-block clinic-skeleton-nav-item" key={index} />)}
-          </aside>
-          <main className="page-visit-skeleton clinic-skeleton-main" aria-hidden="true">
-            <span className="page-skeleton-block page-skeleton-heading" />
-            <div className="page-skeleton-metrics">
-              {Array.from({ length: 4 }, (_, index) => <span className="page-skeleton-block" key={index} />)}
-            </div>
-            <div className="page-skeleton-content">
-              <span className="page-skeleton-block page-skeleton-subheading" />
-              <span className="page-skeleton-block page-skeleton-line" />
-              <span className="page-skeleton-block page-skeleton-line" />
-              <span className="page-skeleton-block page-skeleton-line page-skeleton-line-short" />
-            </div>
-          </main>
-        </div>
-      </div>
-    );
+  // Only a stored session is worth blocking the app for. Visitors without a
+  // token go straight to the login screen, and the login route always gets a
+  // login-shaped skeleton rather than the signed-in dashboard shell.
+  const validatingSession = authLoading && Boolean(token);
+  const checkingSessionMaintenance = maintenanceChecking && Boolean(token) && !isAuthenticated;
+
+  if (isLoginRoute) {
+    // The public route gets a login-shaped placeholder while auth state is
+    // being restored, regardless of whether a token was already stored.
+    if (authLoading) return <LoginSkeleton />;
+  } else if (validatingSession || checkingSessionMaintenance) {
+    return <AppBootstrapSkeleton />;
   }
 
   // Maintenance mode is a full stop for staff: no routes, data or actions.
@@ -323,13 +315,16 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <MaintenanceProvider>
-            <ClinicProvider>
-              <NotificationProvider>
-                <AppRoutes />
-              </NotificationProvider>
-            </ClinicProvider>
-          </MaintenanceProvider>
+          <NetworkProvider>
+            <MaintenanceProvider>
+              <ClinicProvider>
+                <NotificationProvider>
+                  <AppRoutes />
+                  <NetworkStatusBanner />
+                </NotificationProvider>
+              </ClinicProvider>
+            </MaintenanceProvider>
+          </NetworkProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

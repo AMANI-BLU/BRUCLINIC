@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { apiGet, apiPatch, apiPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useNetwork } from '../context/NetworkContext';
 import './Messages.css';
 
 interface StaffContact {
@@ -42,12 +43,12 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const QUICK_TEMPLATES = [
-  '📋 Patient card dispatched to OPD',
-  '🚨 Urgent clinical consultation requested',
-  '💊 Prescription ready for pickup at dispensary',
-  '🧪 Lab results completed and attached to EMR',
-  '✅ Patient has been attended and discharged',
-  '📞 Please call back or review encounter file',
+  'Patient card dispatched to OPD',
+  'Urgent clinical consultation requested',
+  'Prescription ready for pickup at dispensary',
+  'Lab results completed and attached to EMR',
+  'Patient has been attended and discharged',
+  'Please call back or review encounter file',
 ];
 
 function getInitials(name: string): string {
@@ -99,6 +100,7 @@ function formatSnippetTime(isoString: string): string {
 
 export default function Messages() {
   const { currentUser, token } = useAuth();
+  const { online } = useNetwork();
   const [contacts, setContacts] = useState<StaffContact[]>([]);
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [activeContactId, setActiveContactId] = useState<string>('');
@@ -113,7 +115,10 @@ export default function Messages() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadData = useCallback(async () => {
-    if (!token) return;
+    if (!token || !online) {
+      setLoading(false);
+      return;
+    }
     try {
       const [directory, inbox] = await Promise.all([
         apiGet<{ data: StaffContact[] }>('/auth/directory', token),
@@ -127,7 +132,7 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [online, token]);
 
   useEffect(() => {
     void loadData();
@@ -295,7 +300,7 @@ export default function Messages() {
   }, [activeMessages]);
 
   return (
-    <div className="tg-page-container">
+    <div className={`tg-page-container ${activeContactId ? 'conversation-open' : ''}`}>
       {/* Telegram App Container */}
       <div className="tg-app">
         {/* Left Sidebar */}
@@ -411,7 +416,7 @@ export default function Messages() {
                 <div className="tg-chat-header-user">
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm btn-icon d-md-none"
+                    className="btn btn-secondary btn-sm btn-icon d-md-none tg-back-btn"
                     onClick={() => setActiveContactId('')}
                     title="Back to chats"
                     aria-label="Back"
@@ -426,16 +431,16 @@ export default function Messages() {
                     <span className="tg-online-dot" />
                   </div>
 
-                  <div>
+                  <div className="tg-header-copy">
                     <h2 className="tg-header-title">
-                      {activeContact.name}
-                      <span className="badge badge-gray" style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                      <span className="tg-header-name">{activeContact.name}</span>
+                      <span className="badge badge-gray tg-header-role">
                         {activeContact.role_title || activeContact.role}
                       </span>
                     </h2>
                     <p className="tg-header-subtitle">
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                      Online · {activeContact.department}
+                      <span className="tg-online-dot-inline" />
+                      Online<span className="tg-header-dept"> · {activeContact.department}</span>
                     </p>
                   </div>
                 </div>
@@ -443,9 +448,10 @@ export default function Messages() {
                 <div className="tg-header-actions">
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm tg-sync-btn"
                     onClick={() => void loadData()}
                     title="Sync conversation"
+                    aria-label="Sync conversation"
                   >
                     <RefreshCw size={14} className={loading ? 'spin' : ''} />
                     <span className="d-none d-sm-inline ms-1">Sync</span>
@@ -468,7 +474,7 @@ export default function Messages() {
                     </div>
                     <div className="tg-empty-title" style={{ fontSize: '1.05rem' }}>Start conversation</div>
                     <div className="tg-empty-desc">
-                      Send a secure clinic message to {activeContact.name}. History is encrypted and recorded in the audit trail.
+                      Send a message to {activeContact.name}.
                     </div>
                   </div>
                 ) : (
@@ -541,13 +547,13 @@ export default function Messages() {
                   value={body}
                   onChange={e => setBody(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={sending}
+                  disabled={sending || !online}
                   required
                 />
                 <button
                   type="submit"
                   className="tg-send-btn"
-                  disabled={sending || !body.trim()}
+                  disabled={sending || !online || !body.trim()}
                   title="Send message (Enter)"
                   aria-label="Send message"
                 >
@@ -563,7 +569,7 @@ export default function Messages() {
               </div>
               <div className="tg-empty-title">BruClinic Messenger</div>
               <div className="tg-empty-desc">
-                Select a colleague from the staff directory on the left to review chat history or send a secure operational message.
+                Select a colleague to start a chat.
               </div>
               <div className="tg-quick-contact-pills">
                 {contacts.slice(0, 5).map(c => (
@@ -573,7 +579,7 @@ export default function Messages() {
                     className="tg-quick-contact-btn"
                     onClick={() => setActiveContactId(c.id)}
                   >
-                    💬 {c.name} ({c.roleTitle || c.role})
+                    {c.name} ({c.roleTitle || c.role})
                   </button>
                 ))}
               </div>

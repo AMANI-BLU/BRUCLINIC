@@ -382,6 +382,11 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tg-header-copy {
+  min-width: 0;
 }
 
 .tg-header-title {
@@ -392,9 +397,22 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.tg-header-name {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-header-role {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
 }
 
 .tg-header-subtitle {
@@ -407,6 +425,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tg-online-dot-inline {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  flex: 0 0 6px;
 }
 
 .tg-header-actions {
@@ -725,5 +752,65 @@
   }
   .tg-chat-main.hidden-mobile {
     display: none !important;
+  }
+  .tg-chat-header {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .tg-chat-header-user {
+    gap: 8px;
+  }
+  .tg-back-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex: 0 0 32px;
+  }
+  .tg-chat-header .tg-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 0.78rem !important;
+  }
+  .tg-header-title {
+    font-size: 0.9rem;
+  }
+  .tg-header-role,
+  .tg-header-dept {
+    display: none;
+  }
+  .tg-header-subtitle {
+    font-size: 0.7rem;
+  }
+  .tg-sync-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* A selected conversation already has a back button and a chat header. The
+   application navbar becomes duplicate chrome on a phone, so let the chat
+   occupy the full viewport while it is open. */
+@media (max-width: 767.98px) {
+  .app-shell:has(.tg-page-container.conversation-open) .app-header,
+  .app-shell:has(.tg-page-container.conversation-open) .app-footer {
+    display: none !important;
+  }
+
+  .app-shell:has(.tg-page-container.conversation-open) .app-main,
+  .app-shell:has(.tg-page-container.conversation-open) .app-content,
+  .app-shell:has(.tg-page-container.conversation-open) .app-content-container,
+  .app-shell:has(.tg-page-container.conversation-open) .page-transition-content {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .tg-chat-header .tg-avatar-wrap {
+    display: none;
   }
 }

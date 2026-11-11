@@ -116,7 +116,7 @@ async function saveEncounterRecord(client, queueItem, recordData = {}) {
     const docCheck = await client.query('SELECT id FROM doctors WHERE id = $1', [validDoctorId]);
     if (!docCheck.rows[0]) validDoctorId = null;
   }
-  const diagnosis = recordData.diagnosis || queueItem.doctor_diagnosis || 'Assessment in progress';
+  const diagnosis = recordData.diagnosis || queueItem.doctor_diagnosis || '';
   const hasPrescription = Array.isArray(recordData.prescription);
   const hasLabTests = Array.isArray(recordData.labTests);
   const hasSymptoms = Array.isArray(recordData.symptoms);
@@ -128,7 +128,11 @@ async function saveEncounterRecord(client, queueItem, recordData = {}) {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (queue_item_id) WHERE queue_item_id IS NOT NULL DO UPDATE SET
        patient_name = EXCLUDED.patient_name, doctor_id = EXCLUDED.doctor_id, doctor_name = EXCLUDED.doctor_name,
-       diagnosis = CASE WHEN EXCLUDED.diagnosis = 'Assessment in progress' THEN medical_records.diagnosis ELSE EXCLUDED.diagnosis END,
+       diagnosis = CASE
+         WHEN NULLIF(EXCLUDED.diagnosis, '') IS NOT NULL THEN EXCLUDED.diagnosis
+         WHEN medical_records.diagnosis = 'Assessment in progress' THEN ''
+         ELSE medical_records.diagnosis
+       END,
        symptoms = CASE WHEN $17 THEN EXCLUDED.symptoms ELSE medical_records.symptoms END,
        vitals = CASE WHEN $18 THEN EXCLUDED.vitals ELSE medical_records.vitals END,
        prescription = CASE WHEN $15 THEN EXCLUDED.prescription ELSE medical_records.prescription END,

@@ -19,16 +19,9 @@ export default function Doctors() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img
-            src="/bu-logo.png"
-            alt="Borana University"
-            style={{ width: 52, height: 52, borderRadius: '50%', border: '2px solid rgba(220,38,38,0.4)', objectFit: 'cover', boxShadow: '0 0 16px rgba(220,38,38,0.2)' }}
-          />
-          <div>
-            <h1 className="page-title">Medical Staff</h1>
-            <p className="page-subtitle">{doctors.length} doctors &amp; clinical specialists</p>
-          </div>
+        <div>
+          <h1 className="page-title">Medical Staff</h1>
+          <p className="page-subtitle">{doctors.length} doctors</p>
         </div>
       </div>
 

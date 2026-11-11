@@ -258,9 +258,7 @@ export default function SecurityCenter() {
       <div className="page-header sc-page-header">
         <div>
           <h1 className="page-title">Security Center</h1>
-          <p className="page-subtitle">
-            Audit trail, security events, system configuration, and service health.
-          </p>
+          <p className="page-subtitle">Audit logs, security events, and system health.</p>
         </div>
         <button className="sc-refresh-btn" onClick={() => {
           if (activeTab === 'overview') fetchOverview();

@@ -8,7 +8,7 @@ import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
 import {
   AlertTriangle, Activity, Bed,
-  CheckCircle2, Ambulance, ShieldAlert, X
+  CheckCircle2, ShieldAlert, X
 } from 'lucide-react';
 
 const ER_BAYS = [
@@ -278,7 +278,7 @@ export default function EmergencyDashboard() {
                     </td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
-                        <Ambulance size={14} className="text-primary" /> {c.arrivalMethod}
+                        {c.arrivalMethod}
                       </span>
                     </td>
                     <td>

@@ -41,3 +41,37 @@ export function diagnosisSuggestions(value: string, candidates: string[]): strin
     .slice(0, 3)
     .map(candidate => candidate.label);
 }
+
+/**
+ * Diagnosis display helpers.
+ *
+ * Older records can contain placeholder text instead of a real diagnosis.
+ * Treat those values as empty everywhere so tables, details and analytics do
+ * not present an "in progress" note as a clinical finding.
+ */
+
+const PLACEHOLDER_DIAGNOSES = new Set([
+  '',
+  'assessment in progress',
+  'not recorded',
+  'n/a',
+  'na',
+  'none',
+  'undiagnosed / routine check',
+  'undiagnosed',
+  '—',
+  '-',
+]);
+
+export function normalizeDiagnosis(value?: string | null): string {
+  const text = (value ?? '').trim();
+  return PLACEHOLDER_DIAGNOSES.has(text.toLowerCase()) ? '' : text;
+}
+
+export function hasDiagnosis(value?: string | null): boolean {
+  return normalizeDiagnosis(value).length > 0;
+}
+
+export function diagnosisLabel(value?: string | null, referred = false): string {
+  return normalizeDiagnosis(value) || (referred ? 'Referred' : 'N/A');
+}

@@ -5,6 +5,7 @@
 
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
+import { hasDiagnosis, normalizeDiagnosis } from '../../utils/diagnosis';
 import {
   Activity, Building2, CreditCard, FlaskConical,
   HeartPulse, Pill, Stethoscope, Users
@@ -35,7 +36,7 @@ export default function AdminDashboard() {
   });
 
   const diagnosisCounts = records.reduce<Record<string, { name: string; value: number }>>((acc, record) => {
-    const name = record.diagnosis?.trim().replace(/\s+/g, ' ');
+    const name = hasDiagnosis(record.diagnosis) ? normalizeDiagnosis(record.diagnosis).replace(/\s+/g, ' ') : '';
     const key = name ? diagnosisKey(name) : '';
     if (name && key) {
       if (!acc[key]) acc[key] = { name, value: 0 };

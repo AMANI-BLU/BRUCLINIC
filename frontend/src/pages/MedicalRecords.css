@@ -247,7 +247,7 @@
 }
 .records-modal-header {
   border-bottom: 1px solid var(--clr-border);
-  background: linear-gradient(180deg, var(--clr-bg-hover), var(--clr-bg-card));
+  background: var(--clr-bg-card);
 }
 .records-modal-header .modal-title { font-weight: 800; letter-spacing: -0.01em; }
 .records-modal-header .modal-title svg { color: var(--clr-primary-400); }
@@ -259,7 +259,7 @@
   flex: 0 0 48px;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--clr-primary-500), #0ea5e9);
+  background: #007bff;
   color: #fff;
   font-size: 1rem;
   font-weight: 800;
@@ -287,9 +287,7 @@
   padding: 1rem;
   border: 1px solid var(--clr-border);
   border-radius: 12px;
-  background:
-    radial-gradient(circle at top right, rgba(13, 110, 253, 0.08), transparent 45%),
-    var(--clr-bg-subtle, var(--clr-bg-surface));
+  background: var(--clr-bg-surface);
 }
 .record-journey-head {
   display: flex;
@@ -323,7 +321,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0284c7, #10b981);
+  background: #28a745;
   transition: width 0.3s ease;
 }
 .record-journey-grid {

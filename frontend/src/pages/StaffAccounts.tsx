@@ -301,11 +301,8 @@ export default function StaffAccounts() {
       {/* ── Page Header matching Patients.tsx ── */}
       <div className="page-header mb-3">
         <div>
-          <h1 className="page-title">
-            <Users size={26} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
-            Staff Accounts
-          </h1>
-          <p className="page-subtitle">{staffList.length} registered staff members across 6 operational units</p>
+          <h1 className="page-title">Staff Accounts</h1>
+          <p className="page-subtitle">{staffList.length} staff accounts</p>
         </div>
         <button
           type="button"
@@ -504,7 +501,6 @@ export default function StaffAccounts() {
                         title={isSelf ? 'Cannot deactivate self' : (isActive ? 'Click to deactivate' : 'Click to activate')}
                         style={{ cursor: isSelf ? 'not-allowed' : 'pointer', border: 'none', padding: '0.2rem 0.55rem' }}
                       >
-                        {isActive ? <UserCheck size={11} /> : <UserX size={11} />}
                         <span>{isActive ? 'Active' : 'Inactive'}</span>
                       </button>
                     </td>

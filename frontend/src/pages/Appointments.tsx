@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
 import { useAuth } from '../context/AuthContext';
 import type { Appointment, AppointmentStatus, AppointmentType, Priority } from '../types';
-import { Plus, Search, X, Edit2, Trash2, CalendarDays, Clock } from 'lucide-react';
+import { Plus, Search, X, Edit2, Trash2, CalendarDays } from 'lucide-react';
 import { firstError, validateDate, validateRequired, validateTime, validateTextLength, sanitizeInput } from '../utils/validation';
 import { patientCodeFor, patientNameFor, patientOptionLabel } from '../utils/patient';
 import ConfirmModal from '../components/ConfirmModal';
@@ -102,7 +102,7 @@ export default function Appointments() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Appointments</h1>
-          <p className="page-subtitle">{appointments.length} total appointments</p>
+          <p className="page-subtitle">{appointments.length} appointments</p>
         </div>
         {canManageAppointments && (
           <button className="btn btn-primary" id="add-appointment-btn" onClick={openAdd}>
@@ -133,7 +133,7 @@ export default function Appointments() {
             <tr>
               <th>Patient</th>
               <th>Doctor</th>
-              <th><CalendarDays size={14} style={{ verticalAlign: 'middle' }} /> Date & Time</th>
+              <th>Date &amp; Time</th>
               <th>Type</th>
               <th>Priority</th>
               <th>Status</th>
@@ -147,9 +147,7 @@ export default function Appointments() {
                   <div className="empty-state">
                     <div className="empty-state-icon tone-blue"><CalendarDays size={28} /></div>
                     <h5 className="empty-state-title">No appointments scheduled</h5>
-                    <p className="empty-state-body">
-                      There are currently no patient consultations or appointments matching your filters. Book a new appointment using the button above.
-                    </p>
+                    <p className="empty-state-body">No appointments match this filter.</p>
                   </div>
                 </td>
               </tr>
@@ -162,8 +160,8 @@ export default function Appointments() {
                 <td style={{ fontSize: '0.875rem' }}>{a.doctorName}</td>
                 <td>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{a.date}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Clock size={12} /> {a.time}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>
+                    {a.time}
                   </div>
                 </td>
                 <td><span className="badge badge-blue">{a.type}</span></td>

@@ -186,9 +186,7 @@ export default function AdminBackup() {
       <div className="page-header backup-page-header">
         <div>
           <h1 className="page-title">Backup &amp; Restore</h1>
-          <p className="page-subtitle">
-            Download a complete clinic snapshot or restore one. Every export and import is audited.
-          </p>
+          <p className="page-subtitle">Export or restore clinic data.</p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={busy || loading}>
           <RefreshCw size={15} className={loading ? 'backup-spin' : ''} /> Refresh

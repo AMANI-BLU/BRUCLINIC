@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import InfoBox from '../components/AdminLTE/InfoBox';
 import AddMedicineModal from '../components/AddMedicineModal';
 import AdjustMedicineStockModal from '../components/AdjustMedicineStockModal';
-import { Search, AlertTriangle, Plus, Package, TrendingDown, SlidersHorizontal, Clock, ShieldAlert, ClipboardList, Download, Printer, X, CheckCircle2 } from 'lucide-react';
+import { Search, AlertTriangle, Plus, Package, TrendingDown, SlidersHorizontal, Clock, ClipboardList, Download, Printer, X, CheckCircle2 } from 'lucide-react';
 import ModalPortal from '../components/ModalPortal';
 import './Pharmacy.css';
 
@@ -100,7 +100,7 @@ export default function Pharmacy() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Pharmacy &amp; Inventory</h1>
-          <p className="page-subtitle">{medicines.length} medicine types tracked · Best Before &amp; Expiry monitoring active</p>
+          <p className="page-subtitle">{medicines.length} medicines in stock</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => setShowExpiryReport(true)}>
@@ -256,11 +256,11 @@ export default function Pharmacy() {
                     </div>
                     {isExpired(m.expiryDate) ? (
                       <span className="badge badge-red" style={{ fontSize: '0.66rem', marginTop: 2 }}>
-                        <ShieldAlert size={10} /> Expired (BB Passed)
+                        Expired (BB Passed)
                       </span>
                     ) : isExpiringSoon(m.expiryDate) ? (
                       <span className="badge badge-amber" style={{ fontSize: '0.66rem', marginTop: 2 }}>
-                        <Clock size={10} /> BB: {getDaysUntilExpiry(m.expiryDate)}d left
+                        BB: {getDaysUntilExpiry(m.expiryDate)}d left
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
@@ -358,7 +358,6 @@ export default function Pharmacy() {
                             <td>{m.daysLeft < 0 ? `${Math.abs(m.daysLeft)} days overdue` : `${m.daysLeft} days`}</td>
                             <td>
                               <span className={`badge ${m.expired ? 'badge-red' : 'badge-amber'}`}>
-                                {m.expired ? <ShieldAlert size={10} /> : <Clock size={10} />}
                                 {m.expired ? 'Expired / Past BB' : 'Expiring Soon'}
                               </span>
                             </td>

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { CreateStaffInput, UserProfile, UserRole } from '../types';
-import { apiDelete, apiGet, apiPatch, apiPost } from '../api/client';
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from '../api/client';
 
 interface AuthResponse { success: boolean; error?: string; message?: string; user?: UserProfile; }
 interface ActionResponse { success: boolean; error?: string; message?: string; }
@@ -61,7 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
       })
-      .catch(() => clearSession())
+      .catch((error) => {
+        // A dropped connection should not sign staff out. Restore the cached
+        // profile and let the connectivity banner explain the limited mode.
+        if (error instanceof ApiError && error.status === 0) {
+          const cachedUser = localStorage.getItem(STORAGE_USER_KEY);
+          if (cachedUser) {
+            try {
+              setCurrentUser(JSON.parse(cachedUser) as UserProfile);
+              return;
+            } catch {
+              // Fall through to a clean sign-out if the cache is unreadable.
+            }
+          }
+        }
+        clearSession();
+      })
       .finally(() => setAuthLoading(false));
   }, [token, clearSession]);
 

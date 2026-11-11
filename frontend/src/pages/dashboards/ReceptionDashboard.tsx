@@ -510,7 +510,7 @@ export default function ReceptionDashboard() {
                         item.stage === 'Emergency' ? 'badge-red' :
                         item.stage === 'Completed' ? 'badge-gray' : 'badge-blue'
                       }`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        <Activity size={12} /> {item.stage}
+                        {item.stage}
                       </span>
                     </td>
                     <td>

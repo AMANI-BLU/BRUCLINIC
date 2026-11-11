@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Activity, CalendarDays, Download, Stethoscope, Users } from 'lucide-react';
-import { diagnosisKey } from '../utils/diagnosis';
+import { diagnosisKey, hasDiagnosis, normalizeDiagnosis } from '../utils/diagnosis';
 import './Reports.css';
 
 const appointmentTypes = ['General', 'Dental', 'Eye Care', 'Mental Health', 'Specialist', 'Emergency'];
@@ -53,7 +53,7 @@ export default function Reports() {
   const totalWithBloodGroup = patients.filter(patient => Boolean(patient.bloodGroup)).length;
 
   const diagnosisData = Object.values(records.reduce<Record<string, { name: string; value: number }>>((counts, record) => {
-    const name = record.diagnosis?.trim().replace(/\s+/g, ' ');
+    const name = hasDiagnosis(record.diagnosis) ? normalizeDiagnosis(record.diagnosis).replace(/\s+/g, ' ') : '';
     const key = name ? diagnosisKey(name) : '';
     if (name && key) {
       if (!counts[key]) counts[key] = { name, value: 0 };
@@ -111,7 +111,7 @@ export default function Reports() {
       <div className="page-header reports-header">
         <div>
           <h1 className="page-title">Reports &amp; Analytics</h1>
-          <p className="page-subtitle">Clinic activity, patient mix, and common diagnoses</p>
+          <p className="page-subtitle">Clinic activity and diagnosis summary</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={handleDownload}>
           <Download size={16} /> Download CSV

@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ApiError, apiDelete, apiList, apiPatch, apiPost } from '../api/client';
 import { useAuth } from './AuthContext';
 import { useMaintenance } from './MaintenanceContext';
+import { useNetwork } from './NetworkContext';
 import type {
   Appointment, ClinicQueueItem, Doctor, ERCase, LabOrder, MedicalRecord, MedicineItem, Patient, PharmacyOrder,
   Priority, QueuePriority, QueueStage, Vitals,
@@ -81,6 +82,8 @@ const ClinicContext = createContext<ClinicContextType | null>(null);
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated } = useAuth();
   const { enabled: maintenance, checking: maintenanceChecking } = useMaintenance();
+  const { online } = useNetwork();
+  const wasOnline = useRef(online);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -134,6 +137,16 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, token, maintenance, maintenanceChecking]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // Pull fresh clinic data when the device comes back online, so a temporary
+  // outage does not leave staff looking at an empty or stale workspace.
+  useEffect(() => {
+    const reconnected = online && !wasOnline.current;
+    wasOnline.current = online;
+    if (reconnected && isAuthenticated && token && !maintenance && !maintenanceChecking) {
+      void refresh({ silent: true });
+    }
+  }, [online, isAuthenticated, token, maintenance, maintenanceChecking, refresh]);
 
   const mutate = useCallback(async (operation: () => Promise<void>, successMessage?: string) => {
     setError(null);

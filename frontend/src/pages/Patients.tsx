@@ -4,10 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import type { Patient, Gender, BloodGroup, PatientType, QueuePriority, QueueStage, MedicalRecord, ClinicQueueItem, LabOrder } from '../types';
 import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
-  FileText, Activity, FlaskConical, Clock, HeartPulse, Pill
+  Activity, HeartPulse
 } from 'lucide-react';
 import { firstError, validateDate, validateEmail, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import { patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
+import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import './Patients.css';
@@ -211,8 +212,8 @@ export default function Patients() {
     <div className="patients-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title"><Users size={26} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />Patients</h1>
-          <p className="page-subtitle">{patients.length} registered patient files &amp; clinic cards</p>
+          <h1 className="page-title">Patients</h1>
+          <p className="page-subtitle">{patients.length} registered patients</p>
         </div>
         {canManagePatients && (
           <button type="button" className="btn btn-primary" id="add-patient-btn" onClick={openAdd}>
@@ -267,10 +268,8 @@ export default function Patients() {
                 <td colSpan={8}>
                   <div className="empty-state">
                     <div className="empty-state-icon tone-blue"><Users size={28} /></div>
-                    <h5 className="empty-state-title">No patient records found</h5>
-                    <p className="empty-state-body">
-                      No patient profiles match your current search query or category filters. Register a new student or staff patient using the button above.
-                    </p>
+                    <h5 className="empty-state-title">No patients found</h5>
+                    <p className="empty-state-body">No patient matches this search or filter.</p>
                   </div>
                 </td>
               </tr>
@@ -313,26 +312,33 @@ export default function Patients() {
         <ModalPortal>
         <div className="modal-overlay" onClick={close}>
           <div
-            className={`modal ${modal.mode === 'view' ? 'modal-lg' : 'patient-unified-modal patient-register-modal'}`}
-            style={{ width: modal.mode === 'view' ? 'min(96%, 860px)' : 'min(96%, 760px)', maxHeight: '92vh', overflowY: 'auto' }}
+            className={`modal ${modal.mode === 'view' ? 'view-modal' : 'patient-unified-modal patient-register-modal'}`}
+            style={{ width: modal.mode === 'view' ? 'min(96%, 900px)' : 'min(96%, 760px)', maxHeight: '92vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.05rem', fontWeight: 700 }}>
+              <h2 className="modal-title">
                 {modal.mode === 'add' ? <><UserPlus size={18} className="text-primary" /> Register New Patient</> :
-                 modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> Edit Patient File ({patientCode(modal.patient!)})</> :
-                 <><Eye size={18} className="text-primary" /> Patient Card &amp; Medical History</>}
+                 modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> Edit Patient</> :
+                 <>Patient Card</>}
               </h2>
               <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
             </div>
 
             {modal.mode === 'view' && modal.patient ? (
-              <PatientView
-                patient={modal.patient}
-                records={records.filter(r => r.patientId === modal.patient?.id)}
-                queue={queue.filter(q => q.patientId === modal.patient?.id)}
-                labOrders={labOrders.filter(l => l.patientId === modal.patient?.id)}
-              />
+              <>
+                <div className="modal-body view-modal-body">
+                  <PatientView
+                    patient={modal.patient}
+                    records={records.filter(r => r.patientId === modal.patient?.id)}
+                    queue={queue.filter(q => q.patientId === modal.patient?.id)}
+                    labOrders={labOrders.filter(l => l.patientId === modal.patient?.id)}
+                  />
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={close}>Close</button>
+                </div>
+              </>
             ) : (
               <form onSubmit={handleSubmit} className="patient-register-form">
                 {formError && <div className="alert alert-danger py-2 px-3 mb-2" role="alert">{formError}</div>}
@@ -619,138 +625,84 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
 
   return (
     <div className="patient-view">
-      <div className="pv-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div className="pv-avatar">{patientInitials(p)}</div>
-          <div>
-            <h3 className="pv-name" style={{ margin: 0 }}>{patientFullName(p)}</h3>
-            <p className="pv-id" style={{ margin: '2px 0 0' }}>Card Number: <strong>{patientCode(p)}</strong></p>
-            <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
-              <span className="badge badge-blue">{p.patientType}</span>
-              <span className="badge badge-violet">{p.gender}</span>
-              {p.bloodGroup && <span className="badge badge-red">{p.bloodGroup}</span>}
-              {p.department && <span className="badge badge-gray">{p.department}</span>}
-            </div>
+      <div className="view-summary">
+        <div className="view-summary-avatar">{patientInitials(p)}</div>
+        <div className="view-summary-copy">
+          <h3>{patientFullName(p)}</h3>
+          <p>Card {patientCode(p)}</p>
+          <div className="view-summary-badges">
+            <span className="badge badge-blue">{p.patientType}</span>
+            <span className="badge badge-violet">{p.gender}</span>
+            {p.bloodGroup && <span className="badge badge-red">{p.bloodGroup}</span>}
+            {p.department && <span className="badge badge-gray">{p.department}</span>}
           </div>
         </div>
-
-        {/* Quick Stats */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ textAlign: 'center', padding: '6px 14px', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--clr-primary-400)' }}>{records.length}</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Encounters</div>
-          </div>
-          <div style={{ textAlign: 'center', padding: '6px 14px', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--clr-emerald-400)' }}>{labOrders.length}</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Lab Tests</div>
-          </div>
+        <div className="view-summary-stats">
+          <div><strong>{records.length}</strong><span>Encounters</span></div>
+          <div><strong>{labOrders.length}</strong><span>Lab tests</span></div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="pill-tabs mb-3" style={{ borderBottom: '1px solid var(--clr-border)', paddingBottom: 8 }}>
-        <button
-          type="button"
-          className={`pill-tab ${activeTab === 'records' ? 'active' : ''}`}
-          onClick={() => setActiveTab('records')}
-        >
-          <FileText size={14} /> Medical Records History ({records.length})
+      <div className="pill-tabs view-tabs">
+        <button type="button" className={`pill-tab ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setActiveTab('records')}>
+          Records ({records.length})
         </button>
-        <button
-          type="button"
-          className={`pill-tab ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-        >
-          <Users size={14} /> Full Demographics
+        <button type="button" className={`pill-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+          Profile
         </button>
-        <button
-          type="button"
-          className={`pill-tab ${activeTab === 'labs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('labs')}
-        >
-          <FlaskConical size={14} /> Lab Investigations ({labOrders.length})
+        <button type="button" className={`pill-tab ${activeTab === 'labs' ? 'active' : ''}`} onClick={() => setActiveTab('labs')}>
+          Lab ({labOrders.length})
         </button>
-        <button
-          type="button"
-          className={`pill-tab ${activeTab === 'visits' ? 'active' : ''}`}
-          onClick={() => setActiveTab('visits')}
-        >
-          <Clock size={14} /> Queue Visits ({queue.length})
+        <button type="button" className={`pill-tab ${activeTab === 'visits' ? 'active' : ''}`} onClick={() => setActiveTab('visits')}>
+          Visits ({queue.length})
         </button>
       </div>
 
-      {/* Tab: Medical Records History */}
       {activeTab === 'records' && (
-        <div className="pv-records-container" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="view-list">
           {records.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-              <FileText size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-              <div>No past medical records saved for this patient yet.</div>
-              <div style={{ fontSize: '0.78rem', marginTop: 4 }}>Records are automatically archived when OPD consultations or prescriptions are completed.</div>
-            </div>
+            <div className="view-empty">No medical records for this patient yet.</div>
           ) : (
             records.map(rec => (
-              <div
-                key={rec.id}
-                style={{
-                  border: '1px solid var(--clr-border)',
-                  borderRadius: 6,
-                  padding: 14,
-                  background: 'var(--clr-bg-surface)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--clr-border)', paddingBottom: 6 }}>
+              <article className="view-card" key={rec.id}>
+                <div className="view-card-head">
                   <div>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>Visit Date: <strong>{rec.visitDate}</strong></span>
-                    <h4 style={{ margin: '2px 0 0', fontSize: '1rem', color: 'var(--clr-text-primary)' }}>
-                      Diagnosis: <span style={{ color: 'var(--clr-primary-400)' }}>{rec.diagnosis}</span>
-                    </h4>
+                    <span className="view-card-eyebrow">{rec.visitDate}</span>
+                    <h4>{diagnosisLabel(rec.diagnosis, Boolean(rec.externalReferral))}</h4>
                   </div>
-                  <span className="badge badge-gray" style={{ fontSize: '0.75rem' }}>
-                    Attending: {rec.doctorName}
-                  </span>
+                  <span className="badge badge-gray">{rec.doctorName}</span>
                 </div>
 
                 {rec.symptoms && rec.symptoms.length > 0 && (
-                  <div style={{ fontSize: '0.82rem' }}>
-                    <span style={{ color: 'var(--clr-text-muted)' }}>Presenting Symptoms: </span>
-                    {Array.isArray(rec.symptoms) ? rec.symptoms.join(', ') : rec.symptoms}
+                  <div className="view-card-row">
+                    <span>Symptoms</span>
+                    <p>{Array.isArray(rec.symptoms) ? rec.symptoms.join(', ') : rec.symptoms}</p>
                   </div>
                 )}
 
                 {rec.prescription && rec.prescription.length > 0 && (
-                  <div style={{ background: 'var(--clr-bg-hover)', padding: '8px 12px', borderRadius: 4, marginTop: 4 }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-primary-300)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Pill size={13} /> Prescriptions / Medications Dispensed:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.82rem' }}>
+                  <div className="view-card-subsection">
+                    <div className="view-subsection-title">Prescription</div>
+                    <ul>
                       {rec.prescription.map((rx, idx) => (
                         <li key={idx}>
                           <strong>{rx.medication}</strong> — {rx.dosage || rx.frequency} ({rx.duration || '7 days'})
-                          {rx.instructions && <span style={{ color: 'var(--clr-text-muted)' }}> · {rx.instructions}</span>}
+                          {rx.instructions && <span> · {rx.instructions}</span>}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                {rec.notes && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', fontStyle: 'italic', marginTop: 2 }}>
-                    Notes: {rec.notes}
-                  </div>
-                )}
-              </div>
+                {rec.notes && <p className="view-card-note">Notes: {rec.notes}</p>}
+              </article>
             ))
           )}
         </div>
       )}
 
-      {/* Tab: Full Demographics */}
       {activeTab === 'profile' && (
-        <div className="pv-grid">
+        <div className="view-info-grid">
           <PVItem label="Date of Birth" value={p.dateOfBirth} />
           <PVItem label="Phone" value={p.phone} />
           <PVItem label="Email" value={p.email || '—'} />
@@ -763,48 +715,47 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
         </div>
       )}
 
-      {/* Tab: Lab Investigations */}
       {activeTab === 'labs' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="view-list">
           {labOrders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)', borderRadius: 6 }}>
-              <FlaskConical size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-              <div>No laboratory investigations ordered for this patient.</div>
-            </div>
+            <div className="view-empty">No laboratory investigations for this patient.</div>
           ) : (
             labOrders.map(lo => (
-              <div key={lo.id} style={{ border: '1px solid var(--clr-border)', borderRadius: 6, padding: 12, background: 'var(--clr-bg-surface)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{lo.testName} <span style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', fontWeight: 400 }}>({lo.category})</span></div>
+              <article className="view-card" key={lo.id}>
+                <div className="view-card-head">
+                  <h4>{lo.testName} <span className="view-card-meta">({lo.category})</span></h4>
                   <span className={`badge ${lo.status === 'Completed' ? 'badge-green' : 'badge-blue'}`}>{lo.status}</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>Ordered by: {lo.doctorName} · {lo.orderedAt}</div>
+                <div className="view-card-row">
+                  <span>Ordered by</span>
+                  <p>{lo.doctorName} · {lo.orderedAt}</p>
+                </div>
                 {lo.status === 'Completed' && (
-                  <div style={{ marginTop: 6, padding: '6px 10px', background: 'var(--clr-bg-hover)', borderRadius: 4, fontSize: '0.82rem' }}>
-                    <strong>Result:</strong> {lo.result} {lo.unit} (Ref: {lo.referenceRange || 'Standard'})
-                    {lo.isAbnormal && <span className="badge badge-red ms-2" style={{ marginLeft: 8 }}>Abnormal Flag</span>}
+                  <div className="view-result">
+                    <strong>Result:</strong> {lo.result} {lo.unit} <span>(Ref: {lo.referenceRange || 'Standard'})</span>
+                    {lo.isAbnormal && <span className="badge badge-red">Abnormal</span>}
                   </div>
                 )}
-              </div>
+              </article>
             ))
           )}
         </div>
       )}
 
-      {/* Tab: Queue Visits */}
       {activeTab === 'visits' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="view-list">
           {queue.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--clr-text-muted)' }}>No queue check-in history.</div>
+            <div className="view-empty">No queue visits recorded.</div>
           ) : (
             queue.map(q => (
-              <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', border: '1px solid var(--clr-border)', borderRadius: 4, background: 'var(--clr-bg-surface)', fontSize: '0.82rem' }}>
-                <div>
-                  <strong style={{ fontFamily: 'monospace' }}>{q.tokenNumber}</strong> · Stage: <span className="badge badge-blue">{q.stage}</span>
-                  <div style={{ color: 'var(--clr-text-muted)', fontSize: '0.75rem' }}>Reason: {q.chiefComplaint}</div>
+              <div className="view-row" key={q.id}>
+                <div className="view-row-main">
+                  <strong className="view-mono">{q.tokenNumber}</strong>
+                  <span className="badge badge-blue">{q.stage}</span>
+                  <div className="view-row-sub">{q.chiefComplaint}</div>
                 </div>
-                <div style={{ textAlign: 'right', color: 'var(--clr-text-muted)', fontSize: '0.75rem' }}>
-                  {q.registeredTime} · {q.assignedDoctorName || 'General OPD'}
+                <div className="view-row-meta">
+                  {q.registeredTime}<br />{q.assignedDoctorName || 'General OPD'}
                 </div>
               </div>
             ))
@@ -817,9 +768,9 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
 
 function PVItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="pv-item">
-      <div className="pv-label">{label}</div>
-      <div className="pv-value">{value}</div>
+    <div className="view-info-item">
+      <div className="view-info-label">{label}</div>
+      <div className="view-info-value">{value}</div>
     </div>
   );
 }

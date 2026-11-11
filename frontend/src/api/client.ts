@@ -1,4 +1,8 @@
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+const REQUEST_TIMEOUT_MS = 12_000;
+
+export const NETWORK_ERROR_MESSAGE =
+  'Unable to reach the clinic server. Check your network connection and try again.';
 
 export class ApiError extends Error {
   status: number;
@@ -9,18 +13,40 @@ export class ApiError extends Error {
   }
 }
 
+/** Let the connectivity banner and data loaders know whether the API is reachable. */
+function reportNetworkState(reachable: boolean) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('bruclinic:network-state', { detail: reachable }));
+}
+
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
 
 async function request<T>(path: string, options: RequestOptions = {}, token?: string | null): Promise<T> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    reportNetworkState(false);
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0);
+  }
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body !== undefined) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch {
+    reportNetworkState(false);
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+  reportNetworkState(true);
   const text = await response.text();
   let payload: any = null;
   try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
@@ -51,9 +77,25 @@ export function apiDelete<T = { data?: unknown }>(path: string, token?: string |
  * Uses the Content-Disposition filename when the server provides one.
  */
 export async function apiDownload(path: string, fallbackName: string, token?: string | null): Promise<void> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  });
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    reportNetworkState(false);
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0);
+  }
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      signal: controller.signal,
+    });
+  } catch {
+    reportNetworkState(false);
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+  reportNetworkState(true);
   if (!response.ok) {
     const text = await response.text();
     let payload: any = null;
