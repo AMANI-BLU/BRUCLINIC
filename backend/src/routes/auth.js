@@ -24,7 +24,7 @@ import { generateToken, hashPassword, verifyPassword } from '../utils/auth.js';
 import { sendError, sendJson } from '../utils/http.js';
 import { assertPlainObject, validateEmail, validatePassword, validateText } from '../utils/validation.js';
 import { writeAuditLog, writeSecurityEvent } from '../middleware/auditLogger.js';
-import { checkAuthRateLimit, clearAuthRateLimit, getClientIp } from '../middleware/rateLimiter.js';
+import { checkAuthRateLimit, clearAuthRateLimit, clearAuthRateLimitForUsername, getClientIp } from '../middleware/rateLimiter.js';
 import { AUDIT_ACTION, SECURITY_EVENT } from '../constants/events.js';
 import { getConfigNumber } from '../services/systemConfig.js';
 import {
@@ -105,7 +105,7 @@ export async function authHandler(request, response, segments) {
 
     // Lockout policy is administrator-editable at runtime (system_config).
     const maxAttempts = await getConfigNumber('max_login_attempts', 8, { min: 3, max: 20 });
-    const lockoutMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 5, max: 60 });
+    const lockoutMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
     const rateCheck = checkAuthRateLimit(ip, username, { max: maxAttempts, windowMs: lockoutMinutes * 60 * 1000 });
     if (!rateCheck.allowed) {
       writeSecurityEvent({
@@ -179,7 +179,7 @@ export async function authHandler(request, response, segments) {
     });
 
     const sessionHours = await getConfigNumber('session_timeout_hours', 8, { min: 1, max: 72 });
-    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 5, max: 60 });
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
     return sendJson(response, 200, {
       message: 'Login successful',
       token: generateToken(profile, { ttlSeconds: sessionHours * 60 * 60 }),
@@ -212,7 +212,7 @@ export async function authHandler(request, response, segments) {
       });
       return sendError(response, 401, 'Session is no longer valid');
     }
-    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 5, max: 60 });
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
     return sendJson(response, 200, { user: toProfile(result.rows[0]), idleLockMinutes });
   }
 
@@ -386,6 +386,38 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { message: 'Staff status updated successfully', isActive: Boolean(isActive) });
   }
 
+  // ── POST /api/auth/users/:id/unlock ──────────────────────────
+  if (request.method === 'POST' && action === 'users' && targetId && subAction === 'unlock') {
+    if (!requireAdmin(request, response)) return;
+    const target = await query('SELECT username, name FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const targetUser = target.rows[0];
+    if (!targetUser) return sendError(response, 404, 'Staff account not found');
+
+    const clearedBuckets = clearAuthRateLimitForUsername(targetUser.username);
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.ACCOUNT_UNLOCKED,
+      userId: request.user.id,
+      username: request.user.username,
+      ipAddress: ip,
+      requestId: request.requestId,
+      description: `Sign-in lock cleared for ${targetUser.username} by ${request.user.username}`,
+      metadata: { targetId, targetUsername: targetUser.username, clearedBuckets },
+    });
+    writeAuditLog({
+      requestId: request.requestId,
+      userId: request.user.id,
+      username: request.user.username,
+      userRole: request.user.role,
+      action: AUDIT_ACTION.UPDATE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Cleared sign-in lock for ${targetUser.name} (${targetUser.username})`,
+      ipAddress: ip,
+    });
+
+    return sendJson(response, 200, { message: 'Sign-in lock cleared successfully', clearedBuckets });
+  }
+
   // ── POST /api/auth/users/:id/reset-password ──────────────────
   if (request.method === 'POST' && action === 'users' && targetId && subAction === 'reset-password') {
     if (!requireAdmin(request, response)) return;
@@ -414,6 +446,8 @@ export async function authHandler(request, response, segments) {
 
     const result = await query('UPDATE users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2', [passwordHash, targetId]);
     if (!result.affectedRows) return sendError(response, 404, 'Staff account not found');
+    const target = await query('SELECT username FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const clearedBuckets = target.rows[0] ? clearAuthRateLimitForUsername(target.rows[0].username) : 0;
 
     writeSecurityEvent({
       eventType: SECURITY_EVENT.PASSWORD_RESET,
@@ -422,7 +456,7 @@ export async function authHandler(request, response, segments) {
       ipAddress: ip,
       requestId: request.requestId,
       description: `Password reset for account ID=${targetId} by ${request.user.username}`,
-      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual' },
+      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual', clearedBuckets },
     });
     writeAuditLog({
       requestId: request.requestId,

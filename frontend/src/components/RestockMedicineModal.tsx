@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Package, X, CheckCircle2, ArrowRight, Building, Calendar, DollarSign, Layers } from 'lucide-react';
 import type { MedicineItem } from '../types';
-import { validateNumber, validateDate } from '../utils/validation';
+import { firstError, validateDate, validateNumber, validateTextLength } from '../utils/validation';
 import ModalPortal from './ModalPortal';
 
 interface RestockMedicineModalProps {
@@ -36,18 +36,16 @@ export default function RestockMedicineModal({
     e.preventDefault();
     setError(null);
 
-    const qtyError = validateNumber(String(quantity), 'Restock Quantity', { min: 1, integer: true });
-    if (qtyError) {
-      setError(qtyError);
+    const validationError = firstError(
+      validateNumber(String(quantity), 'Restock Quantity', { min: 1, integer: true, required: true }),
+      validateDate(expiryDate, 'Expiry Date', { allowPast: false, required: true }),
+      validateNumber(String(costPerUnit), 'Unit cost', { min: 0, required: true }),
+      validateTextLength(batchNumber, 'Batch number', { max: 100 }),
+      validateTextLength(supplier, 'Supplier', { max: 150 }),
+    );
+    if (validationError) {
+      setError(validationError);
       return;
-    }
-
-    if (expiryDate) {
-      const expError = validateDate(expiryDate, 'Expiry Date', { allowPast: false });
-      if (expError) {
-        setError(expError);
-        return;
-      }
     }
 
     try {
@@ -88,7 +86,7 @@ export default function RestockMedicineModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+        <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
           {error && <div className="alert alert-danger py-2 px-3 mb-0" role="alert">{error}</div>}
 
           {/* Current Inventory Summary Card */}

@@ -880,7 +880,7 @@ export default function OpdDashboard() {
 
                 {/* ── TAB 1: ASSESSMENT & CONSULTATION ── */}
                 {activeConsultationTab === 'overview' && (
-                  <form onSubmit={handleCompleteConsultation} onKeyDown={preventEnterCompletion}>
+                  <form onSubmit={handleCompleteConsultation} noValidate onKeyDown={preventEnterCompletion}>
                     {assessmentSaved && (
                       <div className="alert alert-success py-2 px-3" role="status">
                         <CheckCircle2 size={15} /> Assessment saved. This visit is still open — you can now request labs or send a prescription.
@@ -968,7 +968,7 @@ export default function OpdDashboard() {
 
                 {/* ── TAB 2: REQUEST FROM OPD TO LABORATORY ── */}
                 {activeConsultationTab === 'lab' && (
-                  <form onSubmit={handleDispatchToLab}>
+                  <form onSubmit={handleDispatchToLab} noValidate>
                     <div style={{
                       background: 'var(--clr-bg-surface)',
                       border: '1px solid var(--clr-border)',
@@ -1213,7 +1213,7 @@ export default function OpdDashboard() {
 
                 {/* ── TAB 3: REQUEST FROM OPD TO PHARMACY ── */}
                 {activeConsultationTab === 'pharmacy' && (
-                  <form onSubmit={handleDispatchToPharmacy}>
+                  <form onSubmit={handleDispatchToPharmacy} noValidate>
                     <div style={{
                       background: 'var(--clr-bg-surface)',
                       border: '1px solid var(--clr-border)',
@@ -1567,7 +1567,7 @@ export default function OpdDashboard() {
                 Patient: <strong>{patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName)}</strong> ({patientCodeFor(patients, selectedQueueItem.patientId)})
               </div>
 
-              <form onSubmit={handleReferOutside}>
+              <form onSubmit={handleReferOutside} noValidate>
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label className="form-label" style={{ fontWeight: 600 }}>Destination Hospital or Clinic *</label>
                   <input

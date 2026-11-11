@@ -573,7 +573,7 @@ export default function ReceptionDashboard() {
               </button>
             </div>
 
-            <form className="reception-request-form" onSubmit={handleDispatchCardToOpd}>
+            <form className="reception-request-form" onSubmit={handleDispatchCardToOpd} noValidate>
               {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="reception-mode-tabs">
                 <button

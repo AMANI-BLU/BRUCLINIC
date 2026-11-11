@@ -98,8 +98,8 @@ export function validateTime(value: string, label = 'Time'): string | undefined 
 
 export function validatePassword(value: string, label = 'Password'): string | undefined {
   if (!value) return `${label} is required.`;
-  if (value.length < 8 || value.length > 128) {
-    return `${label} must be between 8 and 128 characters.`;
+  if (value.length < 10 || value.length > 128) {
+    return `${label} must be between 10 and 128 characters.`;
   }
   if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value)) {
     return `${label} must contain uppercase, lowercase letters, and at least one number.`;

@@ -18,6 +18,7 @@ import ConfirmModal from '../ConfirmModal';
 import PasswordField from '../PasswordField';
 import { apiGet } from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
+import { validateRequired } from '../../utils/validation';
 
 interface NavItemDef {
   to: string;
@@ -203,7 +204,7 @@ export default function Layout({ children }: LayoutProps) {
         localStorage.setItem('bruclinic:last_activity', String(now));
       }
     };
-    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
     events.forEach(event => window.addEventListener(event, markActivity, { passive: true }));
     const timer = window.setInterval(() => {
       const isExplicitlyLocked = localStorage.getItem('bruclinic:session_locked') === 'true';
@@ -212,7 +213,8 @@ export default function Layout({ children }: LayoutProps) {
         return;
       }
       const lastActive = Number(localStorage.getItem('bruclinic:last_activity') || String(lastActivityAt.current));
-      const effectiveLockMinutes = idleLockMinutes || Number(localStorage.getItem('bruclinic:idle_lock_minutes') || '15');
+      const storedLockMinutes = Number(localStorage.getItem('bruclinic:idle_lock_minutes') || '0');
+      const effectiveLockMinutes = storedLockMinutes > 0 ? storedLockMinutes : (idleLockMinutes || 15);
       if (Date.now() - lastActive >= effectiveLockMinutes * 60_000) {
         setSessionLocked(true);
         localStorage.setItem('bruclinic:session_locked', 'true');
@@ -229,6 +231,11 @@ export default function Layout({ children }: LayoutProps) {
   const submitUnlock = async (event: React.FormEvent) => {
     event.preventDefault();
     setUnlockError('');
+    const validationErrors = validateRequired({ unlockPassword }, { unlockPassword: 'Account password' });
+    if (Object.keys(validationErrors).length > 0) {
+      setUnlockError(Object.values(validationErrors)[0]);
+      return;
+    }
     setUnlocking(true);
     const result = await unlockSession(unlockPassword);
     setUnlocking(false);
@@ -506,7 +513,7 @@ export default function Layout({ children }: LayoutProps) {
       />
       {sessionLocked && (
         <div role="dialog" aria-modal="true" aria-labelledby="session-lock-title" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9, 18, 35, .94)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 20 }}>
-          <form onSubmit={submitUnlock} style={{ width: 'min(100%, 420px)', borderRadius: 16, padding: 30, background: 'var(--clr-bg-card, #fff)', color: 'var(--clr-text-primary, #172033)', boxShadow: '0 24px 80px rgba(0,0,0,.5)', border: '1px solid var(--clr-border, #e2e8f0)' }}>
+          <form onSubmit={submitUnlock} noValidate style={{ width: 'min(100%, 420px)', borderRadius: 16, padding: 30, background: 'var(--clr-bg-card, #fff)', color: 'var(--clr-text-primary, #172033)', boxShadow: '0 24px 80px rgba(0,0,0,.5)', border: '1px solid var(--clr-border, #e2e8f0)' }}>
             <div style={{ textAlign: 'center', marginBottom: 18 }}>
               <div style={{ width: 62, height: 62, borderRadius: '50%', background: currentUser?.badgeColor || '#0284c7', color: '#fff', fontSize: '1.4rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
                 {currentUser?.avatarInitials || 'ST'}

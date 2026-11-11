@@ -336,6 +336,17 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
 }
 
+.login-input[aria-invalid="true"] {
+  border-color: #ef4444;
+}
+
+.login-field-error {
+  display: block;
+  color: #fca5a5;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .login-input::placeholder {
   color: #64748b;
 }

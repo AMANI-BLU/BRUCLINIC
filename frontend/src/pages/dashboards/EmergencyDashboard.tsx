@@ -337,7 +337,7 @@ export default function EmergencyDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateAdmission}>
+            <form onSubmit={handleCreateAdmission} noValidate>
               {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="form-grid" style={{ marginBottom: '1rem' }}>
                 <div className="form-group">

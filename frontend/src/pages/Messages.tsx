@@ -6,6 +6,7 @@ import {
 import { apiGet, apiPatch, apiPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../context/NetworkContext';
+import { validateTextLength } from '../utils/validation';
 import './Messages.css';
 
 interface StaffContact {
@@ -238,8 +239,13 @@ export default function Messages() {
 
   const handleSendMessage = async (e?: FormEvent) => {
     if (e) e.preventDefault();
+    const messageError = validateTextLength(body, 'Message', { min: 1, max: 2000, required: true });
+    if (messageError) {
+      setError(messageError);
+      return;
+    }
     const text = body.trim();
-    if (!activeContactId || !text || sending || !token) return;
+    if (!activeContactId || sending || !token) return;
 
     setSending(true);
     setError('');
@@ -416,10 +422,10 @@ export default function Messages() {
                 <div className="tg-chat-header-user">
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm btn-icon d-md-none tg-back-btn"
+                    className="btn btn-secondary btn-sm btn-icon tg-back-btn"
                     onClick={() => setActiveContactId('')}
                     title="Back to chats"
-                    aria-label="Back"
+                    aria-label="Back to chats"
                   >
                     <ArrowLeft size={16} />
                   </button>
@@ -537,7 +543,7 @@ export default function Messages() {
               </div>
 
               {/* Message Composer */}
-              <form className="tg-composer" onSubmit={handleSendMessage}>
+              <form className="tg-composer" onSubmit={handleSendMessage} noValidate>
                 <textarea
                   ref={textareaRef}
                   className="tg-composer-input"

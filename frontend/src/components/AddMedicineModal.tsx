@@ -175,7 +175,7 @@ export default function AddMedicineModal({ onClose }: AddMedicineModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           {formError && (
             <div className="alert alert-danger py-2 px-3" role="alert" style={{ marginBottom: '1rem' }}>
               {formError}

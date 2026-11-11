@@ -55,6 +55,18 @@ class RateLimiter {
     this.buckets.delete(key);
   }
 
+  /** Remove all keys matching a predicate and return how many were cleared. */
+  resetMatching(predicate) {
+    let cleared = 0;
+    for (const key of this.buckets.keys()) {
+      if (predicate(key)) {
+        this.buckets.delete(key);
+        cleared += 1;
+      }
+    }
+    return cleared;
+  }
+
   /** Remove expired entries to keep memory bounded. */
   _prune() {
     const cutoff = Date.now() - this.windowMs;
@@ -133,6 +145,12 @@ export function checkAdminRateLimit(request, response) {
 export function clearAuthRateLimit(ip, username) {
   const key = `${ip}:${String(username).trim().toLowerCase().slice(0, 80)}`;
   authLimiter.reset(key);
+}
+
+/** Clear an account's auth lock across all client IPs known to this server. */
+export function clearAuthRateLimitForUsername(username) {
+  const normalized = String(username).trim().toLowerCase().slice(0, 80);
+  return authLimiter.resetMatching(key => key.endsWith(`:${normalized}`));
 }
 
 /**

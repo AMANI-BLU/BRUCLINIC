@@ -340,7 +340,7 @@ export default function Patients() {
                 </div>
               </>
             ) : (
-              <form onSubmit={handleSubmit} className="patient-register-form">
+              <form onSubmit={handleSubmit} noValidate className="patient-register-form">
                 {formError && <div className="alert alert-danger py-2 px-3 mb-2" role="alert">{formError}</div>}
 
                 {/* Section 1: Demographics & Personal Info */}

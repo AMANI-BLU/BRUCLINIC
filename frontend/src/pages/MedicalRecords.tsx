@@ -311,7 +311,7 @@ export default function MedicalRecords() {
                 </div>
               </>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} noValidate>
                 {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
                 <div className="records-form-grid">
                   <div className="form-group">

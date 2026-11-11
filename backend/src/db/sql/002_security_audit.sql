@@ -94,7 +94,7 @@ INSERT INTO system_config (key, value, description) VALUES
   ('clinic_phone',                   '+251 46 441 0000',          'Official contact phone'),
   ('session_timeout_hours',          '8',                         'JWT token lifetime in hours (1-72)'),
   ('max_login_attempts',             '8',                         'Failed login attempts before lockout (3-20)'),
-  ('login_lockout_minutes',          '15',                        'Lockout window in minutes (5-60)'),
+  ('login_lockout_minutes',          '15',                        'Lockout window in minutes (1-60)'),
   ('maintenance_mode',               'false',                     'Set to true to show a maintenance banner'),
   ('audit_log_retention_days',       '365',                       'Days to retain audit log rows (min 90)'),
   ('security_event_retention_days',  '180',                       'Days to retain security event rows (min 30)'),

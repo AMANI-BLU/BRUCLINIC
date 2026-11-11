@@ -14,6 +14,7 @@ import {
   UserX,
   UserCheck,
   Key,
+  Unlock,
 } from 'lucide-react';
 import { firstError, validateEmail, validatePassword, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import { apiGet } from '../api/client';
@@ -39,6 +40,7 @@ export default function StaffAccounts() {
     fetchStaffList,
     createStaffAccount,
     updateStaffStatus,
+    unlockStaffAccount,
     resetStaffPassword,
     deleteStaffAccount,
   } = useAuth();
@@ -79,6 +81,7 @@ export default function StaffAccounts() {
 
   // Status toggle state
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -186,6 +189,21 @@ export default function StaffAccounts() {
       setToastMessage({ text: 'Error updating account status', type: 'error' });
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleUnlockAccount = async (user: UserProfile) => {
+    setUnlockingId(user.id);
+    try {
+      const res = await unlockStaffAccount(user.id);
+      setToastMessage({
+        text: res.success ? `Sign-in lock cleared for ${user.name}.` : (res.error || 'Could not unlock this account.'),
+        type: res.success ? 'success' : 'error',
+      });
+    } catch {
+      setToastMessage({ text: 'Could not unlock this account.', type: 'error' });
+    } finally {
+      setUnlockingId(null);
     }
   };
 
@@ -519,6 +537,17 @@ export default function StaffAccounts() {
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm btn-icon"
+                          title={isActive ? 'Unlock sign-in' : 'Activate the account before unlocking sign-in'}
+                          aria-label={`Unlock sign-in for ${user.name}`}
+                          disabled={!isActive || unlockingId === user.id}
+                          onClick={() => handleUnlockAccount(user)}
+                        >
+                          <Unlock size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm btn-icon"
                           title={isActive ? 'Deactivate Account' : 'Activate Account'}
                           disabled={isSelf || togglingId === user.id}
                           onClick={() => handleToggleStatus(user)}
@@ -569,7 +598,7 @@ export default function StaffAccounts() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit}>
+            <form onSubmit={handleCreateSubmit} noValidate>
               {createError && (
                 <div className="alert alert-danger py-1 px-2 mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem' }}>
                   <AlertCircle size={14} />
@@ -702,7 +731,7 @@ export default function StaffAccounts() {
               </button>
             </div>
 
-            <form onSubmit={handleResetSubmit}>
+            <form onSubmit={handleResetSubmit} noValidate>
               {resetError && (
                 <div className="alert alert-danger py-1 px-2 mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem' }}>
                   <AlertCircle size={14} />
@@ -714,36 +743,47 @@ export default function StaffAccounts() {
                 Reset password for <strong>{resetTargetUser.username}</strong> ({resetTargetUser.name}).
               </p>
 
-              <fieldset style={{ border: 0, padding: 0, margin: '0 0 0.75rem' }}>
-                <legend className="form-label" style={{ fontSize: '0.74rem', marginBottom: 4, padding: 0 }}>New password</legend>
-                <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: '0.8rem', cursor: defaultPasswordConfigured ? 'pointer' : 'not-allowed', opacity: defaultPasswordConfigured ? 1 : 0.55 }}>
+              <fieldset className="staff-reset-options">
+                <legend className="form-label staff-reset-legend">New password</legend>
+                <label className={`staff-reset-option ${resetMode === 'default' ? 'is-selected' : ''} ${!defaultPasswordConfigured ? 'is-disabled' : ''}`}>
                   <input
+                    className="staff-reset-radio"
                     type="radio"
                     name="reset-password-mode"
                     checked={resetMode === 'default'}
                     onChange={() => setResetMode('default')}
                     disabled={!defaultPasswordConfigured}
                   />
-                  Clinic default password
-                  {!defaultPasswordConfigured && <span style={{ color: 'var(--clr-text-muted)' }}>(not configured)</span>}
+                  <span className="staff-reset-option-copy">
+                    <strong>Clinic default password</strong>
+                    {!defaultPasswordConfigured && <small>Not configured</small>}
+                  </span>
                 </label>
-                <label className="d-flex align-items-center gap-2 mb-2" style={{ fontSize: '0.8rem', cursor: 'pointer' }}>
+                <label className={`staff-reset-option ${resetMode === 'generate' ? 'is-selected' : ''}`}>
                   <input
+                    className="staff-reset-radio"
                     type="radio"
                     name="reset-password-mode"
                     checked={resetMode === 'generate'}
                     onChange={() => setResetMode('generate')}
                   />
-                  Automatically generate a temporary password
+                  <span className="staff-reset-option-copy">
+                    <strong>Generate temporary password</strong>
+                    <small>Show it once after the reset.</small>
+                  </span>
                 </label>
-                <label className="d-flex align-items-center gap-2" style={{ fontSize: '0.8rem', cursor: 'pointer' }}>
+                <label className={`staff-reset-option ${resetMode === 'manual' ? 'is-selected' : ''}`}>
                   <input
+                    className="staff-reset-radio"
                     type="radio"
                     name="reset-password-mode"
                     checked={resetMode === 'manual'}
                     onChange={() => setResetMode('manual')}
                   />
-                  Set a password manually
+                  <span className="staff-reset-option-copy">
+                    <strong>Set a password manually</strong>
+                    <small>Use a password that meets the clinic policy.</small>
+                  </span>
                 </label>
               </fieldset>
               {resetMode === 'manual' && (
@@ -751,7 +791,7 @@ export default function StaffAccounts() {
                   <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>New Password *</label>
                   <PasswordField
                     required
-                    minLength={8}
+                    minLength={10}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     style={{ height: 32, fontSize: '0.8rem' }}

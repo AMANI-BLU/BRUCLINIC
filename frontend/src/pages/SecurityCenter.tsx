@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMaintenance } from '../context/MaintenanceContext';
 import { apiGet, apiPatch } from '../api/client';
 import type { AuditLog, SecurityEvent, SystemConfig, HealthStatus, SecurityStats } from '../types';
+import { firstError, validateNumber, validateTextLength } from '../utils/validation';
 import './SecurityCenter.css';
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -213,10 +214,28 @@ export default function SecurityCenter() {
   const saveConfig = async (e: FormEvent) => {
     e.preventDefault();
     if (!Object.keys(configEdits).length) return;
+    const validationError = firstError(...Object.entries(configEdits).map(([key, value]) => {
+      if (key === 'session_timeout_hours') return validateNumber(value, 'Session timeout', { min: 1, max: 72, integer: true, required: true });
+      if (key === 'max_login_attempts') return validateNumber(value, 'Maximum login attempts', { min: 3, max: 20, integer: true, required: true });
+      if (key === 'login_lockout_minutes') return validateNumber(value, 'Login lockout minutes', { min: 1, max: 60, integer: true, required: true });
+      if (key === 'audit_log_retention_days') return validateNumber(value, 'Audit log retention', { min: 90, integer: true, required: true });
+      if (key === 'security_event_retention_days') return validateNumber(value, 'Security event retention', { min: 30, integer: true, required: true });
+      if (key === 'maintenance_mode' && value !== 'true' && value !== 'false') return 'Maintenance mode must be On or Off.';
+      return validateTextLength(value, key, { max: 255 });
+    }));
+    if (validationError) {
+      setConfigMsg({ text: validationError, type: 'error' });
+      return;
+    }
     setConfigSaving(true);
     setConfigMsg(null);
     try {
       await apiPatch('/admin/config', configEdits, token);
+      const nextLockMinutes = Number.parseInt(configEdits.login_lockout_minutes || '', 10);
+      if (Number.isFinite(nextLockMinutes) && nextLockMinutes >= 1 && nextLockMinutes <= 60) {
+        // Keep the current browser session in sync with the setting just saved.
+        localStorage.setItem('bruclinic:idle_lock_minutes', String(nextLockMinutes));
+      }
       setConfigMsg({ text: 'Configuration saved successfully.', type: 'success' });
       await Promise.all([fetchConfig(), refreshMaintenance()]);
     } catch (err: unknown) {
@@ -528,7 +547,7 @@ export default function SecurityCenter() {
             </div>
 
             {configLoading ? <div className="sc-loading">Loading configuration…</div> : (
-              <form onSubmit={saveConfig}>
+              <form onSubmit={saveConfig} noValidate>
                 {configMsg && (
                   <div className={`sc-config-msg ${configMsg.type}`}>
                     {configMsg.type === 'success' ? <CheckCircle size={15} /> : <AlertCircle size={15} />}

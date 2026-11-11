@@ -207,7 +207,7 @@ export default function Appointments() {
               </h2>
               <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
               <div className="form-grid">
                 <div className="form-group">

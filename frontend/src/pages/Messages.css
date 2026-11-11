@@ -28,6 +28,10 @@
   box-sizing: border-box;
 }
 
+.tg-back-btn {
+  display: none;
+}
+
 /* ── Sidebar (Left Chats List) ────────────────────────── */
 .tg-sidebar {
   width: 340px;
@@ -761,6 +765,9 @@
     gap: 8px;
   }
   .tg-back-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
     width: 32px;
     height: 32px;
     padding: 0;

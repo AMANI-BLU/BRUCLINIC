@@ -59,7 +59,7 @@ export default function AdjustMedicineStockModal({ medicine, onClose, onAdjust }
             <button type="button" className="modal-close-btn" onClick={onClose} disabled={saving} aria-label="Close dialog"><X size={16} /></button>
           </div>
 
-          <form className="pharmacy-adjust-form" onSubmit={handleSubmit}>
+          <form className="pharmacy-adjust-form" onSubmit={handleSubmit} noValidate>
             {error && <div className="alert alert-danger py-2 px-3 mb-0" role="alert">{error}</div>}
 
             <div className="pharmacy-stock-balance">

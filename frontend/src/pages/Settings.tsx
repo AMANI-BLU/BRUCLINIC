@@ -5,6 +5,7 @@ import type { UserRole } from '../types';
 import { apiGet, apiPost } from '../api/client';
 import PasswordChangeForm from '../components/PasswordChangeForm';
 import PasswordField from '../components/PasswordField';
+import { validatePassword } from '../utils/validation';
 import { NavLink } from 'react-router-dom';
 import {
   ArrowUpRight,
@@ -129,8 +130,9 @@ export default function Settings() {
     event.preventDefault();
     setDefaultPasswordError('');
     setDefaultPasswordMessage('');
-    if (defaultPassword.length < 8) {
-      setDefaultPasswordError('Use at least 8 characters.');
+    const passwordError = validatePassword(defaultPassword, 'Default password');
+    if (passwordError) {
+      setDefaultPasswordError(passwordError);
       return;
     }
     setSavingDefaultPassword(true);
@@ -280,9 +282,9 @@ export default function Settings() {
 
             {defaultPasswordError && <div className="alert alert-danger py-2" role="alert">{defaultPasswordError}</div>}
             {defaultPasswordMessage && <div className="alert alert-success py-2" role="status">{defaultPasswordMessage}</div>}
-            <form onSubmit={saveDefaultPassword}>
+            <form onSubmit={saveDefaultPassword} noValidate>
               <label className="form-label" htmlFor="default-staff-password">New default password</label>
-              <PasswordField id="default-staff-password" className="form-control mb-3" autoComplete="new-password" value={defaultPassword} onChange={event => setDefaultPassword(event.target.value)} minLength={8} required />
+              <PasswordField id="default-staff-password" className="form-control mb-3" autoComplete="new-password" value={defaultPassword} onChange={event => setDefaultPassword(event.target.value)} minLength={10} required />
               <button type="submit" className="btn btn-warning" disabled={savingDefaultPassword}>{savingDefaultPassword ? 'Saving…' : 'Save default password'}</button>
             </form>
           </section>

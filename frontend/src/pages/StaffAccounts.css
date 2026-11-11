@@ -2,6 +2,74 @@
   display: flex;
 }
 
+.staff-reset-options {
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+.staff-reset-legend {
+  padding: 0;
+  margin-bottom: 0.4rem;
+  font-size: 0.74rem;
+}
+
+.staff-reset-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  margin: 0 0 0.45rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.35rem;
+  background: var(--clr-bg-surface);
+  color: var(--clr-text-primary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.staff-reset-option:last-child {
+  margin-bottom: 0;
+}
+
+.staff-reset-option:hover:not(.is-disabled),
+.staff-reset-option.is-selected {
+  border-color: var(--clr-primary-500, #007bff);
+  background: var(--clr-bg-hover, #f4f6f9);
+}
+
+.staff-reset-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.staff-reset-radio {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0.08rem 0 0;
+  accent-color: var(--clr-primary-500, #007bff);
+}
+
+.staff-reset-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.staff-reset-option-copy strong {
+  font-weight: 700;
+}
+
+.staff-reset-option-copy small {
+  color: var(--clr-text-muted);
+  font-size: 0.7rem;
+}
+
 .staff-summary-card {
   width: 100%;
   min-height: 80px;

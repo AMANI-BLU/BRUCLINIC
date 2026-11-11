@@ -4,7 +4,7 @@ import { Lock, User, ArrowRight, KeyRound, Sun, Moon, AlertCircle, Eye, EyeOff }
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import type { UserRole } from '../types';
-import { validateRequired } from '../utils/validation';
+import { validateRequired, validateTextLength } from '../utils/validation';
 import './Login.css';
 
 export default function Login() {
@@ -15,7 +15,27 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getValidationErrors = () => {
+    const requiredErrors = validateRequired(
+      { username: username.trim(), password },
+      { username: 'Username', password: 'Password' },
+    );
+    const usernameError = validateTextLength(username, 'Username', { min: 3, max: 60, required: true });
+    const passwordError = validateTextLength(password, 'Password', { min: 1, max: 128, required: true });
+    return {
+      ...requiredErrors,
+      ...(usernameError ? { username: usernameError } : {}),
+      ...(passwordError ? { password: passwordError } : {}),
+    };
+  };
+
+  const validateField = (field: 'username' | 'password') => {
+    const errors = getValidationErrors();
+    setFieldErrors(previous => ({ ...previous, [field]: errors[field] || '' }));
+  };
 
   const getRoleLandingPage = (role?: UserRole): string => {
     switch (role) {
@@ -32,10 +52,8 @@ export default function Login() {
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
-    const validationErrors = validateRequired(
-      { username: username.trim(), password },
-      { username: 'Username', password: 'Password' },
-    );
+    const validationErrors = getValidationErrors();
+    setFieldErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
       setErrorMessage(Object.values(validationErrors)[0]);
       return;
@@ -110,7 +128,7 @@ export default function Login() {
             </div>
           )}
 
-          <form className="login-form" onSubmit={handleFormSubmit}>
+          <form className="login-form" onSubmit={handleFormSubmit} noValidate>
             <div className="login-input-group">
               <label className="login-label" htmlFor="login-username">
                 <User size={14} /> Username / Staff ID
@@ -123,12 +141,19 @@ export default function Login() {
                   required
                   className="login-input"
                   value={username}
-                  onChange={(event) => setUsername(event.target.value)}
+                  onChange={(event) => {
+                    setUsername(event.target.value);
+                    setFieldErrors(previous => ({ ...previous, username: '' }));
+                  }}
+                  onBlur={() => validateField('username')}
+                  aria-invalid={Boolean(fieldErrors.username)}
+                  aria-describedby={fieldErrors.username ? 'login-username-error' : undefined}
                   placeholder="username"
                   autoComplete="username"
                   disabled={isSubmitting}
                 />
               </div>
+              {fieldErrors.username && <small id="login-username-error" className="login-field-error">{fieldErrors.username}</small>}
             </div>
 
             <div className="login-input-group">
@@ -143,7 +168,13 @@ export default function Login() {
                   required
                   className="login-input"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setFieldErrors(previous => ({ ...previous, password: '' }));
+                  }}
+                  onBlur={() => validateField('password')}
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
                   placeholder="password"
                   autoComplete="current-password"
                   disabled={isSubmitting}
@@ -161,6 +192,7 @@ export default function Login() {
                   {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
                 </button>
               </div>
+              {fieldErrors.password && <small id="login-password-error" className="login-field-error">{fieldErrors.password}</small>}
             </div>
 
             <button type="submit" className="login-btn-submit" disabled={isSubmitting}>

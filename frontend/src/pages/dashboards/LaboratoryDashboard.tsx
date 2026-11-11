@@ -388,7 +388,7 @@ export default function LaboratoryDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveResult} className="lab-result-form">
+            <form onSubmit={handleSaveResult} noValidate className="lab-result-form">
               {formError && <div className="alert alert-danger py-2 px-3 mb-3" role="alert">{formError}</div>}
 
               <div className="lab-result-meta">

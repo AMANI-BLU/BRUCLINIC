@@ -19,6 +19,7 @@ interface AuthContextType {
   createStaffAccount: (data: CreateStaffInput) => Promise<AuthResponse>;
   fetchStaffList: () => Promise<UserProfile[]>;
   updateStaffStatus: (userId: string, isActive: boolean) => Promise<ActionResponse>;
+  unlockStaffAccount: (userId: string) => Promise<ActionResponse>;
   resetStaffPassword: (userId: string, newPassword?: string, autoGenerate?: boolean, useDefaultPassword?: boolean) => Promise<ActionResponse & { generatedPassword?: string }>;
   deleteStaffAccount: (userId: string) => Promise<ActionResponse>;
 }
@@ -157,6 +158,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
+  const unlockStaffAccount = useCallback(async (userId: string): Promise<ActionResponse> => {
+    try {
+      const response = await apiPost<{ message: string }>('/auth/users/' + encodeURIComponent(userId) + '/unlock', {}, token);
+      return { success: true, message: response.message };
+    } catch (error) {
+      return { success: false, error: messageFrom(error) };
+    }
+  }, [token]);
+
   const deleteStaffAccount = useCallback(async (userId: string): Promise<ActionResponse> => {
     try {
       const response = await apiDelete<{ message: string }>('/auth/users/' + encodeURIComponent(userId), token);
@@ -169,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       currentUser, token, role: currentUser?.role || 'admin', isAuthenticated: Boolean(currentUser), authLoading, idleLockMinutes,
-      login, logout, changePassword, unlockSession, createStaffAccount, fetchStaffList, updateStaffStatus, resetStaffPassword, deleteStaffAccount,
+      login, logout, changePassword, unlockSession, createStaffAccount, fetchStaffList, updateStaffStatus, unlockStaffAccount, resetStaffPassword, deleteStaffAccount,
     }}>
       {children}
     </AuthContext.Provider>
