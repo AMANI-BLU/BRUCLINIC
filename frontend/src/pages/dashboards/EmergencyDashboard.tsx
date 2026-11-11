@@ -7,6 +7,7 @@ import type { ERCase, EmergencyBay, Priority, TriageAcuity } from '../../types';
 import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
 import MedicineSearchSelect from '../../components/MedicineSearchSelect';
+import './EmergencyDashboard.css';
 import {
   AlertTriangle, Activity, Bed, CheckCircle2, ShieldAlert, X,
   Plus, FlaskConical, Pill, Trash2
@@ -665,9 +666,14 @@ export default function EmergencyDashboard() {
                     <option>Minor Treatment</option>
                   </select>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0.75rem 0 1rem', fontSize: '0.82rem' }}>
-                  <input type="checkbox" checked={bayForm.oxygenPort} onChange={e => setBayForm({ ...bayForm, oxygenPort: e.target.checked })} />
-                  Oxygen port available
+                <label className="emergency-bay-oxygen-option">
+                  <input
+                    className="emergency-bay-oxygen-checkbox"
+                    type="checkbox"
+                    checked={bayForm.oxygenPort}
+                    onChange={e => setBayForm({ ...bayForm, oxygenPort: e.target.checked })}
+                  />
+                  <span>Oxygen port available</span>
                 </label>
                 <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setBayModalOpen(false)}>Cancel</button>

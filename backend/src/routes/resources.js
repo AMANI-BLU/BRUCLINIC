@@ -28,6 +28,47 @@ function requireResourceAccess(resource, method, request, response) {
   return true;
 }
 
+let emergencyBaysReady;
+
+/**
+ * Keep older deployments usable when the ER-bays migration was not applied.
+ * The normal deployment path still runs the migration; this lightweight
+ * bootstrap only creates the optional table when the first bay request arrives.
+ */
+async function ensureEmergencyBaysTable() {
+  if (!emergencyBaysReady) {
+    emergencyBaysReady = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS emergency_bays (
+          id           VARCHAR(64) PRIMARY KEY,
+          name         VARCHAR(120) NOT NULL UNIQUE,
+          type         VARCHAR(80) NOT NULL DEFAULT 'Observation',
+          oxygen_port  BOOLEAN NOT NULL DEFAULT FALSE,
+          active       BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await query(`
+        INSERT INTO emergency_bays (id, name, type, oxygen_port) VALUES
+          ('BAY-01', 'Bay 01 (Resus/Trauma 1)', 'Critical', TRUE),
+          ('BAY-02', 'Bay 02 (Resus/Trauma 2)', 'Critical', TRUE),
+          ('BAY-03', 'Bay 03 (Acute Surgery)', 'Acute', TRUE),
+          ('BAY-04', 'Bay 04 (Acute Medical)', 'Acute', TRUE),
+          ('BAY-05', 'Bay 05 (Observation)', 'Observation', FALSE),
+          ('BAY-06', 'Bay 06 (Observation)', 'Observation', FALSE),
+          ('BAY-07', 'Bay 07 (Isolation / Fever)', 'Isolation', TRUE),
+          ('BAY-08', 'Bay 08 (Step-down)', 'Step-down', FALSE)
+        ON CONFLICT (id) DO NOTHING
+      `);
+    })().catch(error => {
+      emergencyBaysReady = undefined;
+      throw error;
+    });
+  }
+  return emergencyBaysReady;
+}
+
 /**
  * A student or staff member should only ever have one patient card.
  * Checked before insert/update so the API returns a helpful message
@@ -210,7 +251,10 @@ async function notifyAdminsOnDeletion({ resource, id, item, user }) {
 
 async function notifyEmergencyStaff({ item, user }) {
   try {
-    const emergencyUsers = await query("SELECT id FROM users WHERE role = 'emergency' AND is_active = TRUE");
+    // A transfer is a direct operational message. Use the most recently
+    // updated active ER account as the on-duty recipient instead of creating
+    // a message for every emergency user.
+    const emergencyUsers = await query("SELECT id FROM users WHERE role = 'emergency' AND is_active = TRUE ORDER BY updated_at DESC, created_at ASC LIMIT 1");
     const senderId = user?.id;
     const senderName = user?.name || 'Clinic Staff';
     if (!emergencyUsers.rows.length || !senderId) return;
@@ -243,6 +287,7 @@ export function createResourceHandler(resource) {
   return async function resourceHandler(request, response, segments, url) {
     const id = segments[2];
     if (!requireResourceAccess(resource, request.method, request, response)) return;
+    if (resource === 'emergencyBays') await ensureEmergencyBaysTable();
 
     // ── GET (list) ───────────────────────────────────────────
     if (request.method === 'GET' && !id) {

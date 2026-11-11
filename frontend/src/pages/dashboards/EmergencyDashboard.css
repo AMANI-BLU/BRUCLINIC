@@ -1,0 +1,64 @@
+.emergency-bay-oxygen-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-bg-surface);
+  color: var(--clr-text-primary);
+  font-size: 0.82rem;
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.emergency-bay-oxygen-option:hover {
+  border-color: var(--clr-border-hi);
+  background: var(--clr-bg-hover);
+}
+
+.emergency-bay-oxygen-checkbox,
+.emergency-bay-oxygen-checkbox[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.1rem !important;
+  height: 1.1rem !important;
+  min-width: 1.1rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 1.1rem;
+  border: 1px solid var(--clr-border-hi);
+  border-radius: 0.3rem;
+  background: var(--clr-bg-card);
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.emergency-bay-oxygen-checkbox::after {
+  content: '';
+  width: 0.32rem;
+  height: 0.58rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 120ms ease;
+}
+
+.emergency-bay-oxygen-checkbox:checked {
+  border-color: var(--clr-primary-500);
+  background: var(--clr-primary-500);
+}
+
+.emergency-bay-oxygen-checkbox:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.emergency-bay-oxygen-checkbox:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.25);
+  outline-offset: 2px;
+}

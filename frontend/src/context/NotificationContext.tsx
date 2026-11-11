@@ -83,7 +83,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const alerts: ClinicAlert[] = [];
 
     // 1. Emergency Department: Red & Yellow acuity cases
-    if (['admin', 'emergency', 'opd'].includes(role)) {
+    if (role === 'emergency') {
       erCases.filter(c => c.acuity === 'Red').forEach(c => {
         alerts.push({
           id: `er-red-${c.id}`,
@@ -99,7 +99,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    if (['admin', 'emergency'].includes(role)) {
+    if (role === 'emergency') {
       erCases.filter(c => c.acuity === 'Yellow').forEach(c => {
         alerts.push({
           id: `er-yellow-${c.id}`,
