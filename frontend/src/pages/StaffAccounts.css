@@ -15,8 +15,9 @@
 }
 
 .staff-reset-option {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
   gap: 0.65rem;
   width: 100%;
   padding: 0.6rem 0.7rem;
@@ -47,10 +48,13 @@
 }
 
 .staff-reset-radio {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  flex: 0 0 16px;
+  width: 16px !important;
+  height: 16px !important;
   margin: 0.08rem 0 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
   accent-color: var(--clr-primary-500, #007bff);
 }
 
