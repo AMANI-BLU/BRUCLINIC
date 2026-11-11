@@ -42,7 +42,7 @@ export default function OpdDashboard() {
   const {
     queue, records, medicines, patients, doctors,
     updateQueueItem, sendOpdToLabRequest, sendOpdToPharmacyRequest,
-    completeOpdConsultation, saveOpdAssessment, referOutside, addERCase
+    completeOpdConsultation, saveOpdAssessment, referOutside, addERCase, refresh
   } = useClinic();
   const { currentUser } = useAuth();
 
@@ -430,35 +430,39 @@ export default function OpdDashboard() {
     setShowTransferConfirm(true);
   };
 
-  const executeTransferToER = () => {
+  const executeTransferToER = async () => {
     if (!selectedQueueItem) return;
-    addERCase({
-      patientId: selectedQueueItem.patientId,
-      patientName: selectedQueueItem.patientName,
-      age: (() => {
-        const patient = patients.find(item => item.id === selectedQueueItem.patientId);
-        return patient ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0;
-      })(),
-      gender: patients.find(item => item.id === selectedQueueItem.patientId)?.gender || 'Male',
-      arrivalMethod: 'OPD Referral',
-      acuity: 'Red',
-      chiefComplaint: `OPD Emergency Referral: ${selectedQueueItem.chiefComplaint}. ${consultation.clinicalNotes}`,
-      bedNumber: 'Bay 02 (Acute)',
-      vitals: vitalsForm,
-      attendingDoctor: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
-      status: 'In Treatment',
-      criticalNotes: 'Referred urgently from OPD Consultation.',
-    });
+    try {
+      const patient = patients.find(item => item.id === selectedQueueItem.patientId);
+      await addERCase({
+        patientId: selectedQueueItem.patientId,
+        patientName: selectedQueueItem.patientName,
+        age: patient ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0,
+        gender: patient?.gender || 'Male',
+        arrivalMethod: 'OPD Referral',
+        acuity: 'Red',
+        chiefComplaint: `OPD Emergency Referral: ${selectedQueueItem.chiefComplaint}. ${consultation.clinicalNotes}`,
+        bedNumber: 'Bay 02 (Acute)',
+        vitals: vitalsForm,
+        attendingDoctor: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+        status: 'In Treatment',
+        criticalNotes: 'Referred urgently from OPD Consultation.',
+      });
 
-    updateQueueItem(selectedQueueItem.id, {
-      stage: 'Emergency',
-      priority: 'Emergency',
-      requestSource: 'OPD Consultation',
-      requestDestination: 'Emergency',
-      requestNotes: 'URGENT: Patient transferred to Emergency Room by OPD Doctor',
-    });
-
-    setSelectedQueueItem(null);
+      await updateQueueItem(selectedQueueItem.id, {
+        stage: 'Emergency',
+        priority: 'Emergency',
+        requestSource: 'OPD Consultation',
+        requestDestination: 'Emergency',
+        requestNotes: 'URGENT: Patient transferred to Emergency Room by OPD Doctor',
+      });
+      await refresh({ silent: true });
+      setFormError(null);
+      setSelectedQueueItem(null);
+      window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient transferred to Emergency and Emergency staff notified.' }));
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not transfer the patient to Emergency.');
+    }
   };
 
   const addPrescriptionRow = () => {
@@ -1543,8 +1547,8 @@ export default function OpdDashboard() {
         variant="warning"
         icon="alert"
         onClose={() => setShowTransferConfirm(false)}
-        onConfirm={() => {
-          executeTransferToER();
+        onConfirm={async () => {
+          await executeTransferToER();
           setShowTransferConfirm(false);
         }}
       />

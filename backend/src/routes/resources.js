@@ -128,6 +128,34 @@ async function notifyAdminsOnDeletion({ resource, id, item, user }) {
   }
 }
 
+async function notifyEmergencyStaff({ item, user }) {
+  try {
+    const emergencyUsers = await query("SELECT id FROM users WHERE role = 'emergency' AND is_active = TRUE");
+    const senderId = user?.id;
+    const senderName = user?.name || 'Clinic Staff';
+    if (!emergencyUsers.rows.length || !senderId) return;
+
+    const patientName = item?.patientName || 'Patient';
+    const acuity = item?.acuity || 'Red';
+    const complaint = item?.chiefComplaint || 'Immediate assessment required';
+    const bed = item?.bedNumber || 'ER bay to be assigned';
+    const body = `Emergency transfer: ${patientName} was sent from OPD by ${senderName}. ${acuity} acuity · ${complaint} · ${bed}.`;
+
+    for (const recipient of emergencyUsers.rows) {
+      if (recipient.id === senderId) continue;
+      await query(
+        `INSERT INTO user_messages (id, sender_id, recipient_id, body)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [`MSG-ER-${randomUUID().slice(0, 10).toUpperCase()}`, senderId, recipient.id, body],
+      );
+    }
+  } catch (error) {
+    // A notification failure must never prevent the emergency admission.
+    console.error('Failed to notify emergency staff:', error);
+  }
+}
+
 export function createResourceHandler(resource) {
   const definition = resourceDefinitions[resource];
   const allowedFields = Object.keys(definition.fields);
@@ -171,7 +199,12 @@ export function createResourceHandler(resource) {
 
     // ── POST (create) ─────────────────────────────────────────
     if (request.method === 'POST' && !id) {
-      const body = validateResourcePayload(resource, request.body, allowedFields, definition.required);
+      // ER arrival time is generated at admission because the form records the
+      // moment the case is created rather than asking staff to type a timestamp.
+      const payload = resource === 'emergency' && !request.body?.arrivalTime
+        ? { ...request.body, arrivalTime: new Date().toISOString() }
+        : request.body;
+      const body = validateResourcePayload(resource, payload, allowedFields, definition.required);
       try {
         if (resource === 'patients') await assertNoDuplicatePatient(body);
         if (resource === 'records' && body.doctorId) {
@@ -182,6 +215,7 @@ export function createResourceHandler(resource) {
         // whatever the client sent, so "Added by" is always trustworthy.
         if (resource === 'medicines') body.addedBy = String(request.user?.name || '').slice(0, 180);
         const created = await insertResource(resource, body);
+        if (resource === 'emergency') await notifyEmergencyStaff({ item: created, user: request.user });
         // Fire-and-forget audit log
         auditResourceMutation(request, resource, 'POST', created?.id, null);
         return sendJson(response, 201, { data: created });

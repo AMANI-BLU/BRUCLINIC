@@ -37,22 +37,21 @@ import { NotificationProvider } from './context/NotificationContext';
 
 // ── Role permission map ───────────────────────────────────────────
 //
-// Each entry maps a route to the set of roles that may access it.
-// Roles not listed are redirected to their own landing page.
-//
-//  admin        – full system access
-//  receptionist – patient registration, appointments, basic records view
-//  opd          – OPD workspace, patients, records, appointments
-//  emergency    – emergency board, patients, records
-//  pharmacy     – pharmacy board, prescriptions (read records)
-//  laboratory   – lab board, patients, records
-
+// Route permissions intentionally mirror the sidebar. A department dashboard
+// belongs to that department only; typing its URL must not grant another role
+// access to it.
 const ROLE = {
-  ADMIN_ONLY:       ['admin']                                                          ,
-  ADMIN_RECEPTION:  ['admin', 'receptionist']                                         ,
-  CLINICAL:         ['admin', 'opd', 'emergency']                                     ,
-  CLINICAL_FULL:    ['admin', 'receptionist', 'opd', 'emergency']                     ,
-  ALL:              ['admin', 'receptionist', 'opd', 'emergency', 'pharmacy', 'laboratory'] ,
+  ADMIN_ONLY:      ['admin'],
+  RECEPTION_ONLY:  ['receptionist'],
+  OPD_ONLY:        ['opd'],
+  EMERGENCY_ONLY:  ['emergency'],
+  PHARMACY_ONLY:   ['pharmacy'],
+  LAB_ONLY:        ['laboratory'],
+  PATIENTS:        ['admin', 'receptionist', 'opd', 'emergency'],
+  APPOINTMENTS:    ['admin', 'receptionist', 'opd'],
+  RECORDS:         ['admin', 'receptionist', 'opd', 'emergency', 'laboratory'],
+  DOCTORS:         ['admin', 'opd'],
+  ALL:             ['admin', 'receptionist', 'opd', 'emergency', 'pharmacy', 'laboratory'],
 } as const;
 
 // ─────────────────────────────────────────────────────────────────
@@ -132,7 +131,7 @@ function AppRoutes() {
                 <Route
                   path="/reception"
                   element={
-                    <ProtectedRoute allowed={['admin', 'receptionist']}>
+                    <ProtectedRoute allowed={[...ROLE.RECEPTION_ONLY]}>
                       <ReceptionDashboard />
                     </ProtectedRoute>
                   }
@@ -140,7 +139,7 @@ function AppRoutes() {
                 <Route
                   path="/opd"
                   element={
-                    <ProtectedRoute allowed={['admin', 'opd']}>
+                    <ProtectedRoute allowed={[...ROLE.OPD_ONLY]}>
                       <OpdDashboard />
                     </ProtectedRoute>
                   }
@@ -148,7 +147,7 @@ function AppRoutes() {
                 <Route
                   path="/emergency"
                   element={
-                    <ProtectedRoute allowed={['admin', 'emergency']}>
+                    <ProtectedRoute allowed={[...ROLE.EMERGENCY_ONLY]}>
                       <EmergencyDashboard />
                     </ProtectedRoute>
                   }
@@ -156,7 +155,7 @@ function AppRoutes() {
                 <Route
                   path="/pharmacy-board"
                   element={
-                    <ProtectedRoute allowed={['admin', 'pharmacy']}>
+                    <ProtectedRoute allowed={[...ROLE.PHARMACY_ONLY]}>
                       <PharmacyDashboard />
                     </ProtectedRoute>
                   }
@@ -164,7 +163,7 @@ function AppRoutes() {
                 <Route
                   path="/laboratory"
                   element={
-                    <ProtectedRoute allowed={['admin', 'laboratory']}>
+                    <ProtectedRoute allowed={[...ROLE.LAB_ONLY]}>
                       <LaboratoryDashboard />
                     </ProtectedRoute>
                   }
@@ -208,7 +207,7 @@ function AppRoutes() {
                 <Route
                   path="/patients"
                   element={
-                    <ProtectedRoute allowed={[...ROLE.CLINICAL_FULL]}>
+                    <ProtectedRoute allowed={[...ROLE.PATIENTS]}>
                       <Patients />
                     </ProtectedRoute>
                   }
@@ -219,18 +218,16 @@ function AppRoutes() {
                 <Route
                   path="/appointments"
                   element={
-                    <ProtectedRoute allowed={['admin', 'receptionist', 'opd']}>
+                    <ProtectedRoute allowed={[...ROLE.APPOINTMENTS]}>
                       <Appointments />
                     </ProtectedRoute>
                   }
                 />
-                {/*
-                  Medical Records: clinical staff + pharmacy (to read prescriptions) + lab (to read orders).
-                */}
+                {/* Medical Records: the roles listed in the sidebar can access this page. */}
                 <Route
                   path="/records"
                   element={
-                    <ProtectedRoute allowed={[...ROLE.ALL]}>
+                    <ProtectedRoute allowed={[...ROLE.RECORDS]}>
                       <MedicalRecords />
                     </ProtectedRoute>
                   }
@@ -246,24 +243,20 @@ function AppRoutes() {
                     </ProtectedRoute>
                   }
                 />
-                {/*
-                  Doctors directory: clinical staff who need to assign/consult doctors.
-                */}
+                {/* Doctors directory: admin and OPD, matching the sidebar. */}
                 <Route
                   path="/doctors"
                   element={
-                    <ProtectedRoute allowed={['admin', 'receptionist', 'opd', 'emergency']}>
+                    <ProtectedRoute allowed={[...ROLE.DOCTORS]}>
                       <Doctors />
                     </ProtectedRoute>
                   }
                 />
-                {/*
-                  Reports: admin + receptionist (administrative reports).
-                */}
+                {/* Reports: admin only, matching the sidebar. */}
                 <Route
                   path="/reports"
                   element={
-                    <ProtectedRoute allowed={['admin', 'receptionist']}>
+                    <ProtectedRoute allowed={[...ROLE.ADMIN_ONLY]}>
                       <Reports />
                     </ProtectedRoute>
                   }

@@ -80,7 +80,7 @@ function notifyActionSuccess(message: string) {
 const ClinicContext = createContext<ClinicContextType | null>(null);
 
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, role } = useAuth();
   const { enabled: maintenance, checking: maintenanceChecking } = useMaintenance();
   const { online } = useNetwork();
   const wasOnline = useRef(online);
@@ -148,6 +148,17 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     }
   }, [online, isAuthenticated, token, maintenance, maintenanceChecking, refresh]);
 
+  // Emergency and OPD workspaces need to see transfers made by another staff
+  // session without requiring a manual page reload.
+  useEffect(() => {
+    if (!online || !isAuthenticated || !token || maintenance || maintenanceChecking) return;
+    if (role !== 'opd' && role !== 'emergency') return;
+    const interval = window.setInterval(() => {
+      if (!document.hidden) void refresh({ silent: true });
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [online, isAuthenticated, token, role, maintenance, maintenanceChecking, refresh]);
+
   const mutate = useCallback(async (operation: () => Promise<void>, successMessage?: string) => {
     setError(null);
     try {
@@ -204,7 +215,15 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const saveOpdAssessment = useCallback(async (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => { await apiPost('/workflows/save-assessment', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Assessment saved without completing the visit'); }, [refresh, token]);
   const referOutside = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['referOutside']>[1]) => { await apiPost('/workflows/refer-outside', { queueItemId, ...data }, token); await refresh(); notifyActionSuccess('External referral recorded'); }, [refresh, token]);
 
-  const addERCase = useCallback(async (item: Omit<ERCase, 'id' | 'arrivalTime'>) => { const response = await apiPost<{ data: ERCase }>('/emergency', item, token); setErCases(previous => [response.data, ...previous]); notifyActionSuccess('Emergency case created'); return response.data; }, [token]);
+  const addERCase = useCallback(async (item: Omit<ERCase, 'id' | 'arrivalTime'>) => {
+    const response = await apiPost<{ data: ERCase }>('/emergency', {
+      ...item,
+      arrivalTime: new Date().toISOString(),
+    }, token);
+    setErCases(previous => [response.data, ...previous]);
+    notifyActionSuccess('Emergency case created');
+    return response.data;
+  }, [token]);
   const updateERCase = useCallback((id: string, changes: Partial<ERCase>) => mutate(async () => { const response = await apiPatch<{ data: ERCase }>(`/emergency/${encodeURIComponent(id)}`, changes, token); setErCases(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Emergency case updated'), [mutate, token]);
   const addLabOrder = useCallback(async (order: Omit<LabOrder, 'id' | 'orderedAt'>) => { const response = await apiPost<{ data: LabOrder }>('/lab-orders', order, token); setLabOrders(previous => [response.data, ...previous]); notifyActionSuccess('Laboratory order created'); return response.data; }, [token]);
   const updateLabOrder = useCallback((id: string, changes: Partial<LabOrder>) => mutate(async () => {
