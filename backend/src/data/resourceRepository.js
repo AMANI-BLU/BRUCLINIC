@@ -70,9 +70,9 @@ const common = {
     table: 'emergency_cases', prefix: 'ER', required: ['patientId', 'patientName', 'age', 'gender', 'arrivalMethod', 'arrivalTime', 'acuity', 'chiefComplaint', 'bedNumber', 'attendingDoctor'],
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', age: 'age', gender: 'gender', arrivalMethod: 'arrival_method', arrivalTime: 'arrival_time',
-      acuity: 'acuity', chiefComplaint: 'chief_complaint', bedNumber: 'bed_number', vitals: 'vitals', attendingDoctor: 'attending_doctor', status: 'status', criticalNotes: 'critical_notes',
+      acuity: 'acuity', chiefComplaint: 'chief_complaint', bedNumber: 'bed_number', vitals: 'vitals', attendingDoctor: 'attending_doctor', status: 'status', criticalNotes: 'critical_notes', diagnosis: 'diagnosis', externalReferral: 'external_referral',
     },
-    json: ['vitals'], numbers: ['age'], search: ['patient_name', 'patient_id', 'chief_complaint', 'bed_number'], order: 'created_at DESC',
+    json: ['vitals', 'externalReferral'], numbers: ['age'], search: ['patient_name', 'patient_id', 'chief_complaint', 'bed_number', 'diagnosis'], order: 'created_at DESC',
   },
   labOrders: {
     table: 'lab_orders', prefix: 'LAB', required: ['patientId', 'patientName', 'doctorName', 'orderedAt', 'testName', 'category', 'specimenType'],

@@ -690,6 +690,30 @@ CREATE INDEX IF NOT EXISTS idx_user_messages_sent
 INSERT INTO schema_migrations (version) VALUES ('010_user_messages.sql') ON CONFLICT DO NOTHING;
 
 
+-- ================================================================
+-- 012_emergency_record_link.sql
+-- ================================================================
+ALTER TABLE medical_records
+  ADD COLUMN IF NOT EXISTS emergency_case_id VARCHAR(64)
+    REFERENCES emergency_cases(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_records_emergency_case
+  ON medical_records (emergency_case_id)
+  WHERE emergency_case_id IS NOT NULL;
+
+INSERT INTO schema_migrations (version) VALUES ('012_emergency_record_link.sql') ON CONFLICT DO NOTHING;
+
+
+-- ================================================================
+-- 013_emergency_assessment.sql
+-- ================================================================
+ALTER TABLE emergency_cases
+  ADD COLUMN IF NOT EXISTS diagnosis TEXT,
+  ADD COLUMN IF NOT EXISTS external_referral JSONB;
+
+INSERT INTO schema_migrations (version) VALUES ('013_emergency_assessment.sql') ON CONFLICT DO NOTHING;
+
+
 
 -- ================================================================
 -- SEED: Create the initial admin account

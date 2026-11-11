@@ -21,25 +21,34 @@
   background: var(--clr-bg-hover);
 }
 
-.emergency-bay-oxygen-checkbox,
-.emergency-bay-oxygen-checkbox[type='checkbox'] {
+.emergency-bay-oxygen-input {
   appearance: none;
   -webkit-appearance: none;
-  width: 1.1rem !important;
-  height: 1.1rem !important;
-  min-width: 1.1rem;
-  margin: 0 !important;
+  position: absolute;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
   padding: 0 !important;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.emergency-bay-checkbox-box {
+  width: 1.1rem;
+  height: 1.1rem;
+  min-width: 1.1rem;
   flex: 0 0 1.1rem;
   border: 1px solid var(--clr-border-hi);
   border-radius: 0.3rem;
   background: var(--clr-bg-card);
   display: grid;
   place-content: center;
-  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
-.emergency-bay-oxygen-checkbox::after {
+.emergency-bay-checkbox-box::after {
   content: '';
   width: 0.32rem;
   height: 0.58rem;
@@ -49,16 +58,49 @@
   transition: transform 120ms ease;
 }
 
-.emergency-bay-oxygen-checkbox:checked {
+.emergency-bay-oxygen-input:checked + .emergency-bay-checkbox-box {
   border-color: var(--clr-primary-500);
   background: var(--clr-primary-500);
 }
 
-.emergency-bay-oxygen-checkbox:checked::after {
+.emergency-bay-oxygen-input:checked + .emergency-bay-checkbox-box::after {
   transform: rotate(45deg) scale(1);
 }
 
-.emergency-bay-oxygen-checkbox:focus-visible {
+.emergency-bay-oxygen-input:focus-visible + .emergency-bay-checkbox-box {
   outline: 3px solid rgba(59, 130, 246, 0.25);
+  outline-offset: 2px;
+}
+
+.emergency-bay-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.emergency-bay-delete {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 50%;
+  color: var(--clr-rose-400);
+  background: rgba(239, 68, 68, 0.08);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.emergency-bay-delete:hover {
+  color: #fff;
+  border-color: var(--clr-rose-500);
+  background: var(--clr-rose-500);
+}
+
+.emergency-bay-delete:focus-visible {
+  outline: 3px solid rgba(239, 68, 68, 0.22);
   outline-offset: 2px;
 }

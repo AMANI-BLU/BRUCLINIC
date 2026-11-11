@@ -31,9 +31,13 @@ interface ClinicContextType {
   completeOpdConsultation: (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => Promise<void>;
   saveOpdAssessment: (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => Promise<void>;
   referOutside: (queueItemId: string, data: { destination: string; reason: string; doctorName: string; recordData: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>> }) => Promise<void>;
+  transferToEmergency: (queueItemId: string, data: { arrivalMethod: ERCase['arrivalMethod']; acuity: ERCase['acuity']; chiefComplaint: string; bedNumber?: string; vitals?: Vitals; attendingDoctor?: string; diagnosis?: string; criticalNotes?: string; requestSource?: string; requestNotes?: string }) => Promise<void>;
   addERCase: (item: Omit<ERCase, 'id' | 'arrivalTime'>) => Promise<ERCase>;
   updateERCase: (id: string, changes: Partial<ERCase>) => Promise<void>;
+  completeEmergencyCase: (id: string, recordData?: { diagnosis?: string; notes?: string }) => Promise<void>;
+  referEmergencyCase: (id: string, data: { destination: string; reason: string }) => Promise<void>;
   addEmergencyBay: (bay: Omit<EmergencyBay, 'id' | 'createdAt' | 'updatedAt'>) => Promise<EmergencyBay>;
+  deleteEmergencyBay: (id: string) => Promise<void>;
   addLabOrder: (order: Omit<LabOrder, 'id' | 'orderedAt'>) => Promise<LabOrder>;
   updateLabOrder: (id: string, changes: Partial<LabOrder>) => Promise<void>;
   addPharmacyOrder: (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => Promise<PharmacyOrder>;
@@ -226,6 +230,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const completeOpdConsultation = useCallback(async (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => { await apiPost('/workflows/complete-consultation', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Consultation completed'); }, [refresh, token]);
   const saveOpdAssessment = useCallback(async (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => { await apiPost('/workflows/save-assessment', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Assessment saved without completing the visit'); }, [refresh, token]);
   const referOutside = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['referOutside']>[1]) => { await apiPost('/workflows/refer-outside', { queueItemId, ...data }, token); await refresh(); notifyActionSuccess('External referral recorded'); }, [refresh, token]);
+  const transferToEmergency = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['transferToEmergency']>[1]) => {
+    await apiPost('/workflows/transfer-to-emergency', { queueItemId, ...data }, token);
+    await refresh({ silent: true });
+    notifyActionSuccess('Patient transferred to Emergency');
+  }, [refresh, token]);
 
   const addERCase = useCallback(async (item: Omit<ERCase, 'id' | 'arrivalTime'>) => {
     const response = await apiPost<{ data: ERCase }>('/emergency', {
@@ -237,12 +246,26 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     return response.data;
   }, [token]);
   const updateERCase = useCallback((id: string, changes: Partial<ERCase>) => mutate(async () => { const response = await apiPatch<{ data: ERCase }>(`/emergency/${encodeURIComponent(id)}`, changes, token); setErCases(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Emergency case updated'), [mutate, token]);
+  const completeEmergencyCase = useCallback(async (id: string, recordData: { diagnosis?: string; notes?: string } = {}) => {
+    await apiPost('/workflows/complete-emergency', { emergencyCaseId: id, ...recordData }, token);
+    await refresh({ silent: true });
+    notifyActionSuccess('Emergency case completed and added to Medical Records');
+  }, [refresh, token]);
+  const referEmergencyCase = useCallback(async (id: string, data: { destination: string; reason: string }) => {
+    await apiPost('/workflows/refer-emergency', { emergencyCaseId: id, ...data }, token);
+    await refresh({ silent: true });
+    notifyActionSuccess('Emergency referral recorded and added to Medical Records');
+  }, [refresh, token]);
   const addEmergencyBay = useCallback(async (bay: Omit<EmergencyBay, 'id' | 'createdAt' | 'updatedAt'>) => {
     const response = await apiPost<{ data: EmergencyBay }>('/emergency-bays', bay, token);
     setEmergencyBays(previous => [...previous, response.data].sort((a, b) => a.name.localeCompare(b.name)));
     notifyActionSuccess('Emergency bay added');
     return response.data;
   }, [token]);
+  const deleteEmergencyBay = useCallback((id: string) => mutate(async () => {
+    await apiDelete(`/emergency-bays/${encodeURIComponent(id)}`, token);
+    setEmergencyBays(previous => previous.filter(item => item.id !== id));
+  }, 'Emergency bay deleted'), [mutate, token]);
   const addLabOrder = useCallback(async (order: Omit<LabOrder, 'id' | 'orderedAt'>) => {
     const response = await apiPost<{ data: LabOrder }>('/lab-orders', { ...order, orderedAt: new Date().toISOString() }, token);
     setLabOrders(previous => [response.data, ...previous]);
@@ -275,8 +298,8 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   return <ClinicContext.Provider value={{
     patients, doctors, appointments, records, medicines, queue, erCases, emergencyBays, labOrders, pharmacyOrders, loading, error, refresh,
     addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, addMedicine, updateMedicineStock, updateMedicine,
-    addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside,
-    addERCase, updateERCase, addEmergencyBay, addLabOrder, updateLabOrder, addPharmacyOrder, dispensePharmacyOrder,
+    addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency,
+    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, updateLabOrder, addPharmacyOrder, dispensePharmacyOrder,
   }}>{children}</ClinicContext.Provider>;
 }
 

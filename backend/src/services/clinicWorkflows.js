@@ -72,6 +72,95 @@ export async function createCardToOpdRequest(data) {
   });
 }
 
+export async function transferToEmergency(queueItemId, data, user) {
+  requireValue(queueItemId, 'queueItemId');
+  return withTransaction(async client => {
+    const queueResult = await client.query('SELECT * FROM queue_items WHERE id = $1 FOR UPDATE', [queueItemId]);
+    const queueItem = queueResult.rows[0];
+    if (!queueItem) throw workflowError('Queue item not found', 404);
+    if (queueItem.stage === 'Completed') throw workflowError('This visit is already completed.', 409);
+
+    const patientResult = await client.query('SELECT * FROM patients WHERE id = $1 LIMIT 1', [queueItem.patient_id]);
+    const patient = patientResult.rows[0];
+    if (!patient) throw workflowError('Patient not found', 404);
+
+    const existingCase = await client.query(
+      `SELECT * FROM emergency_cases
+       WHERE patient_id = $1 AND status NOT IN ('Discharged', 'Transferred')
+       ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+      [queueItem.patient_id],
+    );
+    let emergencyCase = existingCase.rows[0];
+
+    if (!emergencyCase) {
+      const birthDate = new Date(patient.date_of_birth);
+      const now = new Date();
+      let age = now.getFullYear() - birthDate.getFullYear();
+      if (now.getMonth() < birthDate.getMonth() || (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate())) age--;
+      const emergencyId = workflowId('ER');
+      await client.query(
+        `INSERT INTO emergency_cases
+          (id, patient_id, patient_name, age, gender, arrival_method, arrival_time, acuity, chief_complaint, bed_number, vitals, attending_doctor, status, critical_notes, diagnosis)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'In Treatment', $13, $14)`,
+        [
+          emergencyId,
+          patient.id,
+          queueItem.patient_name,
+          Math.max(age, 0),
+          patient.gender,
+          data?.arrivalMethod || 'OPD Referral',
+          new Date().toISOString(),
+          data?.acuity || 'Red',
+          data?.chiefComplaint || queueItem.chief_complaint || 'Emergency assessment requested',
+          data?.bedNumber || 'Bay 02 (Resus/Trauma 2)',
+          JSON.stringify(data?.vitals || parseJsonField(queueItem.vitals, {})),
+          data?.attendingDoctor || queueItem.assigned_doctor_name || 'Emergency clinician',
+          data?.criticalNotes || 'Transferred to Emergency for urgent assessment.',
+          String(data?.diagnosis || '').trim() || null,
+        ],
+      );
+      const created = await client.query('SELECT * FROM emergency_cases WHERE id = $1', [emergencyId]);
+      emergencyCase = created.rows[0];
+    } else if (String(data?.diagnosis || '').trim()) {
+      const updatedExisting = await client.query(
+        'UPDATE emergency_cases SET diagnosis = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [String(data.diagnosis).trim(), emergencyCase.id],
+      );
+      emergencyCase = updatedExisting.rows[0];
+    }
+
+    const requestNotes = data?.requestNotes || `Patient transferred to Emergency by ${user?.name || 'clinic staff'}.`;
+    const queueUpdate = await client.query(
+      `UPDATE queue_items
+       SET stage = 'Emergency', priority = 'Emergency', request_source = $1,
+           request_destination = 'Emergency', request_notes = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [data?.requestSource || 'Clinical Transfer', requestNotes, queueItemId],
+    );
+
+    // Send one direct message to the on-duty Emergency account, not a role-wide broadcast.
+    try {
+      const recipient = await client.query(
+        "SELECT id FROM users WHERE role = 'emergency' AND is_active = TRUE ORDER BY updated_at DESC, created_at ASC LIMIT 1",
+      );
+      const recipientId = recipient.rows[0]?.id;
+      if (recipientId && user?.id && recipientId !== user.id) {
+        const body = `Emergency transfer: ${queueItem.patient_name} was sent from ${data?.requestSource || 'the clinic'} by ${user.name || 'clinic staff'}.`;
+        await client.query(
+          `INSERT INTO user_messages (id, sender_id, recipient_id, body)
+           VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+          [`MSG-ER-${randomUUID().slice(0, 10).toUpperCase()}`, user.id, recipientId, body],
+        );
+      }
+    } catch (_) {
+      // A notification failure must not undo the patient transfer.
+    }
+
+    return { emergencyCase, queueItem: normalizeQueueRow(queueUpdate.rows[0]) };
+  });
+}
+
 export async function sendOpdToLabRequest(queueItemId, data) {
   requireValue(queueItemId, 'queueItemId');
   const requests = Array.isArray(data?.tests) ? data.tests : [data];
@@ -294,6 +383,142 @@ export async function completeOpdConsultation(queueItemId, recordData) {
     await client.query(`UPDATE queue_items SET stage = 'Completed', completed_at = $1, doctor_diagnosis = $2, consultation_notes = $3, request_notes = $4, updated_at = NOW() WHERE id = $5`, [completedAt, recordData.diagnosis, recordData.notes || null, `Consultation completed by ${recordData.doctorName}. Diagnosis: ${recordData.diagnosis}`, queueItemId]);
     const updated = await client.query('SELECT * FROM queue_items WHERE id = $1', [queueItemId]);
     return { recordId, queueItem: normalizeQueueRow(updated.rows[0]) };
+  });
+}
+
+async function ensureEmergencyAssessmentColumns(client) {
+  await client.query(`
+    ALTER TABLE emergency_cases
+      ADD COLUMN IF NOT EXISTS diagnosis TEXT,
+      ADD COLUMN IF NOT EXISTS external_referral JSONB
+  `);
+  await client.query(`
+    ALTER TABLE medical_records
+      ADD COLUMN IF NOT EXISTS emergency_case_id VARCHAR(64)
+        REFERENCES emergency_cases(id) ON UPDATE CASCADE ON DELETE SET NULL
+  `);
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_records_emergency_case
+      ON medical_records (emergency_case_id)
+      WHERE emergency_case_id IS NOT NULL
+  `);
+}
+
+async function saveEmergencyRecord(client, emergencyCase, recordData = {}, mode = 'completed') {
+  const existingRecord = await client.query(
+    'SELECT id FROM medical_records WHERE emergency_case_id = $1 LIMIT 1',
+    [emergencyCase.id],
+  );
+  const explicitDiagnosis = String(recordData.diagnosis || '').trim();
+  const diagnosis = explicitDiagnosis || (mode === 'referred' ? 'Referred' : String(emergencyCase.diagnosis || '').trim() || 'N/A');
+  const notes = [
+    mode === 'referred' ? 'Emergency case referred to an outside facility.' : 'Emergency case completed.',
+    emergencyCase.chief_complaint ? `Chief complaint: ${emergencyCase.chief_complaint}.` : '',
+    emergencyCase.critical_notes ? `Critical notes: ${emergencyCase.critical_notes}.` : '',
+    emergencyCase.arrival_method ? `Arrival method: ${emergencyCase.arrival_method}.` : '',
+    recordData.notes ? `Clinical notes: ${String(recordData.notes).trim()}.` : '',
+  ].filter(Boolean).join(' ');
+
+  if (existingRecord.rows[0]?.id) {
+    const recordId = existingRecord.rows[0].id;
+    await client.query(
+      `UPDATE medical_records
+       SET diagnosis = CASE WHEN $2 THEN $3 ELSE diagnosis END,
+           notes = CASE WHEN $4 THEN $5 ELSE notes END,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [recordId, Boolean(explicitDiagnosis || mode === 'referred'), diagnosis, Boolean(recordData.notes || mode === 'referred'), notes],
+    );
+    return recordId;
+  }
+
+  const recordId = workflowId('R');
+  await client.query(
+    `INSERT INTO medical_records
+      (id, emergency_case_id, patient_id, patient_name, doctor_id, doctor_name, visit_date, diagnosis, symptoms, vitals, prescription, lab_tests, notes)
+     VALUES ($1, $2, $3, $4, NULL, $5, CURRENT_DATE, $6, $7, $8, '[]'::jsonb, '[]'::jsonb, $9)`,
+    [
+      recordId,
+      emergencyCase.id,
+      emergencyCase.patient_id,
+      emergencyCase.patient_name,
+      emergencyCase.attending_doctor || 'Emergency clinician',
+      diagnosis,
+      JSON.stringify(emergencyCase.chief_complaint ? [emergencyCase.chief_complaint] : []),
+      JSON.stringify(emergencyCase.vitals || {}),
+      notes,
+    ],
+  );
+  return recordId;
+}
+
+export async function completeEmergencyCase(emergencyCaseId, recordData = {}) {
+  requireValue(emergencyCaseId, 'emergencyCaseId');
+  return withTransaction(async client => {
+    await ensureEmergencyAssessmentColumns(client);
+    const caseResult = await client.query('SELECT * FROM emergency_cases WHERE id = $1 FOR UPDATE', [emergencyCaseId]);
+    const emergencyCase = caseResult.rows[0];
+    if (!emergencyCase) throw workflowError('Emergency case not found', 404);
+
+    const recordId = await saveEmergencyRecord(client, emergencyCase, recordData, 'completed');
+
+    await client.query(
+      `UPDATE emergency_cases
+       SET status = 'Discharged', diagnosis = CASE WHEN NULLIF($2, '') IS NOT NULL THEN $2 ELSE diagnosis END, updated_at = NOW()
+       WHERE id = $1`,
+      [emergencyCaseId, String(recordData.diagnosis || '').trim()],
+    );
+    await client.query(
+      `UPDATE queue_items
+       SET stage = 'Completed', completed_at = $1,
+           request_notes = 'Emergency case completed and encounter filed in Medical Records.',
+           updated_at = NOW()
+       WHERE patient_id = $2
+         AND stage IN ('Reception', 'Nurse Triage', 'Doctor Consultation', 'Emergency')`,
+      [nowTime(), emergencyCase.patient_id],
+    );
+    const updated = await client.query('SELECT * FROM emergency_cases WHERE id = $1', [emergencyCaseId]);
+    return { recordId, emergencyCase: updated.rows[0] };
+  });
+}
+
+export async function referEmergencyCase(emergencyCaseId, referralData = {}, user) {
+  requireValue(emergencyCaseId, 'emergencyCaseId');
+  requireValue(referralData.destination, 'Referral destination');
+  requireValue(referralData.reason, 'Referral reason');
+  return withTransaction(async client => {
+    await ensureEmergencyAssessmentColumns(client);
+    const caseResult = await client.query('SELECT * FROM emergency_cases WHERE id = $1 FOR UPDATE', [emergencyCaseId]);
+    const emergencyCase = caseResult.rows[0];
+    if (!emergencyCase) throw workflowError('Emergency case not found', 404);
+
+    const referral = {
+      destination: String(referralData.destination).trim(),
+      reason: String(referralData.reason).trim(),
+      referredAt: new Date().toISOString(),
+      referredBy: String(user?.name || emergencyCase.attending_doctor || 'Emergency clinician'),
+    };
+    const recordId = await saveEmergencyRecord(client, emergencyCase, {
+      diagnosis: 'Referred',
+      notes: `Referral destination: ${referral.destination}. Reason: ${referral.reason}`,
+    }, 'referred');
+
+    await client.query(
+      `UPDATE emergency_cases
+       SET status = 'Transferred', diagnosis = 'Referred', external_referral = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [emergencyCaseId, JSON.stringify(referral)],
+    );
+    await client.query(
+      `UPDATE queue_items
+       SET stage = 'Completed', completed_at = $1,
+           request_notes = $2, updated_at = NOW()
+       WHERE patient_id = $3
+         AND stage IN ('Reception', 'Nurse Triage', 'Doctor Consultation', 'Emergency')`,
+      [nowTime(), `Emergency referral recorded to ${referral.destination}.`, emergencyCase.patient_id],
+    );
+    const updated = await client.query('SELECT * FROM emergency_cases WHERE id = $1', [emergencyCaseId]);
+    return { recordId, referral, emergencyCase: updated.rows[0] };
   });
 }
 

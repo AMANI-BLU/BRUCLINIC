@@ -71,6 +71,7 @@ export interface MedicalRecord {
   notes: string;
   followUpDate?: string;
   queueItemId?: string;
+  emergencyCaseId?: string;
   vitals?: Vitals;
   externalReferral?: {
     destination: string;
@@ -238,6 +239,13 @@ export interface ERCase {
   attendingDoctor: string;
   status: 'In Treatment' | 'Stabilized' | 'Admitted to Ward' | 'Discharged' | 'Transferred';
   criticalNotes?: string;
+  diagnosis?: string;
+  externalReferral?: {
+    destination: string;
+    reason: string;
+    referredBy?: string;
+    referredAt?: string;
+  };
 }
 
 export interface EmergencyBay {

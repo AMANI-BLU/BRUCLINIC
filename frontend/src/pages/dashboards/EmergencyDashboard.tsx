@@ -7,10 +7,11 @@ import type { ERCase, EmergencyBay, Priority, TriageAcuity } from '../../types';
 import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
 import MedicineSearchSelect from '../../components/MedicineSearchSelect';
+import ConfirmModal from '../../components/ConfirmModal';
 import './EmergencyDashboard.css';
 import {
   AlertTriangle, Activity, Bed, CheckCircle2, ShieldAlert, X,
-  Plus, FlaskConical, Pill, Trash2
+  Plus, FlaskConical, Pill, Trash2, Building2
 } from 'lucide-react';
 
 const DEFAULT_ER_BAYS: EmergencyBay[] = [
@@ -42,12 +43,19 @@ function emptyMedicineLine(): EmergencyMedicineLine {
 export default function EmergencyDashboard() {
   const {
     erCases, emergencyBays, patients, medicines,
-    addERCase, updateERCase, addEmergencyBay, addLabOrder, addPharmacyOrder,
+    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, addPharmacyOrder,
   } = useClinic();
   const { currentUser } = useAuth();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [bayModalOpen, setBayModalOpen] = useState(false);
+  const [bayToDelete, setBayToDelete] = useState<EmergencyBay | null>(null);
+  const [completionCase, setCompletionCase] = useState<ERCase | null>(null);
+  const [completionDiagnosis, setCompletionDiagnosis] = useState('');
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [referralCase, setReferralCase] = useState<ERCase | null>(null);
+  const [referralDestination, setReferralDestination] = useState('');
+  const [referralReason, setReferralReason] = useState('');
   const [labOrderCase, setLabOrderCase] = useState<ERCase | null>(null);
   const [pharmacyOrderCase, setPharmacyOrderCase] = useState<ERCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
@@ -78,6 +86,7 @@ export default function EmergencyDashboard() {
   });
 
   const bays = emergencyBays.length ? emergencyBays.filter(bay => bay.active) : DEFAULT_ER_BAYS;
+  const isPersistedBay = (bay: EmergencyBay) => emergencyBays.some(item => item.id === bay.id);
   const activeCases = erCases.filter(c => c.status !== 'Discharged' && c.status !== 'Transferred');
   const redCases = activeCases.filter(c => c.acuity === 'Red');
   const yellowCases = activeCases.filter(c => c.acuity === 'Yellow');
@@ -130,12 +139,68 @@ export default function EmergencyDashboard() {
 
   const handleUpdateStatus = async (id: string, status: ERCase['status']) => {
     try {
-      await updateERCase(id, { status });
+      if (status === 'Discharged') {
+        await completeEmergencyCase(id);
+      } else {
+        await updateERCase(id, { status });
+      }
       if (selectedCase && selectedCase.id === id) {
         setSelectedCase({ ...selectedCase, status });
       }
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not update the emergency case.');
+    }
+  };
+
+  const openCompletion = (caseItem: ERCase) => {
+    setCompletionCase(caseItem);
+    setCompletionDiagnosis(caseItem.diagnosis || '');
+    setCompletionNotes('');
+    setFormError(null);
+  };
+
+  const handleCompleteCase = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!completionCase) return;
+    try {
+      await completeEmergencyCase(completionCase.id, {
+        diagnosis: completionDiagnosis.trim(),
+        notes: completionNotes.trim(),
+      });
+      setCompletionCase(null);
+      setFormError(null);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not complete the emergency case.');
+    }
+  };
+
+  const openReferral = (caseItem: ERCase) => {
+    setReferralCase(caseItem);
+    setReferralDestination('');
+    setReferralReason('');
+    setOrderError(null);
+  };
+
+  const handleReferral = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!referralCase) return;
+    const error = firstError(...Object.values(validateRequired(
+      { destination: referralDestination, reason: referralReason },
+      { destination: 'Referral destination', reason: 'Referral reason' },
+    )));
+    if (error) {
+      setOrderError(error);
+      return;
+    }
+    try {
+      await referEmergencyCase(referralCase.id, {
+        destination: referralDestination.trim(),
+        reason: referralReason.trim(),
+      });
+      setReferralCase(null);
+      setOrderError(null);
+    } catch (cause) {
+      setOrderError(cause instanceof Error ? cause.message : 'Could not record the emergency referral.');
     }
   };
 
@@ -153,6 +218,18 @@ export default function EmergencyDashboard() {
       setBayModalOpen(false);
     } catch (cause) {
       setOrderError(cause instanceof Error ? cause.message : 'Could not add the emergency bay.');
+    }
+  };
+
+  const handleDeleteBay = async () => {
+    if (!bayToDelete) return;
+    try {
+      await deleteEmergencyBay(bayToDelete.id);
+      setBayToDelete(null);
+      setOrderError(null);
+    } catch (cause) {
+      setOrderError(cause instanceof Error ? cause.message : 'Could not delete the emergency bay.');
+      setBayToDelete(null);
     }
   };
 
@@ -328,13 +405,29 @@ export default function EmergencyDashboard() {
                   position: 'relative',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.45rem', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--clr-text-primary)' }}>
                     {bay.name.split(' (')[0]}
                   </span>
-                  <span className={`badge ${isOccupied ? (occupant.acuity === 'Red' ? 'badge-red' : 'badge-amber') : 'badge-green'}`}>
-                    {isOccupied ? occupant.acuity.toUpperCase() : 'VACANT'}
-                  </span>
+                  <div className="emergency-bay-header-actions">
+                    <span className={`badge ${isOccupied ? (occupant.acuity === 'Red' ? 'badge-red' : 'badge-amber') : 'badge-green'}`}>
+                      {isOccupied ? occupant.acuity.toUpperCase() : 'VACANT'}
+                    </span>
+                    {!isOccupied && isPersistedBay(bay) && (
+                      <button
+                        type="button"
+                        className="emergency-bay-delete"
+                        onClick={event => {
+                          event.stopPropagation();
+                          setBayToDelete(bay);
+                        }}
+                        aria-label={`Delete ${bay.name}`}
+                        title="Delete vacant bay"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)', marginBottom: '0.5rem' }}>
@@ -359,7 +452,7 @@ export default function EmergencyDashboard() {
                       style={{ marginTop: '0.65rem', fontSize: '0.72rem' }}
                       onClick={event => {
                         event.stopPropagation();
-                        void handleUpdateStatus(occupant.id, 'Discharged');
+                        openCompletion(occupant);
                       }}
                     >
                       <CheckCircle2 size={12} /> Complete bay
@@ -474,8 +567,15 @@ export default function EmergencyDashboard() {
                           Ward
                         </button>
                         <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => openReferral(c)}
+                          title="Refer patient to an outside facility"
+                        >
+                          <Building2 size={13} /> Refer
+                        </button>
+                        <button
                           className="btn btn-success btn-sm"
-                          onClick={() => handleUpdateStatus(c.id, 'Discharged')}
+                          onClick={() => openCompletion(c)}
                           title="Complete case and free the bay"
                         >
                           <CheckCircle2 size={13} /> Complete
@@ -668,16 +768,113 @@ export default function EmergencyDashboard() {
                 </div>
                 <label className="emergency-bay-oxygen-option">
                   <input
-                    className="emergency-bay-oxygen-checkbox"
+                    className="emergency-bay-oxygen-input"
                     type="checkbox"
                     checked={bayForm.oxygenPort}
                     onChange={e => setBayForm({ ...bayForm, oxygenPort: e.target.checked })}
                   />
+                  <span className="emergency-bay-checkbox-box" aria-hidden="true" />
                   <span>Oxygen port available</span>
                 </label>
                 <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setBayModalOpen(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary"><Plus size={15} /> Add Bay</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      <ConfirmModal
+        isOpen={Boolean(bayToDelete)}
+        title="Delete vacant bay?"
+        message={`Delete ${bayToDelete?.name || 'this bay'}? This action cannot be undone.`}
+        confirmText="Delete bay"
+        variant="danger"
+        icon="trash"
+        onClose={() => setBayToDelete(null)}
+        onConfirm={handleDeleteBay}
+      />
+
+      {completionCase && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setCompletionCase(null)}>
+            <div className="modal" style={{ maxWidth: 560, width: '100%' }} onClick={event => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title"><CheckCircle2 size={17} className="text-primary" /> Complete ER Case</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setCompletionCase(null)} aria-label="Close dialog"><X size={16} /></button>
+              </div>
+              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
+                Patient: <strong>{completionCase.patientName}</strong> · {completionCase.id}
+              </div>
+              <form onSubmit={handleCompleteCase} noValidate>
+                {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emergency-completion-diagnosis">Diagnosis</label>
+                  <input
+                    id="emergency-completion-diagnosis"
+                    value={completionDiagnosis}
+                    onChange={event => setCompletionDiagnosis(event.target.value)}
+                    placeholder="Enter diagnosis, or leave blank for N/A"
+                  />
+                  <small style={{ color: 'var(--clr-text-muted)', fontSize: '0.72rem' }}>The diagnosis is saved in Medical Records when the case is completed.</small>
+                </div>
+                <div className="form-group" style={{ marginTop: '0.85rem' }}>
+                  <label className="form-label" htmlFor="emergency-completion-notes">Clinical notes</label>
+                  <textarea
+                    id="emergency-completion-notes"
+                    rows={3}
+                    value={completionNotes}
+                    onChange={event => setCompletionNotes(event.target.value)}
+                    placeholder="Treatment and outcome notes"
+                  />
+                </div>
+                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setCompletionCase(null)}>Cancel</button>
+                  <button type="submit" className="btn btn-success"><CheckCircle2 size={15} /> Complete &amp; Save Record</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {referralCase && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setReferralCase(null)}>
+            <div className="modal" style={{ maxWidth: 560, width: '100%' }} onClick={event => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title"><Building2 size={17} className="text-primary" /> Refer Emergency Case</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setReferralCase(null)} aria-label="Close dialog"><X size={16} /></button>
+              </div>
+              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
+                Patient: <strong>{referralCase.patientName}</strong> · {referralCase.id}
+              </div>
+              <form onSubmit={handleReferral} noValidate>
+                {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emergency-referral-destination">Referral destination *</label>
+                  <input
+                    id="emergency-referral-destination"
+                    value={referralDestination}
+                    onChange={event => setReferralDestination(event.target.value)}
+                    placeholder="Hospital or specialist facility"
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: '0.85rem' }}>
+                  <label className="form-label" htmlFor="emergency-referral-reason">Referral reason *</label>
+                  <textarea
+                    id="emergency-referral-reason"
+                    rows={3}
+                    value={referralReason}
+                    onChange={event => setReferralReason(event.target.value)}
+                    placeholder="Why the patient is being referred"
+                  />
+                </div>
+                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setReferralCase(null)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary"><Building2 size={15} /> Refer &amp; Save Record</button>
                 </div>
               </form>
             </div>

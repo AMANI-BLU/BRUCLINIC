@@ -380,6 +380,18 @@ export function createResourceHandler(resource) {
     if (request.method === 'DELETE' && id) {
       try {
         const existingItem = await findResource(resource, id);
+        if (resource === 'emergencyBays' && existingItem) {
+          const assignedCase = await query(
+            `SELECT id FROM emergency_cases
+             WHERE (bed_number = $1 OR bed_number LIKE $1 || '%')
+               AND status NOT IN ('Discharged', 'Transferred')
+             LIMIT 1`,
+            [existingItem.name],
+          );
+          if (assignedCase.rows.length) {
+            return sendError(response, 409, 'This bay is assigned to an active emergency case and cannot be deleted.');
+          }
+        }
         const item = await deleteResource(resource, id);
         if (item) {
           auditResourceMutation(request, resource, 'DELETE', id, null);

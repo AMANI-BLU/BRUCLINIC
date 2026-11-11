@@ -1,6 +1,7 @@
 import {
-  completeOpdConsultation, createCardToOpdRequest, dispensePharmacyOrder,
+  completeEmergencyCase, completeOpdConsultation, createCardToOpdRequest, dispensePharmacyOrder,
   referOutside, saveOpdAssessment, sendOpdToLabRequest, sendOpdToPharmacyRequest,
+  referEmergencyCase, transferToEmergency,
 } from '../services/clinicWorkflows.js';
 import { sendError, sendJson } from '../utils/http.js';
 import { assertPlainObject, validateEnum, validateText } from '../utils/validation.js';
@@ -10,9 +11,12 @@ const queuePriorities = ['Normal', 'Urgent', 'Emergency'];
 
 const handlers = {
   'card-to-opd': { roles: ['admin', 'receptionist'], run: request => createCardToOpdRequest(request.body) },
+  'transfer-to-emergency': { roles: ['admin', 'receptionist', 'opd'], run: request => transferToEmergency(request.body.queueItemId, request.body, request.user) },
   'opd-to-lab': { roles: ['admin', 'opd'], run: request => sendOpdToLabRequest(request.body.queueItemId, request.body) },
   'opd-to-pharmacy': { roles: ['admin', 'opd'], run: request => sendOpdToPharmacyRequest(request.body.queueItemId, request.body) },
   'complete-consultation': { roles: ['admin', 'opd'], run: request => completeOpdConsultation(request.body.queueItemId, request.body.recordData) },
+  'complete-emergency': { roles: ['admin', 'emergency'], run: request => completeEmergencyCase(request.body.emergencyCaseId, request.body) },
+  'refer-emergency': { roles: ['admin', 'emergency'], run: request => referEmergencyCase(request.body.emergencyCaseId, request.body, request.user) },
   'save-assessment': { roles: ['admin', 'opd'], run: request => saveOpdAssessment(request.body.queueItemId, request.body.recordData) },
   'refer-outside': { roles: ['admin', 'opd'], run: request => referOutside(request.body.queueItemId, request.body) },
   'dispense-pharmacy': { roles: ['admin', 'pharmacy'], run: request => dispensePharmacyOrder(request.body.orderId, request.body.dispensedBy, request.body.overrides, request.body.externalItems, request.body.quantities) },
@@ -57,6 +61,20 @@ export async function workflowHandler(request, response, segments) {
     validateText(request.body.recordData.patientName, 'Patient name', { required: true, max: 150 });
     validateText(request.body.recordData.doctorName, 'Doctor name', { required: true, max: 150 });
     validateText(request.body.recordData.diagnosis, 'Diagnosis', { required: true, max: 1000 });
+  }
+  if (action === 'complete-emergency') {
+    validateText(request.body.emergencyCaseId, 'Emergency case', { required: true, max: 80 });
+  }
+  if (action === 'refer-emergency') {
+    validateText(request.body.emergencyCaseId, 'Emergency case', { required: true, max: 80 });
+    validateText(request.body.destination, 'Referral destination', { required: true, max: 200 });
+    validateText(request.body.reason, 'Referral reason', { required: true, max: 2000 });
+    validateText(request.body.diagnosis, 'Diagnosis', { required: false, max: 1000 });
+  }
+  if (action === 'transfer-to-emergency') {
+    validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });
+    validateEnum(request.body.acuity, 'Acuity', ['Red', 'Yellow', 'Green']);
+    validateText(request.body.chiefComplaint, 'Chief complaint', { required: false, max: 2000 });
   }
   if (action === 'save-assessment') {
     validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });

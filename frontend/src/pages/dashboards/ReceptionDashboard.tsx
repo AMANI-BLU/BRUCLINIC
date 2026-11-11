@@ -15,7 +15,7 @@ import InfoBox from '../../components/AdminLTE/InfoBox';
 export default function ReceptionDashboard() {
   const {
     patients, doctors, queue,
-    sendCardToOpdRequest, updateQueueItem, removeFromQueue, addPatient, addERCase, refresh
+    sendCardToOpdRequest, updateQueueItem, removeFromQueue, addPatient, transferToEmergency
   } = useClinic();
 
   const [search, setSearch] = useState('');
@@ -208,29 +208,17 @@ export default function ReceptionDashboard() {
         return;
       }
       try {
-        const age = Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear());
-        await addERCase({
-          patientId: patient.id,
-          patientName: patientFullName(patient),
-          age,
-          gender: patient.gender,
+        await transferToEmergency(item.id, {
           arrivalMethod: 'Walk-in',
           acuity: item.priority === 'Emergency' ? 'Red' : 'Yellow',
           chiefComplaint: item.chiefComplaint || 'Urgent assessment requested by Reception',
           bedNumber: 'Bay 02 (Resus/Trauma 2)',
           vitals: item.vitals || {},
           attendingDoctor: 'Emergency clinician',
-          status: 'In Treatment',
           criticalNotes: 'Fast-tracked from Reception.',
-        });
-        await updateQueueItem(item.id, {
-          stage: 'Emergency',
-          priority: 'Emergency',
           requestSource: 'Card Room',
-          requestDestination: 'Emergency',
           requestNotes: 'Patient admitted to Emergency from Reception.',
         });
-        await refresh({ silent: true });
         window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient transferred to Emergency.' }));
       } catch (cause) {
         setFormError(cause instanceof Error ? cause.message : 'Could not transfer the patient to Emergency.');

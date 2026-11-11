@@ -41,9 +41,9 @@ function calculateAge(dateOfBirth?: string): number | undefined {
 
 export default function OpdDashboard() {
   const {
-    queue, records, medicines, patients, doctors,
+    queue, records, medicines, patients, doctors, erCases,
     updateQueueItem, sendOpdToLabRequest, sendOpdToPharmacyRequest,
-    completeOpdConsultation, saveOpdAssessment, referOutside, addERCase, refresh
+    completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency
   } = useClinic();
   const { currentUser } = useAuth();
 
@@ -142,31 +142,40 @@ export default function OpdDashboard() {
     return false;
   }, [currentUser, doctors]);
 
+  // A legacy or interrupted transfer can leave the queue row behind after
+  // the ER case was created. Hide that patient from OPD while the ER case is
+  // active so one patient cannot appear in two active departments.
+  const activeEmergencyPatientIds = useMemo(
+    () => new Set(erCases.filter(c => c.status !== 'Discharged' && c.status !== 'Transferred').map(c => c.patientId)),
+    [erCases],
+  );
+
   // Categorized lists filtered by assigned doctor when in "my" scope
   const waitingForDoctor = queue.filter(q =>
-    q.stage === 'Doctor Consultation' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+    q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
   );
   const atLaboratory = queue.filter(q =>
-    q.stage === 'Laboratory' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+    q.stage === 'Laboratory' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
   );
   const atPharmacy = queue.filter(q =>
-    q.stage === 'Pharmacy' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+    q.stage === 'Pharmacy' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
   );
   const completedToday = queue.filter(q =>
     q.stage === 'Completed' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
   );
 
   const totalAssignedToMe = useMemo(() => {
-    return queue.filter(q => q.stage === 'Doctor Consultation' && isAssignedToCurrentDoctor(q)).length;
-  }, [queue, isAssignedToCurrentDoctor]);
+    return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && isAssignedToCurrentDoctor(q)).length;
+  }, [queue, activeEmergencyPatientIds, isAssignedToCurrentDoctor]);
 
   const totalOpdDoctorQueue = useMemo(() => {
-    return queue.filter(q => q.stage === 'Doctor Consultation').length;
-  }, [queue]);
+    return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId)).length;
+  }, [queue, activeEmergencyPatientIds]);
 
   // Filtered list for the doctor station
   const doctorStationQueue = queue.filter(q => {
     if (doctorQueueScope === 'my' && !isAssignedToCurrentDoctor(q)) return false;
+    if (activeEmergencyPatientIds.has(q.patientId)) return false;
     if (opdTabFilter === 'completed') {
       return q.stage === 'Completed';
     }
@@ -434,30 +443,18 @@ export default function OpdDashboard() {
   const executeTransferToER = async () => {
     if (!selectedQueueItem) return;
     try {
-      const patient = patients.find(item => item.id === selectedQueueItem.patientId);
-      await addERCase({
-        patientId: selectedQueueItem.patientId,
-        patientName: selectedQueueItem.patientName,
-        age: patient ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()) : 0,
-        gender: patient?.gender || 'Male',
+      await transferToEmergency(selectedQueueItem.id, {
         arrivalMethod: 'OPD Referral',
         acuity: 'Red',
         chiefComplaint: `OPD Emergency Referral: ${selectedQueueItem.chiefComplaint}. ${consultation.clinicalNotes}`,
         bedNumber: 'Bay 02 (Acute)',
         vitals: vitalsForm,
         attendingDoctor: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
-        status: 'In Treatment',
+        diagnosis: consultation.diagnosis.trim() || selectedQueueItem.doctorDiagnosis || '',
         criticalNotes: 'Referred urgently from OPD Consultation.',
-      });
-
-      await updateQueueItem(selectedQueueItem.id, {
-        stage: 'Emergency',
-        priority: 'Emergency',
         requestSource: 'OPD Consultation',
-        requestDestination: 'Emergency',
         requestNotes: 'URGENT: Patient transferred to Emergency Room by OPD Doctor',
       });
-      await refresh({ silent: true });
       setFormError(null);
       setSelectedQueueItem(null);
       window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient transferred to Emergency and Emergency staff notified.' }));
