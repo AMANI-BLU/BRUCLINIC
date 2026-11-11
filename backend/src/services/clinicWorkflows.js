@@ -499,7 +499,7 @@ export async function referEmergencyCase(emergencyCaseId, referralData = {}, use
       referredBy: String(user?.name || emergencyCase.attending_doctor || 'Emergency clinician'),
     };
     const recordId = await saveEmergencyRecord(client, emergencyCase, {
-      diagnosis: 'Referred',
+      diagnosis: String(referralData.diagnosis || '').trim() || 'Referred',
       notes: `Referral destination: ${referral.destination}. Reason: ${referral.reason}`,
     }, 'referred');
 

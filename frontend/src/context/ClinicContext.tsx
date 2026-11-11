@@ -35,7 +35,7 @@ interface ClinicContextType {
   addERCase: (item: Omit<ERCase, 'id' | 'arrivalTime'>) => Promise<ERCase>;
   updateERCase: (id: string, changes: Partial<ERCase>) => Promise<void>;
   completeEmergencyCase: (id: string, recordData?: { diagnosis?: string; notes?: string }) => Promise<void>;
-  referEmergencyCase: (id: string, data: { destination: string; reason: string }) => Promise<void>;
+  referEmergencyCase: (id: string, data: { destination: string; reason: string; diagnosis?: string }) => Promise<void>;
   addEmergencyBay: (bay: Omit<EmergencyBay, 'id' | 'createdAt' | 'updatedAt'>) => Promise<EmergencyBay>;
   deleteEmergencyBay: (id: string) => Promise<void>;
   addLabOrder: (order: Omit<LabOrder, 'id' | 'orderedAt'>) => Promise<LabOrder>;
@@ -251,7 +251,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     await refresh({ silent: true });
     notifyActionSuccess('Emergency case completed and added to Medical Records');
   }, [refresh, token]);
-  const referEmergencyCase = useCallback(async (id: string, data: { destination: string; reason: string }) => {
+  const referEmergencyCase = useCallback(async (id: string, data: { destination: string; reason: string; diagnosis?: string }) => {
     await apiPost('/workflows/refer-emergency', { emergencyCaseId: id, ...data }, token);
     await refresh({ silent: true });
     notifyActionSuccess('Emergency referral recorded and added to Medical Records');

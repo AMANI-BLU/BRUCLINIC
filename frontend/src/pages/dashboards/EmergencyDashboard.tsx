@@ -56,6 +56,7 @@ export default function EmergencyDashboard() {
   const [referralCase, setReferralCase] = useState<ERCase | null>(null);
   const [referralDestination, setReferralDestination] = useState('');
   const [referralReason, setReferralReason] = useState('');
+  const [referralDiagnosis, setReferralDiagnosis] = useState('');
   const [labOrderCase, setLabOrderCase] = useState<ERCase | null>(null);
   const [pharmacyOrderCase, setPharmacyOrderCase] = useState<ERCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
@@ -178,6 +179,7 @@ export default function EmergencyDashboard() {
     setReferralCase(caseItem);
     setReferralDestination('');
     setReferralReason('');
+    setReferralDiagnosis(caseItem.diagnosis || '');
     setOrderError(null);
   };
 
@@ -196,6 +198,7 @@ export default function EmergencyDashboard() {
       await referEmergencyCase(referralCase.id, {
         destination: referralDestination.trim(),
         reason: referralReason.trim(),
+        diagnosis: referralDiagnosis.trim(),
       });
       setReferralCase(null);
       setOrderError(null);
@@ -854,6 +857,15 @@ export default function EmergencyDashboard() {
               <form onSubmit={handleReferral} noValidate>
                 {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
                 <div className="form-group">
+                  <label className="form-label" htmlFor="emergency-referral-diagnosis">Diagnosis</label>
+                  <input
+                    id="emergency-referral-diagnosis"
+                    value={referralDiagnosis}
+                    onChange={event => setReferralDiagnosis(event.target.value)}
+                    placeholder="Enter diagnosis, or leave blank for Referred"
+                  />
+                </div>
+                <div className="form-group" style={{ marginTop: '0.85rem' }}>
                   <label className="form-label" htmlFor="emergency-referral-destination">Referral destination *</label>
                   <input
                     id="emergency-referral-destination"

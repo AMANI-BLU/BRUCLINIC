@@ -29,6 +29,7 @@ function requireResourceAccess(resource, method, request, response) {
 }
 
 let emergencyBaysReady;
+let emergencyAssessmentReady;
 
 /**
  * Keep older deployments usable when the ER-bays migration was not applied.
@@ -67,6 +68,20 @@ async function ensureEmergencyBaysTable() {
     });
   }
   return emergencyBaysReady;
+}
+
+async function ensureEmergencyAssessmentColumns() {
+  if (!emergencyAssessmentReady) {
+    emergencyAssessmentReady = query(`
+      ALTER TABLE emergency_cases
+        ADD COLUMN IF NOT EXISTS diagnosis TEXT,
+        ADD COLUMN IF NOT EXISTS external_referral JSONB
+    `).catch(error => {
+      emergencyAssessmentReady = undefined;
+      throw error;
+    });
+  }
+  return emergencyAssessmentReady;
 }
 
 /**
@@ -288,6 +303,7 @@ export function createResourceHandler(resource) {
     const id = segments[2];
     if (!requireResourceAccess(resource, request.method, request, response)) return;
     if (resource === 'emergencyBays') await ensureEmergencyBaysTable();
+    if (resource === 'emergency') await ensureEmergencyAssessmentColumns();
 
     // ── GET (list) ───────────────────────────────────────────
     if (request.method === 'GET' && !id) {
