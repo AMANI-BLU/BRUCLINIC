@@ -15,6 +15,7 @@ import { apiDownload, apiGet, apiPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useClinic } from '../context/ClinicContext';
 import type { BackupRestoreSummary, BackupRun, BackupTableStat } from '../types';
+import { formatDateTime12 } from '../utils/date';
 import './AdminBackup.css';
 
 type RestoreMode = 'merge' | 'replace';
@@ -32,14 +33,7 @@ function errorText(cause: unknown) {
 }
 
 function formatWhen(value?: string | null) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return value;
-  }
+  return value ? formatDateTime12(value, '—') : '—';
 }
 
 function totalRows(counts: Record<string, number>) {

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { withTransaction } from '../db/pool.js';
 
 function workflowId(prefix) { return `${prefix}-${randomUUID().slice(0, 8).toUpperCase()}`; }
-function nowTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+function nowTime() { return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
 function requireValue(value, name) { if (value === undefined || value === null || value === '') { const error = new Error(`${name} is required`); error.statusCode = 422; throw error; } }
 function workflowError(message, statusCode = 422) { const error = new Error(message); error.statusCode = statusCode; return error; }
 function requireDoctorQueueStage(queueItem) {

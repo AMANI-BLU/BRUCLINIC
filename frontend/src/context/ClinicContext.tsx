@@ -4,13 +4,13 @@ import { useAuth } from './AuthContext';
 import { useMaintenance } from './MaintenanceContext';
 import { useNetwork } from './NetworkContext';
 import type {
-  Appointment, ClinicQueueItem, Doctor, ERCase, LabOrder, MedicalRecord, MedicineItem, Patient, PharmacyOrder,
+  Appointment, ClinicQueueItem, Doctor, ERCase, EmergencyBay, LabOrder, MedicalRecord, MedicineItem, Patient, PharmacyOrder,
   Priority, QueuePriority, QueueStage, Vitals,
 } from '../types';
 
 interface ClinicContextType {
   patients: Patient[]; doctors: Doctor[]; appointments: Appointment[]; records: MedicalRecord[]; medicines: MedicineItem[];
-  queue: ClinicQueueItem[]; erCases: ERCase[]; labOrders: LabOrder[]; pharmacyOrders: PharmacyOrder[];
+  queue: ClinicQueueItem[]; erCases: ERCase[]; emergencyBays: EmergencyBay[]; labOrders: LabOrder[]; pharmacyOrders: PharmacyOrder[];
   loading: boolean; error: string | null; refresh: (options?: { silent?: boolean }) => Promise<void>;
   addPatient: (patient: Omit<Patient, 'id' | 'registeredAt'>) => Promise<Patient>;
   updatePatient: (id: string, changes: Partial<Patient>) => Promise<void>;
@@ -33,6 +33,7 @@ interface ClinicContextType {
   referOutside: (queueItemId: string, data: { destination: string; reason: string; doctorName: string; recordData: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>> }) => Promise<void>;
   addERCase: (item: Omit<ERCase, 'id' | 'arrivalTime'>) => Promise<ERCase>;
   updateERCase: (id: string, changes: Partial<ERCase>) => Promise<void>;
+  addEmergencyBay: (bay: Omit<EmergencyBay, 'id' | 'createdAt' | 'updatedAt'>) => Promise<EmergencyBay>;
   addLabOrder: (order: Omit<LabOrder, 'id' | 'orderedAt'>) => Promise<LabOrder>;
   updateLabOrder: (id: string, changes: Partial<LabOrder>) => Promise<void>;
   addPharmacyOrder: (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => Promise<PharmacyOrder>;
@@ -91,6 +92,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [medicines, setMedicines] = useState<MedicineItem[]>([]);
   const [queue, setQueue] = useState<ClinicQueueItem[]>([]);
   const [erCases, setErCases] = useState<ERCase[]>([]);
+  const [emergencyBays, setEmergencyBays] = useState<EmergencyBay[]>([]);
   const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
   const [pharmacyOrders, setPharmacyOrders] = useState<PharmacyOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,7 +100,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!isAuthenticated || !token || maintenance || maintenanceChecking) {
-      setPatients([]); setDoctors([]); setAppointments([]); setRecords([]); setMedicines([]); setQueue([]); setErCases([]); setLabOrders([]); setPharmacyOrders([]);
+      setPatients([]); setDoctors([]); setAppointments([]); setRecords([]); setMedicines([]); setQueue([]); setErCases([]); setEmergencyBays([]); setLabOrders([]); setPharmacyOrders([]);
       setLoading(false); setError(null);
       return;
     }
@@ -118,7 +120,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const [patientList, doctorList, appointmentList, recordList, medicineList, queueList, erList, labList, pharmacyList] = await Promise.all([
+      const [patientList, doctorList, appointmentList, recordList, medicineList, queueList, erList, bayList, labList, pharmacyList] = await Promise.all([
         safeList<Patient>('patients'),
         safeList<Doctor>('doctors'),
         safeList<Appointment>('appointments'),
@@ -126,11 +128,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         safeList<MedicineItem>('medicines'),
         safeList<ClinicQueueItem>('queue'),
         safeList<ERCase>('emergency'),
+        safeList<EmergencyBay>('emergency-bays'),
         safeList<LabOrder>('lab-orders'),
         safeList<PharmacyOrder>('pharmacy-orders'),
       ]);
       setPatients(patientList.map(normalizePatient)); setDoctors(doctorList); setAppointments(appointmentList); setRecords(recordList);
-      setMedicines(medicineList); setQueue(queueList.map(normalizeQueueItem)); setErCases(erList); setLabOrders(labList); setPharmacyOrders(pharmacyList);
+      setMedicines(medicineList); setQueue(queueList.map(normalizeQueueItem)); setErCases(erList); setEmergencyBays(bayList); setLabOrders(labList); setPharmacyOrders(pharmacyList);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to load clinic data from the database.');
     } finally { if (!silent) setLoading(false); }
@@ -148,11 +151,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     }
   }, [online, isAuthenticated, token, maintenance, maintenanceChecking, refresh]);
 
-  // Emergency and OPD workspaces need to see transfers made by another staff
-  // session without requiring a manual page reload.
+  // Department workspaces need to see transfers and orders made by another
+  // staff session without requiring a manual page reload.
   useEffect(() => {
     if (!online || !isAuthenticated || !token || maintenance || maintenanceChecking) return;
-    if (role !== 'opd' && role !== 'emergency') return;
+    if (!['opd', 'emergency', 'pharmacy', 'laboratory'].includes(role)) return;
     const interval = window.setInterval(() => {
       if (!document.hidden) void refresh({ silent: true });
     }, 5_000);
@@ -225,7 +228,18 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     return response.data;
   }, [token]);
   const updateERCase = useCallback((id: string, changes: Partial<ERCase>) => mutate(async () => { const response = await apiPatch<{ data: ERCase }>(`/emergency/${encodeURIComponent(id)}`, changes, token); setErCases(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Emergency case updated'), [mutate, token]);
-  const addLabOrder = useCallback(async (order: Omit<LabOrder, 'id' | 'orderedAt'>) => { const response = await apiPost<{ data: LabOrder }>('/lab-orders', order, token); setLabOrders(previous => [response.data, ...previous]); notifyActionSuccess('Laboratory order created'); return response.data; }, [token]);
+  const addEmergencyBay = useCallback(async (bay: Omit<EmergencyBay, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const response = await apiPost<{ data: EmergencyBay }>('/emergency-bays', bay, token);
+    setEmergencyBays(previous => [...previous, response.data].sort((a, b) => a.name.localeCompare(b.name)));
+    notifyActionSuccess('Emergency bay added');
+    return response.data;
+  }, [token]);
+  const addLabOrder = useCallback(async (order: Omit<LabOrder, 'id' | 'orderedAt'>) => {
+    const response = await apiPost<{ data: LabOrder }>('/lab-orders', { ...order, orderedAt: new Date().toISOString() }, token);
+    setLabOrders(previous => [response.data, ...previous]);
+    notifyActionSuccess('Laboratory order created');
+    return response.data;
+  }, [token]);
   const updateLabOrder = useCallback((id: string, changes: Partial<LabOrder>) => mutate(async () => {
     const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(id)}`, changes, token);
     setLabOrders(previous => previous.map(item => item.id === id ? response.data : item));
@@ -241,14 +255,19 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     }
     notifyActionSuccess(changes.status === 'Completed' ? 'Laboratory result verified' : 'Laboratory order updated');
   }), [mutate, queue, token]);
-  const addPharmacyOrder = useCallback(async (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => { const response = await apiPost<{ data: PharmacyOrder }>('/pharmacy-orders', order, token); setPharmacyOrders(previous => [response.data, ...previous]); notifyActionSuccess('Pharmacy order created'); return response.data; }, [token]);
+  const addPharmacyOrder = useCallback(async (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => {
+    const response = await apiPost<{ data: PharmacyOrder }>('/pharmacy-orders', { ...order, prescribedAt: new Date().toISOString() }, token);
+    setPharmacyOrders(previous => [response.data, ...previous]);
+    notifyActionSuccess('Pharmacy order created');
+    return response.data;
+  }, [token]);
   const dispensePharmacyOrder = useCallback(async (id: string, dispensedBy: string, overrides?: Record<string, string>, quantities?: Record<string, number>) => { await apiPost('/workflows/dispense-pharmacy', { orderId: id, dispensedBy, overrides, quantities }, token); await refresh(); notifyActionSuccess('Prescription dispensed'); }, [refresh, token]);
 
   return <ClinicContext.Provider value={{
-    patients, doctors, appointments, records, medicines, queue, erCases, labOrders, pharmacyOrders, loading, error, refresh,
+    patients, doctors, appointments, records, medicines, queue, erCases, emergencyBays, labOrders, pharmacyOrders, loading, error, refresh,
     addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, addMedicine, updateMedicineStock, updateMedicine,
     addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside,
-    addERCase, updateERCase, addLabOrder, updateLabOrder, addPharmacyOrder, dispensePharmacyOrder,
+    addERCase, updateERCase, addEmergencyBay, addLabOrder, updateLabOrder, addPharmacyOrder, dispensePharmacyOrder,
   }}>{children}</ClinicContext.Provider>;
 }
 

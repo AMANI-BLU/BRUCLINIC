@@ -30,7 +30,7 @@ export default function MaintenancePage({ message, onRefresh, onAdminAccess }: M
     setRefreshing(true);
     try {
       await onRefresh();
-      setLastChecked(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setLastChecked(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
     } finally {
       setRefreshing(false);
     }

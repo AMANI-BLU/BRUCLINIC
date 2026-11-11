@@ -249,9 +249,9 @@ export default function SecurityCenter() {
   function formatTime(ts: string | null) {
     if (!ts) return '—';
     try {
-      return new Date(ts).toLocaleString('en-GB', {
+      return new Date(ts).toLocaleString('en-US', {
         day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
       });
     } catch { return ts; }
   }

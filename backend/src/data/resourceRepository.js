@@ -75,7 +75,7 @@ const common = {
     json: ['vitals'], numbers: ['age'], search: ['patient_name', 'patient_id', 'chief_complaint', 'bed_number'], order: 'created_at DESC',
   },
   labOrders: {
-    table: 'lab_orders', prefix: 'LAB', required: ['patientId', 'patientName', 'doctorId', 'doctorName', 'orderedAt', 'testName', 'category', 'specimenType'],
+    table: 'lab_orders', prefix: 'LAB', required: ['patientId', 'patientName', 'doctorName', 'orderedAt', 'testName', 'category', 'specimenType'],
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', orderedAt: 'ordered_at', priority: 'priority',
       testName: 'test_name', category: 'category', specimenType: 'specimen_type', status: 'status', result: 'result', unit: 'unit', referenceRange: 'reference_range',
@@ -84,13 +84,22 @@ const common = {
     search: ['patient_name', 'patient_id', 'doctor_name', 'test_name'], order: 'created_at DESC',
   },
   pharmacyOrders: {
-    table: 'pharmacy_orders', prefix: 'RX', required: ['patientId', 'patientName', 'doctorId', 'doctorName', 'prescribedAt', 'medicines'], readOnly: ['createdAt'],
+    table: 'pharmacy_orders', prefix: 'RX', required: ['patientId', 'patientName', 'doctorName', 'prescribedAt', 'medicines'], readOnly: ['createdAt'],
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', prescribedAt: 'prescribed_at',
       medicines: 'medicines', status: 'status', dispensedAt: 'dispensed_at', dispensedBy: 'dispensed_by', notes: 'notes', createdAt: 'created_at',
       queueItemId: 'queue_item_id',
     },
     json: ['medicines'], search: ['patient_name', 'patient_id', 'doctor_name', 'status'], order: 'created_at DESC',
+  },
+  emergencyBays: {
+    table: 'emergency_bays', prefix: 'BAY', required: ['name', 'type'],
+    fields: {
+      id: 'id', name: 'name', type: 'type', oxygenPort: 'oxygen_port', active: 'active',
+      createdAt: 'created_at', updatedAt: 'updated_at',
+    },
+    readOnly: ['createdAt', 'updatedAt'],
+    search: ['name', 'type'], order: 'name ASC',
   },
 };
 

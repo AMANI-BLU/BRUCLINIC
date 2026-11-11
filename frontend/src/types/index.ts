@@ -240,12 +240,22 @@ export interface ERCase {
   criticalNotes?: string;
 }
 
+export interface EmergencyBay {
+  id: string;
+  name: string;
+  type: string;
+  oxygenPort: boolean;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ── Laboratory Order ──
 export interface LabOrder {
   id: string;
   patientId: string;
   patientName: string;
-  doctorId: string;
+  doctorId?: string;
   doctorName: string;
   orderedAt: string;
   priority: Priority;
@@ -268,7 +278,7 @@ export interface PharmacyOrder {
   id: string;
   patientId: string;
   patientName: string;
-  doctorId: string;
+  doctorId?: string;
   doctorName: string;
   prescribedAt: string;
   createdAt?: string;

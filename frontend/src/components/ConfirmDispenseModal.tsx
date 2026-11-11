@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pill, CheckCircle2, AlertTriangle, X, Package, AlertCircle, ShoppingBag, Printer } from 'lucide-react';
 import type { PharmacyOrder, MedicineItem } from '../types';
-import { formatDateWithFallback } from '../utils/date';
+import { formatDateTime12 } from '../utils/date';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 import ModalPortal from './ModalPortal';
 
@@ -213,7 +213,7 @@ export default function ConfirmDispenseModal({
             <div>
               <div style={{ color: 'var(--clr-text-muted)', fontSize: '0.72rem' }}>Prescribed Date</div>
               <div style={{ fontWeight: 500, color: 'var(--clr-text-primary)' }}>
-                {formatDateWithFallback(order.prescribedAt, order.createdAt)}
+                {formatDateTime12(order.prescribedAt, order.createdAt)}
               </div>
             </div>
             <div>

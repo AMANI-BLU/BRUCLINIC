@@ -15,7 +15,7 @@ import InfoBox from '../../components/AdminLTE/InfoBox';
 export default function ReceptionDashboard() {
   const {
     patients, doctors, queue,
-    sendCardToOpdRequest, updateQueueItem, removeFromQueue, addPatient
+    sendCardToOpdRequest, updateQueueItem, removeFromQueue, addPatient, addERCase, refresh
   } = useClinic();
 
   const [search, setSearch] = useState('');
@@ -195,13 +195,59 @@ export default function ReceptionDashboard() {
     }
   };
 
-  const handleForwardStage = (item: ClinicQueueItem, nextStage: QueueStage) => {
-    updateQueueItem(item.id, {
-      stage: nextStage,
-      requestSource: 'Card Room',
-      requestDestination: nextStage,
-      requestNotes: `Card Room re-routed ticket to ${nextStage}`,
-    });
+  const handleForwardStage = async (item: ClinicQueueItem, nextStage: QueueStage) => {
+    setFormError(null);
+    if (nextStage === 'Emergency') {
+      if (item.stage === 'Emergency') {
+        setFormError('This patient is already in the Emergency queue.');
+        return;
+      }
+      const patient = patients.find(entry => entry.id === item.patientId);
+      if (!patient) {
+        setFormError('The patient record could not be found.');
+        return;
+      }
+      try {
+        const age = Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear());
+        await addERCase({
+          patientId: patient.id,
+          patientName: patientFullName(patient),
+          age,
+          gender: patient.gender,
+          arrivalMethod: 'Walk-in',
+          acuity: item.priority === 'Emergency' ? 'Red' : 'Yellow',
+          chiefComplaint: item.chiefComplaint || 'Urgent assessment requested by Reception',
+          bedNumber: 'Bay 02 (Resus/Trauma 2)',
+          vitals: item.vitals || {},
+          attendingDoctor: 'Emergency clinician',
+          status: 'In Treatment',
+          criticalNotes: 'Fast-tracked from Reception.',
+        });
+        await updateQueueItem(item.id, {
+          stage: 'Emergency',
+          priority: 'Emergency',
+          requestSource: 'Card Room',
+          requestDestination: 'Emergency',
+          requestNotes: 'Patient admitted to Emergency from Reception.',
+        });
+        await refresh({ silent: true });
+        window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient transferred to Emergency.' }));
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : 'Could not transfer the patient to Emergency.');
+      }
+      return;
+    }
+
+    try {
+      await updateQueueItem(item.id, {
+        stage: nextStage,
+        requestSource: 'Card Room',
+        requestDestination: nextStage,
+        requestNotes: `Card Room re-routed ticket to ${nextStage}`,
+      });
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : `Could not route the patient to ${nextStage}.`);
+    }
   };
 
   return (
@@ -214,6 +260,7 @@ export default function ReceptionDashboard() {
           <Send size={16} /> Send to OPD
         </button>
       </div>
+      {formError && !modalOpen && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
 
       {/* KPI Cards */}
       <div className="reception-kpi-grid">

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import './LaboratoryDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
+import { formatDateTime12, formatTime12 } from '../../utils/date';
 
 const workflowSteps: LabOrder['status'][] = ['Requested', 'Sample Collected', 'Analyzing', 'Completed'];
 
@@ -88,7 +89,7 @@ export default function LaboratoryDashboard() {
       return;
     }
 
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     try {
       await updateLabOrder(resultModal.id, {
         status: 'Completed',
@@ -147,8 +148,8 @@ export default function LaboratoryDashboard() {
           <div><strong>Order ID:</strong> ${order.id}</div>
           <div><strong>Requesting Clinician:</strong> ${order.doctorName}</div>
           <div><strong>Specimen:</strong> ${order.specimenType} (${order.category})</div>
-          <div><strong>Ordered:</strong> ${order.orderedAt}</div>
-          <div><strong>Verified:</strong> ${order.completedAt || 'Completed today'}</div>
+          <div><strong>Ordered:</strong> ${formatDateTime12(order.orderedAt)}</div>
+          <div><strong>Verified:</strong> ${order.completedAt ? formatTime12(order.completedAt) : 'Completed today'}</div>
         </div>
         <div class="result-box">
           <div class="result-title">Investigation: ${order.testName}</div>

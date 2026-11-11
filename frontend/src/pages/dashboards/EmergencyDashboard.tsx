@@ -3,33 +3,60 @@ import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import ModalPortal from '../../components/ModalPortal';
 import { useAuth } from '../../context/AuthContext';
-import type { ERCase, TriageAcuity } from '../../types';
+import type { ERCase, EmergencyBay, Priority, TriageAcuity } from '../../types';
 import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
+import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import {
-  AlertTriangle, Activity, Bed,
-  CheckCircle2, ShieldAlert, X
+  AlertTriangle, Activity, Bed, CheckCircle2, ShieldAlert, X,
+  Plus, FlaskConical, Pill, Trash2
 } from 'lucide-react';
 
-const ER_BAYS = [
-  { id: 'Bay 01', name: 'Bay 01 (Resus/Trauma 1)', type: 'Critical', oxy: true },
-  { id: 'Bay 02', name: 'Bay 02 (Resus/Trauma 2)', type: 'Critical', oxy: true },
-  { id: 'Bay 03', name: 'Bay 03 (Acute Surgery)', type: 'Acute', oxy: true },
-  { id: 'Bay 04', name: 'Bay 04 (Acute Medical)', type: 'Acute', oxy: true },
-  { id: 'Bay 05', name: 'Bay 05 (Observation)', type: 'Observation', oxy: false },
-  { id: 'Bay 06', name: 'Bay 06 (Observation)', type: 'Observation', oxy: false },
-  { id: 'Bay 07', name: 'Bay 07 (Isolation / Fever)', type: 'Isolation', oxy: true },
-  { id: 'Bay 08', name: 'Bay 08 (Step-down)', type: 'Step-down', oxy: false },
+const DEFAULT_ER_BAYS: EmergencyBay[] = [
+  { id: 'BAY-01', name: 'Bay 01 (Resus/Trauma 1)', type: 'Critical', oxygenPort: true, active: true },
+  { id: 'BAY-02', name: 'Bay 02 (Resus/Trauma 2)', type: 'Critical', oxygenPort: true, active: true },
+  { id: 'BAY-03', name: 'Bay 03 (Acute Surgery)', type: 'Acute', oxygenPort: true, active: true },
+  { id: 'BAY-04', name: 'Bay 04 (Acute Medical)', type: 'Acute', oxygenPort: true, active: true },
+  { id: 'BAY-05', name: 'Bay 05 (Observation)', type: 'Observation', oxygenPort: false, active: true },
+  { id: 'BAY-06', name: 'Bay 06 (Observation)', type: 'Observation', oxygenPort: false, active: true },
+  { id: 'BAY-07', name: 'Bay 07 (Isolation / Fever)', type: 'Isolation', oxygenPort: true, active: true },
+  { id: 'BAY-08', name: 'Bay 08 (Step-down)', type: 'Step-down', oxygenPort: false, active: true },
 ];
 
+interface EmergencyMedicineLine {
+  name: string;
+  medicineId?: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+  instructions: string;
+  isExternal?: boolean;
+}
+
+function emptyMedicineLine(): EmergencyMedicineLine {
+  return { name: '', medicineId: undefined, dosage: '', frequency: '', duration: '', quantity: 1, instructions: '' };
+}
+
 export default function EmergencyDashboard() {
-  const { erCases, patients, addERCase, updateERCase } = useClinic();
+  const {
+    erCases, emergencyBays, patients, medicines,
+    addERCase, updateERCase, addEmergencyBay, addLabOrder, addPharmacyOrder,
+  } = useClinic();
   const { currentUser } = useAuth();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [bayModalOpen, setBayModalOpen] = useState(false);
+  const [labOrderCase, setLabOrderCase] = useState<ERCase | null>(null);
+  const [pharmacyOrderCase, setPharmacyOrderCase] = useState<ERCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [filterAcuity, setFilterAcuity] = useState<string>('All');
+  const [bayForm, setBayForm] = useState({ name: '', type: 'Observation', oxygenPort: false });
+  const [labForm, setLabForm] = useState({ testName: '', category: 'Hematology', specimenType: 'Blood', priority: 'High' as Priority, notes: '' });
+  const [medicineLines, setMedicineLines] = useState<EmergencyMedicineLine[]>([emptyMedicineLine()]);
+  const [pharmacyNotes, setPharmacyNotes] = useState('');
 
   // New emergency admission form
   const [newCase, setNewCase] = useState({
@@ -49,10 +76,12 @@ export default function EmergencyDashboard() {
     criticalNotes: '',
   });
 
-  const redCases = erCases.filter(c => c.acuity === 'Red');
-  const yellowCases = erCases.filter(c => c.acuity === 'Yellow');
-  const greenCases = erCases.filter(c => c.acuity === 'Green');
-  const displayedCases = erCases.filter(c => filterAcuity === 'All' || c.acuity === filterAcuity);
+  const bays = emergencyBays.length ? emergencyBays.filter(bay => bay.active) : DEFAULT_ER_BAYS;
+  const activeCases = erCases.filter(c => c.status !== 'Discharged' && c.status !== 'Transferred');
+  const redCases = activeCases.filter(c => c.acuity === 'Red');
+  const yellowCases = activeCases.filter(c => c.acuity === 'Yellow');
+  const greenCases = activeCases.filter(c => c.acuity === 'Green');
+  const displayedCases = activeCases.filter(c => filterAcuity === 'All' || c.acuity === filterAcuity);
 
   const handleCreateAdmission = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +98,9 @@ export default function EmergencyDashboard() {
       return;
     }
     try {
+      const selectedBayName = bays.some(bay => bay.name === newCase.bedNumber)
+        ? newCase.bedNumber
+        : bays[0]?.name || newCase.bedNumber;
       await addERCase({
         patientId: patient.id,
         patientName: patientFullName(patient),
@@ -77,7 +109,7 @@ export default function EmergencyDashboard() {
         arrivalMethod: newCase.arrivalMethod,
         acuity: newCase.acuity,
         chiefComplaint: newCase.chiefComplaint,
-        bedNumber: newCase.bedNumber,
+        bedNumber: selectedBayName,
         vitals: {
           bloodPressure: newCase.bp,
           heartRate: Number(newCase.hr),
@@ -95,17 +127,122 @@ export default function EmergencyDashboard() {
     }
   };
 
-  const handleUpdateStatus = (id: string, status: ERCase['status']) => {
-    updateERCase(id, { status });
-    if (selectedCase && selectedCase.id === id) {
-      setSelectedCase({ ...selectedCase, status });
+  const handleUpdateStatus = async (id: string, status: ERCase['status']) => {
+    try {
+      await updateERCase(id, { status });
+      if (selectedCase && selectedCase.id === id) {
+        setSelectedCase({ ...selectedCase, status });
+      }
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not update the emergency case.');
+    }
+  };
+
+  const handleAddBay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const error = firstError(...Object.values(validateRequired(bayForm, { name: 'Bay name', type: 'Bay type' })));
+    if (error) {
+      setOrderError(error);
+      return;
+    }
+    try {
+      await addEmergencyBay({ name: bayForm.name.trim(), type: bayForm.type, oxygenPort: bayForm.oxygenPort, active: true });
+      setBayForm({ name: '', type: 'Observation', oxygenPort: false });
+      setOrderError(null);
+      setBayModalOpen(false);
+    } catch (cause) {
+      setOrderError(cause instanceof Error ? cause.message : 'Could not add the emergency bay.');
+    }
+  };
+
+  const openLabOrder = (caseItem: ERCase) => {
+    setLabOrderCase(caseItem);
+    setLabForm({ testName: '', category: 'Hematology', specimenType: 'Blood', priority: caseItem.acuity === 'Red' ? 'Critical' : 'High', notes: '' });
+    setOrderError(null);
+  };
+
+  const handleLabOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labOrderCase) return;
+    const error = firstError(...Object.values(validateRequired(labForm, {
+      testName: 'Investigation', category: 'Category', specimenType: 'Specimen type',
+    })));
+    if (error) {
+      setOrderError(error);
+      return;
+    }
+    try {
+      await addLabOrder({
+        patientId: labOrderCase.patientId,
+        patientName: labOrderCase.patientName,
+        doctorId: undefined,
+        doctorName: currentUser?.name || 'Emergency clinician',
+        priority: labForm.priority,
+        testName: labForm.testName.trim(),
+        category: labForm.category,
+        specimenType: labForm.specimenType,
+        status: 'Requested',
+        notes: labForm.notes.trim(),
+      });
+      setLabOrderCase(null);
+      setOrderError(null);
+    } catch (cause) {
+      setOrderError(cause instanceof Error ? cause.message : 'Could not send the laboratory order.');
+    }
+  };
+
+  const openPharmacyOrder = (caseItem: ERCase) => {
+    setPharmacyOrderCase(caseItem);
+    setMedicineLines([emptyMedicineLine()]);
+    setPharmacyNotes('');
+    setOrderError(null);
+  };
+
+  const handlePharmacyOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pharmacyOrderCase) return;
+    const invalidLine = medicineLines.findIndex(line => !line.name.trim() || !line.dosage.trim() || !line.frequency.trim() || !line.duration.trim() || line.quantity < 1);
+    if (invalidLine >= 0) {
+      setOrderError(`Complete medicine ${invalidLine + 1}: name, dosage, frequency, duration, and quantity are required.`);
+      return;
+    }
+    try {
+      await addPharmacyOrder({
+        patientId: pharmacyOrderCase.patientId,
+        patientName: pharmacyOrderCase.patientName,
+        doctorId: undefined,
+        doctorName: currentUser?.name || 'Emergency clinician',
+        medicines: medicineLines.map(line => ({
+          medicineId: line.medicineId,
+          name: line.name.trim(),
+          dosage: line.dosage.trim(),
+          frequency: line.frequency.trim(),
+          duration: line.duration.trim(),
+          quantity: Number(line.quantity),
+          instructions: line.instructions.trim(),
+          isExternal: line.isExternal,
+        })),
+        status: 'Pending',
+        notes: pharmacyNotes.trim(),
+      });
+      setPharmacyOrderCase(null);
+      setOrderError(null);
+    } catch (cause) {
+      setOrderError(cause instanceof Error ? cause.message : 'Could not send the pharmacy order.');
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Emergency action */}
-      <div className="department-action-row">
+      <div className="department-action-row" style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button
+          className="btn btn-secondary"
+          onClick={() => { setOrderError(null); setBayModalOpen(true); }}
+        >
+          <Plus size={16} /> Add ER Bay
+        </button>
+        <div>
           <button
             className="btn btn-danger"
             style={{ boxShadow: '0 0 16px rgba(239,68,68,0.4)', padding: '0.7rem 1.4rem' }}
@@ -113,7 +250,9 @@ export default function EmergencyDashboard() {
           >
             <ShieldAlert size={16} /> Fast-Track ER Admission
           </button>
+        </div>
       </div>
+      {formError && !modalOpen && !labOrderCase && !pharmacyOrderCase && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
 
       {/* ER Acuity KPIs */}
       <div className="emergency-kpi-grid">
@@ -147,9 +286,9 @@ export default function EmergencyDashboard() {
         <InfoBox
           tone="info"
           icon={<Bed size={22} />}
-          value={`${ER_BAYS.length - erCases.length} / ${ER_BAYS.length}`}
+          value={`${Math.max(bays.length - activeCases.length, 0)} / ${bays.length}`}
           label="Available ER bays"
-          detail={`${erCases.length} occupied currently`}
+          detail={`${activeCases.length} occupied currently`}
           onClick={() => setFilterAcuity('All')}
           footerText="View all bays"
         />
@@ -162,8 +301,8 @@ export default function EmergencyDashboard() {
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
-          {ER_BAYS.map((bay) => {
-            const occupant = erCases.find(c => c.bedNumber.includes(bay.id));
+          {bays.map((bay) => {
+            const occupant = activeCases.find(c => c.bedNumber === bay.name || c.bedNumber.includes(bay.name));
             const isOccupied = !!occupant;
 
             return (
@@ -190,7 +329,7 @@ export default function EmergencyDashboard() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--clr-text-primary)' }}>
-                    {bay.id}
+                    {bay.name.split(' (')[0]}
                   </span>
                   <span className={`badge ${isOccupied ? (occupant.acuity === 'Red' ? 'badge-red' : 'badge-amber') : 'badge-green'}`}>
                     {isOccupied ? occupant.acuity.toUpperCase() : 'VACANT'}
@@ -198,7 +337,7 @@ export default function EmergencyDashboard() {
                 </div>
 
                 <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)', marginBottom: '0.5rem' }}>
-                  {bay.name.split('(')[1]?.replace(')', '') || bay.type} {bay.oxy ? '· O2 Port Ready' : ''}
+                  {bay.name.split('(')[1]?.replace(')', '') || bay.type} {bay.oxygenPort ? '· O2 Port Ready' : ''}
                 </div>
 
                 {isOccupied ? (
@@ -213,6 +352,17 @@ export default function EmergencyDashboard() {
                       <span>BP: <strong>{occupant.vitals.bloodPressure}</strong></span>
                       <span>SpO2: <strong>{occupant.vitals.spo2}%</strong></span>
                     </div>
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm"
+                      style={{ marginTop: '0.65rem', fontSize: '0.72rem' }}
+                      onClick={event => {
+                        event.stopPropagation();
+                        void handleUpdateStatus(occupant.id, 'Discharged');
+                      }}
+                    >
+                      <CheckCircle2 size={12} /> Complete bay
+                    </button>
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', marginTop: '0.5rem', fontStyle: 'italic' }}>
@@ -295,7 +445,21 @@ export default function EmergencyDashboard() {
                       <span className="badge badge-green">{c.status}</span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => openLabOrder(c)}
+                          title="Order laboratory test"
+                        >
+                          <FlaskConical size={13} /> Lab
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => openPharmacyOrder(c)}
+                          title="Order pharmacy medicines"
+                        >
+                          <Pill size={13} /> Pharmacy
+                        </button>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleUpdateStatus(c.id, 'Stabilized')}
@@ -307,6 +471,13 @@ export default function EmergencyDashboard() {
                           onClick={() => handleUpdateStatus(c.id, 'Admitted to Ward')}
                         >
                           Ward
+                        </button>
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleUpdateStatus(c.id, 'Discharged')}
+                          title="Complete case and free the bay"
+                        >
+                          <CheckCircle2 size={13} /> Complete
                         </button>
                       </div>
                     </td>
@@ -391,10 +562,10 @@ export default function EmergencyDashboard() {
                 <div className="form-group">
                   <label className="form-label">Assign ER Bay *</label>
                   <select
-                    value={newCase.bedNumber}
+                    value={bays.some(bay => bay.name === newCase.bedNumber) ? newCase.bedNumber : bays[0]?.name || ''}
                     onChange={(e) => setNewCase({ ...newCase, bedNumber: e.target.value })}
                   >
-                    {ER_BAYS.map(b => (
+                    {bays.map(b => (
                       <option key={b.id} value={b.name}>{b.name}</option>
                     ))}
                   </select>
@@ -465,6 +636,147 @@ export default function EmergencyDashboard() {
             </form>
           </div>
         </div>
+        </ModalPortal>
+      )}
+
+      {/* Add a new ER bay */}
+      {bayModalOpen && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setBayModalOpen(false)}>
+            <div className="modal" style={{ maxWidth: 520, width: '100%' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title"><Bed size={17} className="text-primary" /> Add ER Bay</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setBayModalOpen(false)} aria-label="Close dialog"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleAddBay} noValidate>
+                {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
+                <div className="form-group">
+                  <label className="form-label">Bay name *</label>
+                  <input value={bayForm.name} onChange={e => setBayForm({ ...bayForm, name: e.target.value })} placeholder="e.g. Bay 09 (Minor Treatment)" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Bay type *</label>
+                  <select value={bayForm.type} onChange={e => setBayForm({ ...bayForm, type: e.target.value })}>
+                    <option>Critical</option>
+                    <option>Acute</option>
+                    <option>Observation</option>
+                    <option>Isolation</option>
+                    <option>Step-down</option>
+                    <option>Minor Treatment</option>
+                  </select>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0.75rem 0 1rem', fontSize: '0.82rem' }}>
+                  <input type="checkbox" checked={bayForm.oxygenPort} onChange={e => setBayForm({ ...bayForm, oxygenPort: e.target.checked })} />
+                  Oxygen port available
+                </label>
+                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setBayModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary"><Plus size={15} /> Add Bay</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ER laboratory order */}
+      {labOrderCase && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setLabOrderCase(null)}>
+            <div className="modal" style={{ maxWidth: 620, width: '100%' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title"><FlaskConical size={17} className="text-primary" /> Order Laboratory Test</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setLabOrderCase(null)} aria-label="Close dialog"><X size={16} /></button>
+              </div>
+              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
+                Patient: <strong>{labOrderCase.patientName}</strong> · {labOrderCase.id}
+              </div>
+              <form onSubmit={handleLabOrder} noValidate>
+                {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Investigation *</label>
+                    <input value={labForm.testName} onChange={e => setLabForm({ ...labForm, testName: e.target.value })} placeholder="e.g. Complete Blood Count" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Category *</label>
+                    <select value={labForm.category} onChange={e => setLabForm({ ...labForm, category: e.target.value })}>
+                      <option>Hematology</option><option>Biochemistry</option><option>Microbiology</option><option>Parasitology</option><option>Urinalysis</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Specimen type *</label>
+                    <input value={labForm.specimenType} onChange={e => setLabForm({ ...labForm, specimenType: e.target.value })} placeholder="Blood, urine, swab..." />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Priority</label>
+                    <select value={labForm.priority} onChange={e => setLabForm({ ...labForm, priority: e.target.value as Priority })}>
+                      <option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Instructions</label>
+                  <textarea rows={2} value={labForm.notes} onChange={e => setLabForm({ ...labForm, notes: e.target.value })} placeholder="Collection or clinical notes" />
+                </div>
+                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setLabOrderCase(null)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary"><FlaskConical size={15} /> Send to Laboratory</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ER pharmacy order */}
+      {pharmacyOrderCase && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setPharmacyOrderCase(null)}>
+            <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title"><Pill size={17} className="text-primary" /> Order Pharmacy Medicines</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setPharmacyOrderCase(null)} aria-label="Close dialog"><X size={16} /></button>
+              </div>
+              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
+                Patient: <strong>{pharmacyOrderCase.patientName}</strong> · {pharmacyOrderCase.id}
+              </div>
+              <form onSubmit={handlePharmacyOrder} noValidate>
+                {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {medicineLines.map((line, index) => (
+                    <div key={index} style={{ border: '1px solid var(--clr-border)', borderRadius: 8, padding: '0.75rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 2fr) repeat(4, minmax(80px, 1fr)) auto', gap: '0.5rem', alignItems: 'end' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Medicine *</label>
+                          <MedicineSearchSelect
+                            value={line.name}
+                            medicineId={line.medicineId}
+                            medicines={medicines}
+                            onChange={result => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, name: result.name, medicineId: result.medicineId, isExternal: result.isCustom } : item))}
+                            placeholder="Search medicine"
+                            required
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Dosage *</label><input value={line.dosage} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, dosage: e.target.value } : item))} placeholder="500 mg" /></div>
+                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Frequency *</label><input value={line.frequency} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, frequency: e.target.value } : item))} placeholder="3 times/day" /></div>
+                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Duration *</label><input value={line.duration} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, duration: e.target.value } : item))} placeholder="5 days" /></div>
+                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Qty *</label><input type="number" min={1} value={line.quantity} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(e.target.value) } : item))} /></div>
+                        <button type="button" className="btn btn-secondary btn-sm" disabled={medicineLines.length === 1} onClick={() => setMedicineLines(previous => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label="Remove medicine"><Trash2 size={14} /></button>
+                      </div>
+                      <div className="form-group" style={{ margin: '0.6rem 0 0' }}><label className="form-label">Instructions</label><input value={line.instructions} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, instructions: e.target.value } : item))} placeholder="How the patient should take it" /></div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: '0.75rem' }} onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add medicine</button>
+                <div className="form-group" style={{ marginTop: '0.75rem' }}><label className="form-label">Notes</label><textarea rows={2} value={pharmacyNotes} onChange={e => setPharmacyNotes(e.target.value)} placeholder="Pharmacy instructions" /></div>
+                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setPharmacyOrderCase(null)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary"><Pill size={15} /> Send to Pharmacy</button>
+                </div>
+              </form>
+            </div>
+          </div>
         </ModalPortal>
       )}
     </div>

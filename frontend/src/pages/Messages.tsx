@@ -62,7 +62,7 @@ function getInitials(name: string): string {
 function formatMessageTime(isoString: string): string {
   try {
     const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   } catch {
     return '';
   }
@@ -88,7 +88,7 @@ function formatSnippetTime(isoString: string): string {
     const d = new Date(isoString);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
-    if (isToday) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays === 1) return 'Yesterday';
@@ -509,7 +509,7 @@ export default function Messages() {
                               <div className="tg-bubble-meta">
                                 <span>{formatMessageTime(m.created_at)}</span>
                                 {isOwn && (
-                                  <span title={m.read_at ? `Read at ${new Date(m.read_at).toLocaleTimeString()}` : 'Delivered'}>
+                                  <span title={m.read_at ? `Read at ${new Date(m.read_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : 'Delivered'}>
                                     {m.read_at ? (
                                       <CheckCheck size={14} color="#ffffff" />
                                     ) : (

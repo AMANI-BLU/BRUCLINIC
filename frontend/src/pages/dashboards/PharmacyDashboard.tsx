@@ -7,12 +7,12 @@ import ConfirmDispenseModal from '../../components/ConfirmDispenseModal';
 import RestockMedicineModal from '../../components/RestockMedicineModal';
 import type { MedicineItem, PharmacyOrder } from '../../types';
 import { patientCodeFor, patientNameFor } from '../../utils/patient';
-import { formatDateWithFallback } from '../../utils/date';
 import {
   Pill, AlertTriangle, Package, CheckCircle2,
   Clock, Search, DollarSign, Plus, Printer
 } from 'lucide-react';
 import './PharmacyDashboard.css';
+import { formatDateTime12, formatTime12 } from '../../utils/date';
 
 export default function PharmacyDashboard() {
   const {
@@ -203,7 +203,7 @@ export default function PharmacyDashboard() {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)', marginTop: 2 }}>
-                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {formatDateWithFallback(order.prescribedAt, order.createdAt)}
+                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {formatDateTime12(order.prescribedAt, order.createdAt)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
@@ -275,7 +275,7 @@ export default function PharmacyDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--clr-border)' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>
                       {order.status === 'Dispensed'
-                        ? `Dispensed by ${order.dispensedBy || 'Pharmacy staff'} at ${order.dispensedAt}`
+                        ? `Dispensed by ${order.dispensedBy || 'Pharmacy staff'} at ${formatTime12(order.dispensedAt)}`
                         : 'Verify prescription before dispensing'}
                     </span>
                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>

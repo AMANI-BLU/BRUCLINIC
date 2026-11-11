@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useClinic } from './ClinicContext';
 import { useAuth } from './AuthContext';
+import { formatTime12 } from '../utils/date';
 
 export interface ClinicAlert {
   id: string;
@@ -91,7 +92,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: 'critical',
           title: `Code Red ER: ${c.patientName}`,
           message: `${c.chiefComplaint || 'Acute resuscitation'} · Red Acuity`,
-          time: c.arrivalTime || 'Now',
+          time: formatTime12(c.arrivalTime || 'Now'),
           link: '/emergency',
           icon: HeartPulse,
         });
@@ -107,7 +108,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: 'urgent',
           title: `Urgent ER: ${c.patientName}`,
           message: `${c.chiefComplaint || 'Needs assessment'} · Yellow Acuity`,
-          time: c.arrivalTime || 'Recent',
+          time: formatTime12(c.arrivalTime || 'Recent'),
           link: '/emergency',
           icon: AlertTriangle,
         });
@@ -128,7 +129,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: q.priority === 'Emergency' ? 'critical' : q.priority === 'Urgent' ? 'urgent' : 'normal',
           title: `Waiting Consultation: ${q.patientName} (Token #${q.tokenNumber})`,
           message: `${q.chiefComplaint || 'Consultation queue'} · Stage: ${q.stage}`,
-          time: q.registeredTime || 'Today',
+          time: formatTime12(q.registeredTime || 'Today'),
           link: '/opd',
           icon: Stethoscope,
         });
@@ -143,7 +144,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: q.priority === 'Emergency' ? 'critical' : 'urgent',
           title: `Priority Queue: ${q.patientName} (Token #${q.tokenNumber})`,
           message: `${q.priority} priority arrival · ${q.chiefComplaint || 'Requires doctor review'}`,
-          time: q.registeredTime || 'Today',
+          time: formatTime12(q.registeredTime || 'Today'),
           link: '/opd',
           icon: Users,
         });
@@ -160,7 +161,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: 'critical',
           title: `Abnormal Lab: ${l.patientName}`,
           message: `${l.testName}: ${l.result || 'Flagged clinically abnormal'}`,
-          time: l.completedAt || 'Recently',
+          time: formatTime12(l.completedAt || 'Recently'),
           link: role === 'opd' ? '/opd' : '/laboratory',
           icon: FlaskConical,
         });
@@ -176,7 +177,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: 'normal',
           title: `Lab Ready: ${l.patientName} (${l.testName})`,
           message: `Result: ${l.result ? `${l.result}${l.unit ? ' ' + l.unit : ''}` : 'Completed'} · Ordered by ${l.doctorName || 'Clinician'}`,
-          time: l.completedAt || 'Recently',
+          time: formatTime12(l.completedAt || 'Recently'),
           link: '/opd',
           icon: FlaskConical,
         });
@@ -241,7 +242,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: q.priority === 'Emergency' ? 'critical' : 'normal',
           title: `Card Verification: ${q.patientName} (Token #${q.tokenNumber})`,
           message: `ID/Card assignment needed · Stage: ${q.stage}`,
-          time: q.registeredTime || 'Today',
+          time: formatTime12(q.registeredTime || 'Today'),
           link: '/reception',
           icon: Users,
         });
@@ -255,7 +256,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           priority: 'critical',
           title: `Emergency Arrival: ${q.patientName}`,
           message: `Token #${q.tokenNumber} marked Emergency · Priority transfer needed`,
-          time: q.registeredTime || 'Today',
+          time: formatTime12(q.registeredTime || 'Today'),
           link: '/reception',
           icon: AlertTriangle,
         });

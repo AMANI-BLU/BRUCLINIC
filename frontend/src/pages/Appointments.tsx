@@ -7,6 +7,7 @@ import { firstError, validateDate, validateRequired, validateTime, validateTextL
 import { patientCodeFor, patientNameFor, patientOptionLabel } from '../utils/patient';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
+import { formatTime12 } from '../utils/date';
 
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -161,7 +162,7 @@ export default function Appointments() {
                 <td>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{a.date}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>
-                    {a.time}
+                    {formatTime12(a.time)}
                   </div>
                 </td>
                 <td><span className="badge badge-blue">{a.type}</span></td>

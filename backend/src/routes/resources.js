@@ -52,6 +52,86 @@ async function assertNoDuplicatePatient(body, excludeId = null) {
       throw error;
     }
   }
+
+  const hasIdentity = [body.firstName, body.lastName, body.dateOfBirth, body.phone]
+    .every(value => value !== undefined && value !== null && String(value).trim() !== '');
+  if (hasIdentity) {
+    const result = await query(
+      `SELECT id FROM patients
+       WHERE LOWER(BTRIM(first_name)) = LOWER(BTRIM($1))
+         AND LOWER(BTRIM(last_name)) = LOWER(BTRIM($2))
+         AND date_of_birth = $3::date
+         AND LOWER(BTRIM(phone)) = LOWER(BTRIM($4))
+         AND ($5::text IS NULL OR id <> $5)
+       LIMIT 1`,
+      [body.firstName, body.lastName, body.dateOfBirth, body.phone, excludeId],
+    );
+    if (result.rows.length) {
+      const error = new Error('This patient is already registered with the same name, date of birth, and phone number.');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+}
+
+async function assertNoDuplicateResource(resource, body, excludeId = null) {
+  if (resource === 'patients') return assertNoDuplicatePatient(body, excludeId);
+
+  let sql = null;
+  let values = [];
+  let message = '';
+
+  if (resource === 'doctors') {
+    if (body.email && String(body.email).trim()) {
+      sql = `SELECT id FROM doctors WHERE LOWER(BTRIM(email)) = LOWER(BTRIM($1)) AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+      values = [body.email, excludeId];
+      message = 'A doctor with this email already exists.';
+    } else if (body.firstName && body.lastName && body.specialization) {
+      sql = `SELECT id FROM doctors WHERE LOWER(BTRIM(first_name)) = LOWER(BTRIM($1)) AND LOWER(BTRIM(last_name)) = LOWER(BTRIM($2)) AND LOWER(BTRIM(specialization)) = LOWER(BTRIM($3)) AND ($4::text IS NULL OR id <> $4) LIMIT 1`;
+      values = [body.firstName, body.lastName, body.specialization, excludeId];
+      message = 'This doctor is already registered.';
+    }
+  } else if (resource === 'appointments' && body.patientId && body.doctorId && body.date && body.time && body.status !== 'Cancelled') {
+    sql = `SELECT id FROM appointments WHERE patient_id = $1 AND doctor_id = $2 AND appointment_date = $3::date AND appointment_time = $4 AND status <> 'Cancelled' AND ($5::text IS NULL OR id <> $5) LIMIT 1`;
+    values = [body.patientId, body.doctorId, body.date, body.time, excludeId];
+    message = 'This patient already has an appointment with this doctor at that time.';
+  } else if (resource === 'medicines' && body.name && String(body.name).trim()) {
+    sql = `SELECT id FROM medicines WHERE LOWER(BTRIM(name)) = LOWER(BTRIM($1)) AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+    values = [body.name, excludeId];
+    message = 'A medicine with this name already exists.';
+  } else if (resource === 'queue' && body.patientId && body.stage && body.stage !== 'Completed') {
+    sql = `SELECT id FROM queue_items WHERE patient_id = $1 AND stage <> 'Completed' AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+    values = [body.patientId, excludeId];
+    message = 'This patient already has an active visit in the clinic queue.';
+  } else if (resource === 'emergency' && body.patientId && !['Discharged', 'Transferred'].includes(body.status || 'In Treatment')) {
+    sql = `SELECT id FROM emergency_cases WHERE patient_id = $1 AND status NOT IN ('Discharged', 'Transferred') AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+    values = [body.patientId, excludeId];
+    message = 'This patient already has an active emergency case.';
+  } else if (resource === 'labOrders' && body.patientId && body.testName && body.status !== 'Completed') {
+    sql = `SELECT id FROM lab_orders WHERE patient_id = $1 AND LOWER(BTRIM(test_name)) = LOWER(BTRIM($2)) AND status <> 'Completed' AND ($3::text IS NULL OR id <> $3) LIMIT 1`;
+    values = [body.patientId, body.testName, excludeId];
+    message = 'This laboratory investigation is already pending for the patient.';
+  } else if (resource === 'pharmacyOrders' && body.patientId && Array.isArray(body.medicines) && body.medicines.length && body.status !== 'Cancelled') {
+    sql = `SELECT id FROM pharmacy_orders WHERE patient_id = $1 AND status = 'Pending' AND medicines @> $2::jsonb AND $2::jsonb @> medicines AND ($3::text IS NULL OR id <> $3) LIMIT 1`;
+    values = [body.patientId, JSON.stringify(body.medicines), excludeId];
+    message = 'This pharmacy order is already pending for the patient.';
+  } else if (resource === 'records' && body.queueItemId) {
+    sql = `SELECT id FROM medical_records WHERE queue_item_id = $1 AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+    values = [body.queueItemId, excludeId];
+    message = 'A medical record already exists for this visit.';
+  } else if (resource === 'emergencyBays' && body.name && String(body.name).trim()) {
+    sql = `SELECT id FROM emergency_bays WHERE LOWER(BTRIM(name)) = LOWER(BTRIM($1)) AND ($2::text IS NULL OR id <> $2) LIMIT 1`;
+    values = [body.name, excludeId];
+    message = 'An emergency bay with this name already exists.';
+  }
+
+  if (!sql) return;
+  const result = await query(sql, values);
+  if (result.rows.length) {
+    const error = new Error(message);
+    error.statusCode = 409;
+    throw error;
+  }
 }
 
 function databaseError(error) {
@@ -206,7 +286,7 @@ export function createResourceHandler(resource) {
         : request.body;
       const body = validateResourcePayload(resource, payload, allowedFields, definition.required);
       try {
-        if (resource === 'patients') await assertNoDuplicatePatient(body);
+        await assertNoDuplicateResource(resource, body);
         if (resource === 'records' && body.doctorId) {
           const docCheck = await query('SELECT id FROM doctors WHERE id = $1', [body.doctorId]);
           if (!docCheck.rows.length) body.doctorId = null;
@@ -228,14 +308,14 @@ export function createResourceHandler(resource) {
     if (request.method === 'PATCH' && id) {
       const body = validateResourcePayload(resource, request.body, allowedFields.filter(f => f !== 'id'), definition.required, { partial: true });
       try {
+        const currentItem = await findResource(resource, id);
+        if (!currentItem) return sendError(response, 404, 'Resource not found');
         if (resource === 'queue' && body.stage) {
-          const currentItem = await findResource(resource, id);
-          if (!currentItem) return sendError(response, 404, 'Resource not found');
           if (currentItem.stage === 'Completed' && body.stage !== 'Completed') {
             return sendError(response, 409, 'Completed visits are closed. Create a new reception request for another consultation.');
           }
         }
-        if (resource === 'patients') await assertNoDuplicatePatient(body, id);
+        await assertNoDuplicateResource(resource, { ...currentItem, ...body }, id);
         if (resource === 'records' && body.doctorId) {
           const docCheck = await query('SELECT id FROM doctors WHERE id = $1', [body.doctorId]);
           if (!docCheck.rows.length) body.doctorId = null;

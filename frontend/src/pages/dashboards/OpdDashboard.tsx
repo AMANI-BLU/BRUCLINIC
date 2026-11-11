@@ -17,6 +17,7 @@ import ModalPortal from '../../components/ModalPortal';
 import ReferralPrintModal from '../../components/ReferralPrintModal';
 import { LAB_PANELS } from '../../utils/labPresets';
 import './OpdDashboard.css';
+import { formatTime12 } from '../../utils/date';
 
 interface PrescriptionLine {
   medicineId?: string;
@@ -690,7 +691,7 @@ export default function OpdDashboard() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
                       <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
-                        Registered: {item.registeredTime} · {item.assignedOpdRoom || 'OPD 1'}
+                        Registered: {formatTime12(item.registeredTime)} · {item.assignedOpdRoom || 'OPD 1'}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--clr-primary-400)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
                         {opdTabFilter === 'completed' ? 'Review Visit' : 'Start Consultation'} <ChevronRight size={14} />
@@ -801,7 +802,7 @@ export default function OpdDashboard() {
                 <strong>Completed visit, read-only.</strong> This encounter is closed. Review the saved diagnosis, notes, and patient history; create a new queue visit for another consultation.
                 <div className="mt-2"><strong>Diagnosis:</strong> {selectedQueueItem.doctorDiagnosis || 'Not recorded'}</div>
                 {selectedQueueItem.consultationNotes && <div className="mt-1"><strong>Clinical notes:</strong> {selectedQueueItem.consultationNotes}</div>}
-                {selectedQueueItem.completedAt && <div className="mt-1"><strong>Completed:</strong> {selectedQueueItem.completedAt}</div>}
+                {selectedQueueItem.completedAt && <div className="mt-1"><strong>Completed:</strong> {formatTime12(selectedQueueItem.completedAt)}</div>}
               </section>
             )}
 

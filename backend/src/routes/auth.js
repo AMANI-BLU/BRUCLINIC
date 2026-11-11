@@ -294,6 +294,8 @@ export async function authHandler(request, response, segments) {
     }
     const cleanName = String(name).trim();
     const safeEmail = String(email || `${normalizedUsername}@bru.edu.et`).trim().toLowerCase();
+    const existingEmail = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [safeEmail]);
+    if (existingEmail.rows.length) return sendError(response, 409, `An account with email '${safeEmail}' already exists`);
     const profile = {
       id, username: normalizedUsername, name: cleanName, role,
       roleTitle: String(roleTitle || ROLE_LABELS[role] || role).trim(),

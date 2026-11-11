@@ -12,6 +12,7 @@ import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import './Patients.css';
+import { formatDateTime12, formatTime12 } from '../utils/date';
 
 interface PatientFormData {
   firstName: string;
@@ -728,7 +729,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                 </div>
                 <div className="view-card-row">
                   <span>Ordered by</span>
-                  <p>{lo.doctorName} · {lo.orderedAt}</p>
+                  <p>{lo.doctorName} · {formatDateTime12(lo.orderedAt)}</p>
                 </div>
                 {lo.status === 'Completed' && (
                   <div className="view-result">
@@ -755,7 +756,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                   <div className="view-row-sub">{q.chiefComplaint}</div>
                 </div>
                 <div className="view-row-meta">
-                  {q.registeredTime}<br />{q.assignedDoctorName || 'General OPD'}
+                  {formatTime12(q.registeredTime)}<br />{q.assignedDoctorName || 'General OPD'}
                 </div>
               </div>
             ))
