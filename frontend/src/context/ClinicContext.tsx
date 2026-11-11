@@ -120,6 +120,15 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      // ER bays were added after the original clinic schema. If an older
+      // deployment has not applied that optional migration (or route) yet,
+      // keep the rest of the clinic workspace usable; the ER page already
+      // has a built-in default bay map until the migration is applied.
+      const safeBayList = safeList<EmergencyBay>('emergency-bays').catch(cause => {
+        if (cause instanceof ApiError && (cause.status === 404 || cause.status >= 500)) return [];
+        throw cause;
+      });
+
       const [patientList, doctorList, appointmentList, recordList, medicineList, queueList, erList, bayList, labList, pharmacyList] = await Promise.all([
         safeList<Patient>('patients'),
         safeList<Doctor>('doctors'),
@@ -128,7 +137,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         safeList<MedicineItem>('medicines'),
         safeList<ClinicQueueItem>('queue'),
         safeList<ERCase>('emergency'),
-        safeList<EmergencyBay>('emergency-bays'),
+        safeBayList,
         safeList<LabOrder>('lab-orders'),
         safeList<PharmacyOrder>('pharmacy-orders'),
       ]);
