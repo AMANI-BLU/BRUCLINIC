@@ -4,6 +4,7 @@ import PasswordField from './PasswordField';
 import { Lock } from 'lucide-react';
 import { firstError, validatePassword, validateRequired, validateTextLength } from '../utils/validation';
 import './PasswordChangeForm.css';
+import LoadingButton from './LoadingButton';
 
 export default function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
   const { changePassword, logout } = useAuth();
@@ -16,6 +17,7 @@ export default function PasswordChangeForm({ forced = false }: { forced?: boolea
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     setError('');
     setMessage('');
     const validationError = firstError(
@@ -66,7 +68,7 @@ export default function PasswordChangeForm({ forced = false }: { forced?: boolea
         <label className="form-label" htmlFor="password-confirm">Confirm new password</label>
         <PasswordField id="password-confirm" className="form-control mb-3" autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} minLength={10} required />
         <div className="d-flex gap-2">
-          <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Updating…' : 'Update password'}</button>
+          <LoadingButton className="btn btn-primary" type="submit" loading={saving} loadingLabel="Updating…">Update password</LoadingButton>
           <button className="btn btn-secondary" type="button" onClick={logout}>Sign out</button>
         </div>
       </form>

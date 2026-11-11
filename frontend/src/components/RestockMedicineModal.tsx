@@ -3,6 +3,7 @@ import { Package, X, CheckCircle2, ArrowRight, Building, Calendar, DollarSign, L
 import type { MedicineItem } from '../types';
 import { firstError, validateDate, validateNumber, validateTextLength } from '../utils/validation';
 import ModalPortal from './ModalPortal';
+import LoadingButton from './LoadingButton';
 
 interface RestockMedicineModalProps {
   medicine: MedicineItem;
@@ -34,6 +35,7 @@ export default function RestockMedicineModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError(null);
 
     const validationError = firstError(
@@ -66,7 +68,7 @@ export default function RestockMedicineModal({
 
   return (
     <ModalPortal>
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+    <div className="modal-overlay" onClick={() => !loading && onClose()} style={{ zIndex: 1100 }}>
       <div
         className="modal"
         style={{ width: 'min(96%, 600px)', maxHeight: '90vh', overflowY: 'auto' }}
@@ -81,7 +83,7 @@ export default function RestockMedicineModal({
               Hospital Pharmacy Supply Chain &amp; Formulary Replenishment
             </div>
           </div>
-          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close dialog">
+          <button type="button" className="modal-close-btn" onClick={onClose} disabled={loading} aria-label="Close dialog">
             <X size={16} />
           </button>
         </div>
@@ -227,9 +229,9 @@ export default function RestockMedicineModal({
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading || quantity <= 0}>
-              {loading ? 'Restocking…' : <><CheckCircle2 size={16} /> Confirm Restock ({quantity} {medicine.unit}s)</>}
-            </button>
+            <LoadingButton type="submit" className="btn btn-primary" loading={loading} loadingLabel="Restocking…" disabled={quantity <= 0}>
+              <><CheckCircle2 size={16} /> Confirm Restock ({quantity} {medicine.unit}s)</>
+            </LoadingButton>
           </div>
         </form>
       </div>

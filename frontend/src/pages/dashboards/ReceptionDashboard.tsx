@@ -11,6 +11,7 @@ import {
 import './ReceptionDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
 import InfoBox from '../../components/AdminLTE/InfoBox';
+import LoadingButton from '../../components/LoadingButton';
 
 export default function ReceptionDashboard() {
   const {
@@ -35,6 +36,9 @@ export default function ReceptionDashboard() {
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedOpdRoom, setSelectedOpdRoom] = useState('OPD Room 1');
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [forwardingKey, setForwardingKey] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // New patient registration form state
   const [newPatient, setNewPatient] = useState({
@@ -97,6 +101,7 @@ export default function ReceptionDashboard() {
 
   const handleDispatchCardToOpd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setFormError(null);
     const validationError = formType === 'existing'
       ? firstError(
@@ -124,6 +129,7 @@ export default function ReceptionDashboard() {
     const doctorName = chosenDoctor ? `${chosenDoctor.firstName} ${chosenDoctor.lastName}` : (selectedDoctorId ? 'Consulting Doctor' : 'On-Duty Clinician');
 
     try {
+      setSubmitting(true);
       if (formType === 'existing') {
         if (!selectedPatient) {
           setFormError('Please select a registered patient.');
@@ -192,10 +198,13 @@ export default function ReceptionDashboard() {
       setFormError(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not route this card to OPD.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleForwardStage = async (item: ClinicQueueItem, nextStage: QueueStage) => {
+    if (forwardingKey) return;
     setFormError(null);
     if (nextStage === 'Emergency') {
       if (item.stage === 'Emergency') {
@@ -207,7 +216,12 @@ export default function ReceptionDashboard() {
         setFormError('The patient record could not be found.');
         return;
       }
-      try {
+    }
+
+    const actionKey = `${item.id}:${nextStage}`;
+    setForwardingKey(actionKey);
+    try {
+      if (nextStage === 'Emergency') {
         await transferToEmergency(item.id, {
           arrivalMethod: 'Walk-in',
           acuity: item.priority === 'Emergency' ? 'Red' : 'Yellow',
@@ -220,21 +234,30 @@ export default function ReceptionDashboard() {
           requestNotes: 'Patient admitted to Emergency from Reception.',
         });
         window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient transferred to Emergency.' }));
-      } catch (cause) {
-        setFormError(cause instanceof Error ? cause.message : 'Could not transfer the patient to Emergency.');
+      } else {
+        await updateQueueItem(item.id, {
+          stage: nextStage,
+          requestSource: 'Card Room',
+          requestDestination: nextStage,
+          requestNotes: `Card Room re-routed ticket to ${nextStage}`,
+        });
       }
-      return;
-    }
-
-    try {
-      await updateQueueItem(item.id, {
-        stage: nextStage,
-        requestSource: 'Card Room',
-        requestDestination: nextStage,
-        requestNotes: `Card Room re-routed ticket to ${nextStage}`,
-      });
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : `Could not route the patient to ${nextStage}.`);
+    } finally {
+      setForwardingKey(null);
+    }
+  };
+
+  const handleRemoveFromQueue = async (id: string) => {
+    if (removingId) return;
+    setRemovingId(id);
+    try {
+      await removeFromQueue(id);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Could not remove the queue request.');
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -553,30 +576,39 @@ export default function ReceptionDashboard() {
                         <span className="badge text-bg-secondary">Closed</span>
                       ) : (
                         <div className="reception-queue-actions">
-                          <button
+                          <LoadingButton
                             className="btn btn-secondary btn-sm"
                             title="Forward to Doctor Consultation"
                             onClick={() => handleForwardStage(item, 'Doctor Consultation')}
+                            loading={forwardingKey === `${item.id}:Doctor Consultation`}
+                            loadingLabel="Sending…"
+                            disabled={Boolean(forwardingKey && forwardingKey !== `${item.id}:Doctor Consultation`)}
                             style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
                           >
                             Doctor
-                          </button>
-                          <button
+                          </LoadingButton>
+                          <LoadingButton
                             className="btn btn-danger btn-sm"
                             title="Fast-Track to Emergency"
                             onClick={() => handleForwardStage(item, 'Emergency')}
+                            loading={forwardingKey === `${item.id}:Emergency`}
+                            loadingLabel="Sending…"
+                            disabled={Boolean(forwardingKey && forwardingKey !== `${item.id}:Emergency`)}
                             style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
                           >
                             ER
-                          </button>
-                          <button
+                          </LoadingButton>
+                          <LoadingButton
                             className="btn btn-secondary btn-sm"
                             style={{ color: 'var(--clr-rose-400)', fontSize: '0.72rem', padding: '0.25rem 0.45rem' }}
                             title="Discharge / Remove"
-                            onClick={() => removeFromQueue(item.id)}
+                            onClick={() => void handleRemoveFromQueue(item.id)}
+                            loading={removingId === item.id}
+                            loadingLabel="Ending…"
+                            disabled={Boolean(removingId && removingId !== item.id) || Boolean(forwardingKey)}
                           >
                             End
-                          </button>
+                          </LoadingButton>
                         </div>
                       )}
                     </td>
@@ -592,7 +624,7 @@ export default function ReceptionDashboard() {
       {/* Compact card lookup and dispatch dialog */}
       {modalOpen && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => setModalOpen(false)}>
+        <div className="modal-overlay" onClick={() => !submitting && setModalOpen(false)}>
           <div className="modal reception-request-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header reception-request-header">
               <h2 className="modal-title">
@@ -601,7 +633,8 @@ export default function ReceptionDashboard() {
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={() => setModalOpen(false)}
+                onClick={() => !submitting && setModalOpen(false)}
+                disabled={submitting}
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -842,16 +875,18 @@ export default function ReceptionDashboard() {
               </div>
 
               <div className="reception-modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={submitting}>
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
                   className="btn btn-primary"
                   disabled={Boolean(formType === 'existing' && selectedPatient && queue.some(q => q.patientId === selectedPatient.id && q.stage !== 'Completed'))}
+                  loading={submitting}
+                  loadingLabel={formType === 'new' ? 'Registering…' : 'Sending…'}
                 >
                   <Send size={16} /> Send
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>

@@ -7,6 +7,7 @@ import { apiGet, apiPatch, apiPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../context/NetworkContext';
 import { validateTextLength } from '../utils/validation';
+import LoadingButton from '../components/LoadingButton';
 import './Messages.css';
 
 interface StaffContact {
@@ -556,15 +557,17 @@ export default function Messages() {
                   disabled={sending || !online}
                   required
                 />
-                <button
+                <LoadingButton
                   type="submit"
                   className="tg-send-btn"
                   disabled={sending || !online || !body.trim()}
+                  loading={sending}
+                  loadingLabel=""
                   title="Send message (Enter)"
                   aria-label="Send message"
                 >
                   <Send size={18} />
-                </button>
+                </LoadingButton>
               </form>
             </>
           ) : (

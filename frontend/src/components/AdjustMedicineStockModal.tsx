@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Package, X } from 'lucide-react';
 import type { MedicineItem } from '../types';
 import ModalPortal from './ModalPortal';
+import LoadingButton from './LoadingButton';
 
 type StockAction = 'add' | 'dispense';
 
@@ -26,6 +27,7 @@ export default function AdjustMedicineStockModal({ medicine, onClose, onAdjust }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     if (!isValidQuantity) {
       setError('Enter a whole quantity greater than zero.');
       return;
@@ -92,9 +94,9 @@ export default function AdjustMedicineStockModal({ medicine, onClose, onAdjust }
 
             <div className="modal-footer pharmacy-adjust-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-              <button type="submit" className={`btn ${action === 'add' ? 'btn-success' : 'btn-danger'}`} disabled={saving || !isValidQuantity || exceedsStock}>
-                {saving ? 'Saving…' : <><CheckCircle2 size={15} /> {action === 'add' ? 'Add to inventory' : 'Confirm dispense'}</>}
-              </button>
+              <LoadingButton type="submit" className={`btn ${action === 'add' ? 'btn-success' : 'btn-danger'}`} loading={saving} loadingLabel="Saving…" disabled={!isValidQuantity || exceedsStock}>
+                <><CheckCircle2 size={15} /> {action === 'add' ? 'Add to inventory' : 'Confirm dispense'}</>
+              </LoadingButton>
             </div>
           </form>
         </div>

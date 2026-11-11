@@ -104,3 +104,187 @@
   outline: 3px solid rgba(239, 68, 68, 0.22);
   outline-offset: 2px;
 }
+
+/* Emergency clinical workflows use the same sectioned, patient-first rhythm
+   as the OPD consultation workspace. */
+.emergency-workflow-modal {
+  width: min(100%, 760px) !important;
+  max-width: 760px !important;
+}
+
+.emergency-workflow-patient {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 0.8fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  background: var(--clr-bg-hover);
+}
+
+.emergency-workflow-patient div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.emergency-workflow-patient span {
+  color: var(--clr-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.emergency-workflow-patient strong {
+  overflow: hidden;
+  color: var(--clr-text-primary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emergency-workflow-section {
+  margin-bottom: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  background: var(--clr-bg-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.emergency-workflow-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.emergency-workflow-section-header h3 {
+  margin: 0;
+  color: var(--clr-text-primary);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.emergency-workflow-section-header p {
+  margin: 0.2rem 0 0;
+  color: var(--clr-text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.emergency-workflow-form-grid {
+  margin-bottom: 0.85rem;
+}
+
+.emergency-workflow-actions {
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.emergency-prescription-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.emergency-prescription-line {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  background: var(--clr-bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.emergency-prescription-line-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.emergency-remove-line {
+  padding: 0.2rem 0.4rem;
+  color: var(--clr-rose-400);
+}
+
+.emergency-prescription-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.emergency-prescription-grid .form-group {
+  min-width: 0;
+  margin: 0;
+}
+
+.emergency-prescription-medicine {
+  grid-column: 1 / -1;
+}
+
+.emergency-prescription-instructions {
+  grid-column: 1 / -1;
+}
+
+.emergency-add-line {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.75rem;
+  border-style: dashed;
+}
+
+.emergency-pharmacy-notes {
+  margin: 0.85rem 0 0;
+}
+
+@media (max-width: 640px) {
+  .emergency-workflow-patient {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .emergency-workflow-patient div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .emergency-workflow-section-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .emergency-workflow-section-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .emergency-prescription-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .emergency-prescription-medicine,
+  .emergency-prescription-instructions {
+    grid-column: 1 / -1;
+  }
+
+  .emergency-workflow-actions {
+    flex-direction: column-reverse;
+  }
+
+  .emergency-workflow-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .emergency-prescription-grid {
+    grid-template-columns: 1fr;
+  }
+}

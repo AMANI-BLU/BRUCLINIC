@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Trash2, X, AlertCircle } from 'lucide-react';
 import ModalPortal from './ModalPortal';
+import LoadingButton from './LoadingButton';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -29,16 +30,29 @@ export default function ConfirmModal({
   isLoading = false,
   compact = false,
 }: ConfirmModalProps) {
+  const [internalLoading, setInternalLoading] = useState(false);
+  const busy = isLoading || internalLoading;
+
+  const handleConfirm = async () => {
+    if (busy) return;
+    setInternalLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setInternalLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoading) {
+      if (e.key === 'Escape' && !busy) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoading, onClose]);
+  }, [isOpen, busy, onClose]);
 
   if (!isOpen) return null;
 
@@ -60,7 +74,7 @@ export default function ConfirmModal({
 
   return (
     <ModalPortal>
-    <div className="modal-overlay" onClick={() => !isLoading && onClose()}>
+    <div className="modal-overlay" onClick={() => !busy && onClose()}>
       <div
         className={`modal confirm-modal ${compact ? 'confirm-modal-compact' : ''}`}
         style={{
@@ -108,7 +122,7 @@ export default function ConfirmModal({
             type="button"
             className="modal-close-btn"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={busy}
             aria-label="Close dialog"
           >
             <X size={16} />
@@ -124,20 +138,21 @@ export default function ConfirmModal({
             type="button"
             className="btn btn-secondary"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={busy}
             style={{ minWidth: 80, padding: '0.45rem 0.9rem', fontSize: '0.82rem' }}
           >
             {cancelText}
           </button>
-          <button
+          <LoadingButton
             type="button"
             className={confirmBtnClass}
-            onClick={onConfirm}
-            disabled={isLoading}
+            onClick={handleConfirm}
+            loading={busy}
+            loadingLabel="Processing…"
             style={{ minWidth: 90, padding: '0.45rem 1rem', fontSize: '0.82rem', fontWeight: 600 }}
           >
-            {isLoading ? 'Processing...' : confirmText}
-          </button>
+            {confirmText}
+          </LoadingButton>
         </div>
       </div>
     </div>

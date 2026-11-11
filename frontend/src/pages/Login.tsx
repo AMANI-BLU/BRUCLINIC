@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import type { UserRole } from '../types';
 import { validateRequired, validateTextLength } from '../utils/validation';
+import LoadingButton from '../components/LoadingButton';
 import './Login.css';
 
 export default function Login() {
@@ -51,6 +52,7 @@ export default function Login() {
 
   const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage(null);
     const validationErrors = getValidationErrors();
     setFieldErrors(validationErrors);
@@ -195,10 +197,10 @@ export default function Login() {
               {fieldErrors.password && <small id="login-password-error" className="login-field-error">{fieldErrors.password}</small>}
             </div>
 
-            <button type="submit" className="login-btn-submit" disabled={isSubmitting}>
-              <span>{isSubmitting ? 'Authenticating...' : 'Sign In'}</span>
+            <LoadingButton type="submit" className="login-btn-submit" loading={isSubmitting} loadingLabel="Authenticating…">
+              <span>Sign In</span>
               <ArrowRight size={17} />
-            </button>
+            </LoadingButton>
           </form>
         </section>
       </div>

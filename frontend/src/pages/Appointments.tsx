@@ -7,6 +7,7 @@ import { firstError, validateDate, validateRequired, validateTime, validateTextL
 import { patientCodeFor, patientNameFor, patientOptionLabel } from '../utils/patient';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
+import LoadingButton from '../components/LoadingButton';
 import { formatTime12 } from '../utils/date';
 
 
@@ -29,6 +30,7 @@ export default function Appointments() {
   const [modal, setModal] = useState<{ open: boolean; appt?: Appointment }>({ open: false });
   const [form, setForm] = useState<Omit<Appointment, 'id'>>(EMPTY_APPT);
   const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const filtered = appointments.filter(a => {
@@ -54,6 +56,7 @@ export default function Appointments() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const requiredErrors = validateRequired(form, {
       patientId: 'Patient', patientName: 'Patient', doctorId: 'Doctor', doctorName: 'Doctor',
       date: 'Date', time: 'Time', reason: 'Reason',
@@ -74,11 +77,14 @@ export default function Appointments() {
       notes: form.notes ? sanitizeInput(form.notes) : undefined,
     };
     try {
+      setSaving(true);
       if (modal.appt) await updateAppointment(modal.appt.id, cleanForm);
       else await addAppointment(cleanForm);
       close();
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not save this appointment.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -200,13 +206,13 @@ export default function Appointments() {
       {/* Modal */}
       {modal.open && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={close}>
+        <div className="modal-overlay" onClick={() => !saving && close()}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.96rem' }}>
                 {modal.appt ? <><Edit2 size={16} className="text-primary" /> Edit Appointment</> : <><CalendarDays size={16} className="text-primary" /> New Appointment</>}
               </h2>
-              <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
+              <button type="button" className="modal-close-btn" onClick={close} disabled={saving} aria-label="Close dialog"><X size={16} /></button>
             </div>
             <form onSubmit={handleSubmit} noValidate>
               {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
@@ -259,8 +265,10 @@ export default function Appointments() {
                 </div>
               </div>
               <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{modal.appt ? 'Save Changes' : 'Book Appointment'}</button>
+                <button type="button" className="btn btn-secondary" onClick={close} disabled={saving}>Cancel</button>
+                <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel={modal.appt ? 'Saving…' : 'Booking…'}>
+                  {modal.appt ? 'Save Changes' : 'Book Appointment'}
+                </LoadingButton>
               </div>
             </form>
           </div>

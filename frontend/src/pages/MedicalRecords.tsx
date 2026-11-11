@@ -16,6 +16,7 @@ import './MedicalRecords.css';
 import DiagnosisField from '../components/DiagnosisField';
 import ModalPortal from '../components/ModalPortal';
 import ReferralPrintModal from '../components/ReferralPrintModal';
+import LoadingButton from '../components/LoadingButton';
 
 function getInitials(name: string) {
   const parts = name.replace(/^Dr\.\s*/i, '').trim().split(/\s+/);
@@ -86,6 +87,7 @@ export default function MedicalRecords() {
   const [modal, setModal] = useState<{ mode: 'view' | 'add' | null; record?: MedicalRecord }>({ mode: null });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     patientId: '', doctorId: '', visitDate: new Date().toISOString().split('T')[0],
     diagnosis: '', symptoms: '', notes: '', followUpDate: '', medications: '',
@@ -133,6 +135,7 @@ export default function MedicalRecords() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     const errors: Record<string, string> = validateRequired(form, {
       patientId: 'Patient', doctorId: 'Doctor', visitDate: 'Visit date', diagnosis: 'Diagnosis',
     });
@@ -161,6 +164,7 @@ export default function MedicalRecords() {
     }
 
     try {
+      setSaving(true);
       await addRecord({
         patientId: patient.id,
         patientName: `${patient.firstName} ${patient.lastName}`,
@@ -180,6 +184,8 @@ export default function MedicalRecords() {
       setModal({ mode: null });
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not save the record.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -281,7 +287,7 @@ export default function MedicalRecords() {
 
       {modal.mode && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-overlay" onClick={() => !saving && closeModal()}>
           <div
             className={`modal ${modal.mode === 'view' ? 'view-modal' : 'records-modal'}`}
             style={{ width: modal.mode === 'view' ? 'min(96%, 900px)' : 'min(96%, 760px)', maxHeight: '92vh', overflowY: 'auto' }}
@@ -295,6 +301,7 @@ export default function MedicalRecords() {
                 type="button"
                 className="modal-close-btn"
                 onClick={closeModal}
+                disabled={saving}
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -365,8 +372,8 @@ export default function MedicalRecords() {
                   </div>
                 </div>
                 <div className="modal-footer records-modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-                  <button type="submit" className="btn btn-primary"><Plus size={16} /> Save record</button>
+                  <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={saving}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel="Saving…"><Plus size={16} /> Save record</LoadingButton>
                 </div>
               </form>
             )}

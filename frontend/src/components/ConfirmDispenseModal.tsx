@@ -4,6 +4,7 @@ import type { PharmacyOrder, MedicineItem } from '../types';
 import { formatDateTime12 } from '../utils/date';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 import ModalPortal from './ModalPortal';
+import LoadingButton from './LoadingButton';
 
 export interface ConfirmDispenseModalProps {
   order: PharmacyOrder | null;
@@ -59,6 +60,7 @@ export default function ConfirmDispenseModal({
 
   const handleConfirm = async () => {
     if (!order) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -488,21 +490,17 @@ export default function ConfirmDispenseModal({
             >
               Cancel
             </button>
-            <button
+            <LoadingButton
               type="button"
               className="btn btn-primary"
               onClick={handleConfirm}
               disabled={submitting}
+              loading={submitting}
+              loadingLabel="Dispensing…"
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              {submitting ? (
-                'Dispensing...'
-              ) : (
-                <>
-                  <CheckCircle2 size={16} /> Confirm &amp; Dispense Order
-                </>
-              )}
-            </button>
+              <><CheckCircle2 size={16} /> Confirm &amp; Dispense Order</>
+            </LoadingButton>
           </div>
         </div>
       </div>

@@ -213,6 +213,7 @@ export default function SecurityCenter() {
 
   const saveConfig = async (e: FormEvent) => {
     e.preventDefault();
+    if (configSaving) return;
     if (!Object.keys(configEdits).length) return;
     const validationError = firstError(...Object.entries(configEdits).map(([key, value]) => {
       if (key === 'session_timeout_hours') return validateNumber(value, 'Session timeout', { min: 1, max: 72, integer: true, required: true });

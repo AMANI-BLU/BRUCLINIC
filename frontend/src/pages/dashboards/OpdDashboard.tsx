@@ -15,6 +15,7 @@ import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import DiagnosisField from '../../components/DiagnosisField';
 import ModalPortal from '../../components/ModalPortal';
 import ReferralPrintModal from '../../components/ReferralPrintModal';
+import LoadingButton from '../../components/LoadingButton';
 import { LAB_PANELS } from '../../utils/labPresets';
 import './OpdDashboard.css';
 import { formatTime12 } from '../../utils/date';
@@ -60,6 +61,7 @@ export default function OpdDashboard() {
   const [referralReason, setReferralReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'lab' | 'pharmacy' | 'complete' | 'assessment' | 'referral' | null>(null);
   const [printedReferral, setPrintedReferral] = useState<{
     patientName: string;
     patientCode?: string;
@@ -232,6 +234,7 @@ export default function OpdDashboard() {
   const handleDispatchToLab = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedQueueItem) return;
+    if (actionLoading) return;
 
     const error = labTests.length === 0
       ? firstError(...Object.values(validateRequired(
@@ -245,6 +248,7 @@ export default function OpdDashboard() {
     }
 
     try {
+      setActionLoading('lab');
       await sendOpdToLabRequest(selectedQueueItem.id, {
         priority: labPriority,
         ...(labTests.length ? { tests: labTests } : {
@@ -260,6 +264,8 @@ export default function OpdDashboard() {
       setSelectedQueueItem(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not send the laboratory request.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -267,6 +273,7 @@ export default function OpdDashboard() {
   const handleDispatchToPharmacy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedQueueItem) return;
+    if (actionLoading) return;
 
     const primaryDiagnosis = (consultation.diagnosis || selectedQueueItem.doctorDiagnosis || '').trim();
     if (prescriptionItems.length === 0) {
@@ -313,6 +320,7 @@ export default function OpdDashboard() {
     });
 
     try {
+      setActionLoading('pharmacy');
       await sendOpdToPharmacyRequest(selectedQueueItem.id, {
         medicines: formattedMedicines,
         doctorId: selectedQueueItem.assignedDoctorId,
@@ -324,6 +332,8 @@ export default function OpdDashboard() {
       setSelectedQueueItem(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not send the prescription.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -331,10 +341,12 @@ export default function OpdDashboard() {
   const handleCompleteConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedQueueItem) return;
+    if (actionLoading) return;
     const error = firstError(...Object.values(validateRequired({ diagnosis: consultation.diagnosis }, { diagnosis: 'Diagnosis' })));
     if (error) { setFormError(error); return; }
 
     try {
+      setActionLoading('complete');
       await completeOpdConsultation(selectedQueueItem.id, {
         patientId: selectedQueueItem.patientId,
         patientName: selectedQueueItem.patientName,
@@ -350,12 +362,16 @@ export default function OpdDashboard() {
       setSelectedQueueItem(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not complete the consultation.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleSaveAssessment = async () => {
     if (!selectedQueueItem) return;
+    if (actionLoading) return;
     try {
+      setActionLoading('assessment');
       await saveOpdAssessment(selectedQueueItem.id, {
         doctorId: selectedQueueItem.assignedDoctorId || '',
         doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
@@ -371,6 +387,8 @@ export default function OpdDashboard() {
     } catch (cause) {
       setAssessmentSaved(false);
       setFormError(cause instanceof Error ? cause.message : 'Could not save this assessment.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -386,12 +404,14 @@ export default function OpdDashboard() {
   const handleReferOutside = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedQueueItem) return;
+    if (actionLoading) return;
     const error = firstError(...Object.values(validateRequired(
       { referralDestination, referralReason },
       { referralDestination: 'Referral destination', referralReason: 'Referral reason' },
     )));
     if (error) { setFormError(error); return; }
     try {
+      setActionLoading('referral');
       const patient = patients.find(p => p.id === selectedQueueItem.patientId);
       const referralSlipData = {
         patientName: patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName),
@@ -431,6 +451,8 @@ export default function OpdDashboard() {
       window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient referred outside successfully. Referral slip ready for printing.' }));
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not record this referral.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -775,7 +797,7 @@ export default function OpdDashboard() {
                 >
                   <HeartPulse size={14} /> ER Transfer
                 </button>
-                <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setSelectedQueueItem(null)}>
+                <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setSelectedQueueItem(null)} disabled={Boolean(actionLoading)}>
                   <X size={16} />
                 </button>
               </div>
@@ -942,28 +964,32 @@ export default function OpdDashboard() {
                       Save assessment as draft to order lab tests or prescribe medicines without closing the visit.
                     </p>
                     <div className="opd-form-actions" style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <button type="button" className="btn btn-secondary" onClick={() => setSelectedQueueItem(null)}>
+                      <button type="button" className="btn btn-secondary" onClick={() => setSelectedQueueItem(null)} disabled={Boolean(actionLoading)}>
                         Cancel
                       </button>
-                      <button
+                      <LoadingButton
                         type="button"
                         className="btn btn-info"
                         onClick={handleSaveAssessment}
+                        loading={actionLoading === 'assessment'}
+                        loadingLabel="Saving…"
+                        disabled={Boolean(actionLoading && actionLoading !== 'assessment')}
                         title="Save assessment and keep visit active to prescribe or order labs"
                       >
                         <FileText size={15} /> Save Assessment (Draft)
-                      </button>
+                      </LoadingButton>
                       <button
                         type="button"
                         className="btn btn-warning"
                         onClick={() => setShowOutsideReferral(true)}
+                        disabled={Boolean(actionLoading)}
                         title="Refer patient to an outside hospital or specialized clinic"
                       >
                         <Building2 size={15} /> Refer Outside
                       </button>
-                      <button type="submit" className="btn btn-primary" style={{ marginLeft: 'auto' }}>
+                      <LoadingButton type="submit" className="btn btn-primary" style={{ marginLeft: 'auto' }} loading={actionLoading === 'complete'} loadingLabel="Completing…" disabled={Boolean(actionLoading && actionLoading !== 'complete')}>
                         <CheckCircle2 size={16} /> Complete &amp; Close Visit
-                      </button>
+                      </LoadingButton>
                     </div>
                   </form>
                 )}
@@ -1206,9 +1232,9 @@ export default function OpdDashboard() {
                       <button type="button" className="btn btn-secondary" onClick={() => setActiveConsultationTab('overview')}>
                         Back to Assessment
                       </button>
-                      <button type="submit" className="btn btn-primary" disabled={labTests.length === 0 && !labTestName.trim()}>
+                      <LoadingButton type="submit" className="btn btn-primary" disabled={(labTests.length === 0 && !labTestName.trim()) || Boolean(actionLoading && actionLoading !== 'lab')} loading={actionLoading === 'lab'} loadingLabel="Sending…">
                         <Send size={15} /> Dispatch {labTests.length > 0 ? `${labTests.length} Investigation(s)` : 'Requisition'} to Laboratory
-                      </button>
+                      </LoadingButton>
                     </div>
                   </form>
                 )}
@@ -1385,9 +1411,9 @@ export default function OpdDashboard() {
                       <button type="button" className="btn btn-secondary" onClick={() => setActiveConsultationTab('overview')}>
                         Back to Clinical Notes
                       </button>
-                      <button type="submit" className="btn btn-primary">
+                      <LoadingButton type="submit" className="btn btn-primary" disabled={Boolean(actionLoading && actionLoading !== 'pharmacy')} loading={actionLoading === 'pharmacy'} loadingLabel="Sending…">
                         <Send size={15} /> Dispatch Prescription to Pharmacy
-                      </button>
+                      </LoadingButton>
                     </div>
                   </form>
                 )}
@@ -1554,13 +1580,13 @@ export default function OpdDashboard() {
       {/* Outside Hospital/Facility Referral Modal */}
       {showOutsideReferral && selectedQueueItem && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setShowOutsideReferral(false)}>
+          <div className="modal-overlay" onClick={() => !actionLoading && setShowOutsideReferral(false)}>
             <div className="modal" style={{ maxWidth: 540, width: '100%', padding: '1.5rem', borderRadius: 12 }} onClick={e => e.stopPropagation()}>
               <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '1rem', fontWeight: 800 }}>
                   <Building2 size={20} className="text-primary" /> Refer to Outside Facility
                 </h3>
-                <button type="button" className="modal-close-btn" onClick={() => setShowOutsideReferral(false)} aria-label="Close dialog">
+                <button type="button" className="modal-close-btn" onClick={() => setShowOutsideReferral(false)} disabled={Boolean(actionLoading)} aria-label="Close dialog">
                   <X size={16} />
                 </button>
               </div>
@@ -1600,12 +1626,12 @@ export default function OpdDashboard() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowOutsideReferral(false)}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowOutsideReferral(false)} disabled={Boolean(actionLoading)}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-warning">
+                  <LoadingButton type="submit" className="btn btn-warning" loading={actionLoading === 'referral'} loadingLabel="Sending…" disabled={Boolean(actionLoading && actionLoading !== 'referral')}>
                     <Send size={15} /> Confirm &amp; Dispatch Referral
-                  </button>
+                  </LoadingButton>
                 </div>
               </form>
             </div>

@@ -21,6 +21,7 @@ import { apiGet } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import PasswordField from '../components/PasswordField';
+import LoadingButton from '../components/LoadingButton';
 import './Patients.css';
 import './StaffAccounts.css';
 
@@ -118,6 +119,7 @@ export default function StaffAccounts() {
 
   const handleCreateSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setCreateError(null);
     const validationErrors = validateRequired(
       { name: formName, username: formUsername, role: formRole },
@@ -226,6 +228,7 @@ export default function StaffAccounts() {
   const handleResetSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!resetTargetUser) return;
+    if (resetting) return;
     if (generatedPassword) {
       setShowResetModal(false);
       return;
@@ -534,26 +537,30 @@ export default function StaffAccounts() {
                           <Key size={14} />
                         </button>
 
-                        <button
+                        <LoadingButton
                           type="button"
                           className="btn btn-secondary btn-sm btn-icon"
                           title={isActive ? 'Unlock sign-in' : 'Activate the account before unlocking sign-in'}
                           aria-label={`Unlock sign-in for ${user.name}`}
                           disabled={!isActive || unlockingId === user.id}
                           onClick={() => handleUnlockAccount(user)}
+                          loading={unlockingId === user.id}
+                          loadingLabel=""
                         >
                           <Unlock size={14} />
-                        </button>
+                        </LoadingButton>
 
-                        <button
+                        <LoadingButton
                           type="button"
                           className="btn btn-secondary btn-sm btn-icon"
                           title={isActive ? 'Deactivate Account' : 'Activate Account'}
                           disabled={isSelf || togglingId === user.id}
                           onClick={() => handleToggleStatus(user)}
+                          loading={togglingId === user.id}
+                          loadingLabel=""
                         >
                           {isActive ? <UserX size={14} /> : <UserCheck size={14} />}
-                        </button>
+                        </LoadingButton>
 
                         {!isSelf && (
                           <button
@@ -578,7 +585,7 @@ export default function StaffAccounts() {
       {/* ── MODAL 1: CREATE STAFF ACCOUNT (Compact Modal) ── */}
       {showCreateModal && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="modal-overlay" onClick={() => !isSubmitting && setShowCreateModal(false)}>
           <div
             className="modal"
             style={{ maxWidth: 460, padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}
@@ -592,6 +599,7 @@ export default function StaffAccounts() {
                 type="button"
                 className="modal-close-btn"
                 onClick={() => setShowCreateModal(false)}
+                disabled={isSubmitting}
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -692,15 +700,17 @@ export default function StaffAccounts() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
                   className="btn btn-primary btn-sm"
                   disabled={isSubmitting}
+                  loading={isSubmitting}
+                  loadingLabel="Saving…"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', height: 30, fontSize: '0.78rem', padding: '0 0.75rem' }}
                 >
                   <Lock size={13} />
-                  <span>{isSubmitting ? 'Saving...' : 'Save Account'}</span>
-                </button>
+                  <span>Save Account</span>
+                </LoadingButton>
               </div>
             </form>
           </div>
@@ -711,7 +721,7 @@ export default function StaffAccounts() {
       {/* ── MODAL 2: RESET PASSWORD MODAL (Compact Modal) ── */}
       {showResetModal && resetTargetUser && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
+        <div className="modal-overlay" onClick={() => !resetting && setShowResetModal(false)}>
           <div
             className="modal"
             style={{ maxWidth: 360, padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}
@@ -725,6 +735,7 @@ export default function StaffAccounts() {
                 type="button"
                 className="modal-close-btn"
                 onClick={() => setShowResetModal(false)}
+                disabled={resetting}
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -820,14 +831,16 @@ export default function StaffAccounts() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
                   className="btn btn-warning btn-sm"
                   disabled={resetting}
+                  loading={resetting}
+                  loadingLabel="Resetting…"
                   style={{ height: 30, fontSize: '0.78rem', padding: '0 0.75rem', fontWeight: 600 }}
                 >
-                  {resetting ? 'Resetting...' : generatedPassword ? 'Done' : 'Reset Password'}
-                </button>
+                  {generatedPassword ? 'Done' : 'Reset Password'}
+                </LoadingButton>
               </div>
             </form>
           </div>

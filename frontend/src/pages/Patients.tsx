@@ -11,6 +11,7 @@ import { patientCode, patientFullName, patientInitials, patientMatchesSearch, pa
 import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
+import LoadingButton from '../components/LoadingButton';
 import './Patients.css';
 import { formatDateTime12, formatTime12 } from '../utils/date';
 
@@ -78,6 +79,7 @@ export default function Patients() {
   const [form, setForm] = useState<PatientFormData>(EMPTY_PATIENT_FORM);
   const [requestDetails, setRequestDetails] = useState<RequestDetails>(EMPTY_REQUEST);
   const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   // Only receptionist can add/edit/delete patients
@@ -129,6 +131,7 @@ export default function Patients() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const requiredErrors = validateRequired(form as unknown as Record<string, unknown>, {
       firstName: 'First name',
       lastName: 'Last name',
@@ -175,6 +178,7 @@ export default function Patients() {
     };
 
     try {
+      setSaving(true);
       if (modal.mode === 'add') {
         const saved = await addPatient(patientPayload);
 
@@ -202,6 +206,8 @@ export default function Patients() {
       close();
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not save this patient record.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -311,7 +317,7 @@ export default function Patients() {
       {/* Modal */}
       {modal.mode && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={close}>
+        <div className="modal-overlay" onClick={() => !saving && close()}>
           <div
             className={`modal ${modal.mode === 'view' ? 'view-modal' : 'patient-unified-modal patient-register-modal'}`}
             style={{ width: modal.mode === 'view' ? 'min(96%, 900px)' : 'min(96%, 760px)', maxHeight: '92vh', overflowY: 'auto' }}
@@ -323,7 +329,7 @@ export default function Patients() {
                  modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> Edit Patient</> :
                  <>Patient Card</>}
               </h2>
-              <button type="button" className="modal-close-btn" onClick={close} aria-label="Close dialog"><X size={16} /></button>
+              <button type="button" className="modal-close-btn" onClick={close} disabled={saving} aria-label="Close dialog"><X size={16} /></button>
             </div>
 
             {modal.mode === 'view' && modal.patient ? (
@@ -580,12 +586,12 @@ export default function Patients() {
                 )}
 
                 <div className="modal-footer" style={{ marginTop: '0.75rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">
+                  <button type="button" className="btn btn-secondary" onClick={close} disabled={saving}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel={modal.mode === 'edit' ? 'Saving…' : 'Registering…'}>
                     {modal.mode === 'add'
                       ? (canDispatch && requestDetails.forwardToOpd ? <><Send size={16} /> Register &amp; Send to OPD</> : 'Register Patient')
                       : 'Save Changes'}
-                  </button>
+                  </LoadingButton>
                 </div>
               </form>
             )}

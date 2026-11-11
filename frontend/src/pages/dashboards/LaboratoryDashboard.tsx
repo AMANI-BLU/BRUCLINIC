@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import './LaboratoryDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
+import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
 
 const workflowSteps: LabOrder['status'][] = ['Requested', 'Sample Collected', 'Analyzing', 'Completed'];
@@ -33,6 +34,8 @@ export default function LaboratoryDashboard() {
   const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
   const [activeStandardTest, setActiveStandardTest] = useState<StandardLabTest | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [savingResult, setSavingResult] = useState(false);
+  const [advancingId, setAdvancingId] = useState<string | null>(null);
 
   const pendingTests = labOrders.filter(o => o.status !== 'Completed');
   const completedTests = labOrders.filter(o => o.status === 'Completed');
@@ -83,6 +86,7 @@ export default function LaboratoryDashboard() {
   const handleSaveResult = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resultModal) return;
+    if (savingResult) return;
     const error = firstError(...Object.values(validateRequired({ resultValue }, { resultValue: 'Diagnostic result' })));
     if (error) {
       setFormError(error);
@@ -91,6 +95,7 @@ export default function LaboratoryDashboard() {
 
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     try {
+      setSavingResult(true);
       await updateLabOrder(resultModal.id, {
         status: 'Completed',
         result: resultValue,
@@ -104,14 +109,27 @@ export default function LaboratoryDashboard() {
       setResultModal(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not save the laboratory result.');
+    } finally {
+      setSavingResult(false);
     }
   };
 
-  const handleAdvanceStatus = (order: LabOrder) => {
+  const handleAdvanceStatus = async (order: LabOrder) => {
+    if (advancingId) return;
     if (order.status === 'Requested') {
-      updateLabOrder(order.id, { status: 'Sample Collected' });
+      setAdvancingId(order.id);
+      try {
+        await updateLabOrder(order.id, { status: 'Sample Collected' });
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : 'Could not update the laboratory status.');
+      } finally { setAdvancingId(null); }
     } else if (order.status === 'Sample Collected') {
-      updateLabOrder(order.id, { status: 'Analyzing' });
+      setAdvancingId(order.id);
+      try {
+        await updateLabOrder(order.id, { status: 'Analyzing' });
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : 'Could not update the laboratory status.');
+      } finally { setAdvancingId(null); }
     } else if (order.status === 'Analyzing') {
       handleOpenResultEntry(order);
     }
@@ -334,16 +352,19 @@ export default function LaboratoryDashboard() {
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                           {order.status !== 'Completed' ? (
-                            <button
+                            <LoadingButton
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={() => handleAdvanceStatus(order)}
+                              onClick={() => void handleAdvanceStatus(order)}
+                              loading={advancingId === order.id}
+                              loadingLabel="Saving…"
+                              disabled={Boolean(advancingId && advancingId !== order.id)}
                               style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }}
                             >
                               {order.status === 'Requested' ? 'Collect Specimen' :
                                order.status === 'Sample Collected' ? 'Start Analysis' :
                                'Enter Real Result'}
-                            </button>
+                            </LoadingButton>
                           ) : (
                             <>
                               <button
@@ -370,7 +391,7 @@ export default function LaboratoryDashboard() {
       {/* Real Clinical Laboratory Result Entry Modal */}
       {resultModal && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => setResultModal(null)} style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" onClick={() => !savingResult && setResultModal(null)} style={{ zIndex: 1100 }}>
           <div
             className="modal lab-result-modal"
             onClick={e => e.stopPropagation()}
@@ -384,7 +405,7 @@ export default function LaboratoryDashboard() {
                   <FlaskConical size={18} className="text-primary" /> {resultModal.testName}
                 </h2>
               </div>
-              <button type="button" className="modal-close-btn" onClick={() => setResultModal(null)} aria-label="Close dialog">
+              <button type="button" className="modal-close-btn" onClick={() => setResultModal(null)} disabled={savingResult} aria-label="Close dialog">
                 <X size={16} />
               </button>
             </div>
@@ -486,12 +507,12 @@ export default function LaboratoryDashboard() {
               </div>
 
               <div className="modal-footer lab-result-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setResultModal(null)}>
+                <button type="button" className="btn btn-secondary" onClick={() => setResultModal(null)} disabled={savingResult}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <LoadingButton type="submit" className="btn btn-primary" loading={savingResult} loadingLabel="Verifying…">
                   <CheckCircle2 size={16} /> Verify &amp; Return Results to OPD Doctor
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>

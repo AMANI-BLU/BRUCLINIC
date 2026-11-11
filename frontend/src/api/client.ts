@@ -21,6 +21,10 @@ function reportNetworkState(reachable: boolean) {
 
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
 
+// A second click can arrive before React paints the disabled button. Reuse an
+// identical in-flight POST so one user action cannot create two records.
+const pendingPosts = new Map<string, Promise<unknown>>();
+
 async function request<T>(path: string, options: RequestOptions = {}, token?: string | null): Promise<T> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     reportNetworkState(false);
@@ -61,7 +65,23 @@ export function apiGet<T>(path: string, token?: string | null) {
 }
 
 export function apiPost<T>(path: string, body: unknown, token?: string | null) {
-  return request<T>(path, { method: 'POST', body }, token);
+  let bodyKey: string;
+  try {
+    bodyKey = JSON.stringify(body);
+  } catch {
+    bodyKey = String(body);
+  }
+  const key = `${token || ''}:${path}:${bodyKey}`;
+  const pending = pendingPosts.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const promise = request<T>(path, { method: 'POST', body }, token);
+  pendingPosts.set(key, promise);
+  void promise.then(
+    () => { if (pendingPosts.get(key) === promise) pendingPosts.delete(key); },
+    () => { if (pendingPosts.get(key) === promise) pendingPosts.delete(key); },
+  );
+  return promise;
 }
 
 export function apiPatch<T>(path: string, body: unknown, token?: string | null) {

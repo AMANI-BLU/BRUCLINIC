@@ -8,6 +8,7 @@ import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/patient';
 import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import ConfirmModal from '../../components/ConfirmModal';
+import LoadingButton from '../../components/LoadingButton';
 import './EmergencyDashboard.css';
 import {
   AlertTriangle, Activity, Bed, CheckCircle2, ShieldAlert, X,
@@ -62,6 +63,13 @@ export default function EmergencyDashboard() {
   const [selectedCase, setSelectedCase] = useState<ERCase | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [savingAdmission, setSavingAdmission] = useState(false);
+  const [savingBay, setSavingBay] = useState(false);
+  const [savingCompletion, setSavingCompletion] = useState(false);
+  const [savingReferral, setSavingReferral] = useState(false);
+  const [savingLab, setSavingLab] = useState(false);
+  const [savingPharmacy, setSavingPharmacy] = useState(false);
+  const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
   const [filterAcuity, setFilterAcuity] = useState<string>('All');
   const [bayForm, setBayForm] = useState({ name: '', type: 'Observation', oxygenPort: false });
   const [labForm, setLabForm] = useState({ testName: '', category: 'Hematology', specimenType: 'Blood', priority: 'High' as Priority, notes: '' });
@@ -96,6 +104,7 @@ export default function EmergencyDashboard() {
 
   const handleCreateAdmission = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingAdmission) return;
     const error = firstError(...Object.values(validateRequired(newCase, {
       patientId: 'Patient', chiefComplaint: 'Chief complaint', bedNumber: 'ER bay',
     })));
@@ -109,6 +118,7 @@ export default function EmergencyDashboard() {
       return;
     }
     try {
+      setSavingAdmission(true);
       const selectedBayName = bays.some(bay => bay.name === newCase.bedNumber)
         ? newCase.bedNumber
         : bays[0]?.name || newCase.bedNumber;
@@ -135,10 +145,14 @@ export default function EmergencyDashboard() {
       setModalOpen(false);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not create the emergency case.');
+    } finally {
+      setSavingAdmission(false);
     }
   };
 
   const handleUpdateStatus = async (id: string, status: ERCase['status']) => {
+    if (updatingCaseId) return;
+    setUpdatingCaseId(id);
     try {
       if (status === 'Discharged') {
         await completeEmergencyCase(id);
@@ -150,6 +164,8 @@ export default function EmergencyDashboard() {
       }
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not update the emergency case.');
+    } finally {
+      setUpdatingCaseId(null);
     }
   };
 
@@ -163,7 +179,9 @@ export default function EmergencyDashboard() {
   const handleCompleteCase = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!completionCase) return;
+    if (savingCompletion) return;
     try {
+      setSavingCompletion(true);
       await completeEmergencyCase(completionCase.id, {
         diagnosis: completionDiagnosis.trim(),
         notes: completionNotes.trim(),
@@ -172,6 +190,8 @@ export default function EmergencyDashboard() {
       setFormError(null);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not complete the emergency case.');
+    } finally {
+      setSavingCompletion(false);
     }
   };
 
@@ -186,6 +206,7 @@ export default function EmergencyDashboard() {
   const handleReferral = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!referralCase) return;
+    if (savingReferral) return;
     const error = firstError(...Object.values(validateRequired(
       { destination: referralDestination, reason: referralReason },
       { destination: 'Referral destination', reason: 'Referral reason' },
@@ -195,6 +216,7 @@ export default function EmergencyDashboard() {
       return;
     }
     try {
+      setSavingReferral(true);
       await referEmergencyCase(referralCase.id, {
         destination: referralDestination.trim(),
         reason: referralReason.trim(),
@@ -204,23 +226,29 @@ export default function EmergencyDashboard() {
       setOrderError(null);
     } catch (cause) {
       setOrderError(cause instanceof Error ? cause.message : 'Could not record the emergency referral.');
+    } finally {
+      setSavingReferral(false);
     }
   };
 
   const handleAddBay = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingBay) return;
     const error = firstError(...Object.values(validateRequired(bayForm, { name: 'Bay name', type: 'Bay type' })));
     if (error) {
       setOrderError(error);
       return;
     }
     try {
+      setSavingBay(true);
       await addEmergencyBay({ name: bayForm.name.trim(), type: bayForm.type, oxygenPort: bayForm.oxygenPort, active: true });
       setBayForm({ name: '', type: 'Observation', oxygenPort: false });
       setOrderError(null);
       setBayModalOpen(false);
     } catch (cause) {
       setOrderError(cause instanceof Error ? cause.message : 'Could not add the emergency bay.');
+    } finally {
+      setSavingBay(false);
     }
   };
 
@@ -245,6 +273,7 @@ export default function EmergencyDashboard() {
   const handleLabOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!labOrderCase) return;
+    if (savingLab) return;
     const error = firstError(...Object.values(validateRequired(labForm, {
       testName: 'Investigation', category: 'Category', specimenType: 'Specimen type',
     })));
@@ -253,6 +282,7 @@ export default function EmergencyDashboard() {
       return;
     }
     try {
+      setSavingLab(true);
       await addLabOrder({
         patientId: labOrderCase.patientId,
         patientName: labOrderCase.patientName,
@@ -269,6 +299,8 @@ export default function EmergencyDashboard() {
       setOrderError(null);
     } catch (cause) {
       setOrderError(cause instanceof Error ? cause.message : 'Could not send the laboratory order.');
+    } finally {
+      setSavingLab(false);
     }
   };
 
@@ -282,12 +314,14 @@ export default function EmergencyDashboard() {
   const handlePharmacyOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pharmacyOrderCase) return;
+    if (savingPharmacy) return;
     const invalidLine = medicineLines.findIndex(line => !line.name.trim() || !line.dosage.trim() || !line.frequency.trim() || !line.duration.trim() || line.quantity < 1);
     if (invalidLine >= 0) {
       setOrderError(`Complete medicine ${invalidLine + 1}: name, dosage, frequency, duration, and quantity are required.`);
       return;
     }
     try {
+      setSavingPharmacy(true);
       await addPharmacyOrder({
         patientId: pharmacyOrderCase.patientId,
         patientName: pharmacyOrderCase.patientName,
@@ -310,6 +344,8 @@ export default function EmergencyDashboard() {
       setOrderError(null);
     } catch (cause) {
       setOrderError(cause instanceof Error ? cause.message : 'Could not send the pharmacy order.');
+    } finally {
+      setSavingPharmacy(false);
     }
   };
 
@@ -557,18 +593,24 @@ export default function EmergencyDashboard() {
                         >
                           <Pill size={13} /> Pharmacy
                         </button>
-                        <button
+                        <LoadingButton
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleUpdateStatus(c.id, 'Stabilized')}
+                          loading={updatingCaseId === c.id}
+                          loadingLabel="Saving…"
+                          disabled={Boolean(updatingCaseId && updatingCaseId !== c.id)}
                         >
                           Stabilize
-                        </button>
-                        <button
+                        </LoadingButton>
+                        <LoadingButton
                           className="btn btn-primary btn-sm"
                           onClick={() => handleUpdateStatus(c.id, 'Admitted to Ward')}
+                          loading={updatingCaseId === c.id}
+                          loadingLabel="Saving…"
+                          disabled={Boolean(updatingCaseId && updatingCaseId !== c.id)}
                         >
                           Ward
-                        </button>
+                        </LoadingButton>
                         <button
                           className="btn btn-outline-secondary btn-sm"
                           onClick={() => openReferral(c)}
@@ -596,7 +638,7 @@ export default function EmergencyDashboard() {
       {/* Modal: Fast-Track ER Admission */}
       {modalOpen && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => setModalOpen(false)}>
+        <div className="modal-overlay" onClick={() => !savingAdmission && setModalOpen(false)}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.96rem' }}>
@@ -605,7 +647,8 @@ export default function EmergencyDashboard() {
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={() => setModalOpen(false)}
+                onClick={() => !savingAdmission && setModalOpen(false)}
+                disabled={savingAdmission}
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -730,12 +773,12 @@ export default function EmergencyDashboard() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={savingAdmission}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-danger">
+                <LoadingButton type="submit" className="btn btn-danger" loading={savingAdmission} loadingLabel="Admitting…">
                   <CheckCircle2 size={16} /> Admit Patient to ER Bay
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
@@ -746,11 +789,11 @@ export default function EmergencyDashboard() {
       {/* Add a new ER bay */}
       {bayModalOpen && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setBayModalOpen(false)}>
+          <div className="modal-overlay" onClick={() => !savingBay && setBayModalOpen(false)}>
             <div className="modal" style={{ maxWidth: 520, width: '100%' }} onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><Bed size={17} className="text-primary" /> Add ER Bay</h2>
-                <button type="button" className="modal-close-btn" onClick={() => setBayModalOpen(false)} aria-label="Close dialog"><X size={16} /></button>
+                <button type="button" className="modal-close-btn" onClick={() => setBayModalOpen(false)} disabled={savingBay} aria-label="Close dialog"><X size={16} /></button>
               </div>
               <form onSubmit={handleAddBay} noValidate>
                 {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
@@ -780,8 +823,8 @@ export default function EmergencyDashboard() {
                   <span>Oxygen port available</span>
                 </label>
                 <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setBayModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary"><Plus size={15} /> Add Bay</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setBayModalOpen(false)} disabled={savingBay}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={savingBay} loadingLabel="Adding…"><Plus size={15} /> Add Bay</LoadingButton>
                 </div>
               </form>
             </div>
@@ -802,11 +845,11 @@ export default function EmergencyDashboard() {
 
       {completionCase && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setCompletionCase(null)}>
+          <div className="modal-overlay" onClick={() => !savingCompletion && setCompletionCase(null)}>
             <div className="modal" style={{ maxWidth: 560, width: '100%' }} onClick={event => event.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><CheckCircle2 size={17} className="text-primary" /> Complete ER Case</h2>
-                <button type="button" className="modal-close-btn" onClick={() => setCompletionCase(null)} aria-label="Close dialog"><X size={16} /></button>
+                <button type="button" className="modal-close-btn" onClick={() => setCompletionCase(null)} disabled={savingCompletion} aria-label="Close dialog"><X size={16} /></button>
               </div>
               <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
                 Patient: <strong>{completionCase.patientName}</strong> · {completionCase.id}
@@ -834,8 +877,8 @@ export default function EmergencyDashboard() {
                   />
                 </div>
                 <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setCompletionCase(null)}>Cancel</button>
-                  <button type="submit" className="btn btn-success"><CheckCircle2 size={15} /> Complete &amp; Save Record</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setCompletionCase(null)} disabled={savingCompletion}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-success" loading={savingCompletion} loadingLabel="Completing…"><CheckCircle2 size={15} /> Complete &amp; Save Record</LoadingButton>
                 </div>
               </form>
             </div>
@@ -845,48 +888,60 @@ export default function EmergencyDashboard() {
 
       {referralCase && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setReferralCase(null)}>
-            <div className="modal" style={{ maxWidth: 560, width: '100%' }} onClick={event => event.stopPropagation()}>
+          <div className="modal-overlay" onClick={() => !savingReferral && setReferralCase(null)}>
+            <div className="modal emergency-workflow-modal" onClick={event => event.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><Building2 size={17} className="text-primary" /> Refer Emergency Case</h2>
-                <button type="button" className="modal-close-btn" onClick={() => setReferralCase(null)} aria-label="Close dialog"><X size={16} /></button>
+                <button type="button" className="modal-close-btn" onClick={() => setReferralCase(null)} disabled={savingReferral} aria-label="Close dialog"><X size={16} /></button>
               </div>
-              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
-                Patient: <strong>{referralCase.patientName}</strong> · {referralCase.id}
+              <div className="emergency-workflow-patient">
+                <div><span>Patient</span><strong>{referralCase.patientName}</strong></div>
+                <div><span>Case</span><strong>{referralCase.id}</strong></div>
+                <div><span>Triage</span><strong>{referralCase.acuity}</strong></div>
               </div>
               <form onSubmit={handleReferral} noValidate>
                 {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
-                <div className="form-group">
-                  <label className="form-label" htmlFor="emergency-referral-diagnosis">Diagnosis</label>
-                  <input
-                    id="emergency-referral-diagnosis"
-                    value={referralDiagnosis}
-                    onChange={event => setReferralDiagnosis(event.target.value)}
-                    placeholder="Enter diagnosis, or leave blank for Referred"
-                  />
-                </div>
-                <div className="form-group" style={{ marginTop: '0.85rem' }}>
-                  <label className="form-label" htmlFor="emergency-referral-destination">Referral destination *</label>
-                  <input
-                    id="emergency-referral-destination"
-                    value={referralDestination}
-                    onChange={event => setReferralDestination(event.target.value)}
-                    placeholder="Hospital or specialist facility"
-                  />
-                </div>
-                <div className="form-group" style={{ marginTop: '0.85rem' }}>
-                  <label className="form-label" htmlFor="emergency-referral-reason">Referral reason *</label>
-                  <textarea
-                    id="emergency-referral-reason"
-                    rows={3}
-                    value={referralReason}
-                    onChange={event => setReferralReason(event.target.value)}
-                    placeholder="Why the patient is being referred"
-                  />
-                </div>
-                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setReferralCase(null)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary"><Building2 size={15} /> Refer &amp; Save Record</button>
+                <section className="emergency-workflow-section">
+                  <div className="emergency-workflow-section-header">
+                    <div>
+                      <h3>Referral details</h3>
+                      <p>Record the working diagnosis and receiving facility.</p>
+                    </div>
+                  </div>
+                  <div className="form-grid emergency-workflow-form-grid">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="emergency-referral-diagnosis">Diagnosis</label>
+                      <input
+                        id="emergency-referral-diagnosis"
+                        value={referralDiagnosis}
+                        onChange={event => setReferralDiagnosis(event.target.value)}
+                        placeholder="Diagnosis, or leave blank for Referred"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="emergency-referral-destination">Referral destination *</label>
+                      <input
+                        id="emergency-referral-destination"
+                        value={referralDestination}
+                        onChange={event => setReferralDestination(event.target.value)}
+                        placeholder="Hospital or specialist facility"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="emergency-referral-reason">Referral reason *</label>
+                    <textarea
+                      id="emergency-referral-reason"
+                      rows={3}
+                      value={referralReason}
+                      onChange={event => setReferralReason(event.target.value)}
+                      placeholder="Why the patient is being referred"
+                    />
+                  </div>
+                </section>
+                <div className="modal-footer emergency-workflow-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setReferralCase(null)} disabled={savingReferral}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={savingReferral} loadingLabel="Referring…"><Building2 size={15} /> Refer &amp; Save Record</LoadingButton>
                 </div>
               </form>
             </div>
@@ -897,46 +952,56 @@ export default function EmergencyDashboard() {
       {/* ER laboratory order */}
       {labOrderCase && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setLabOrderCase(null)}>
-            <div className="modal" style={{ maxWidth: 620, width: '100%' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-overlay" onClick={() => !savingLab && setLabOrderCase(null)}>
+            <div className="modal emergency-workflow-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><FlaskConical size={17} className="text-primary" /> Order Laboratory Test</h2>
-                <button type="button" className="modal-close-btn" onClick={() => setLabOrderCase(null)} aria-label="Close dialog"><X size={16} /></button>
+                <button type="button" className="modal-close-btn" onClick={() => setLabOrderCase(null)} disabled={savingLab} aria-label="Close dialog"><X size={16} /></button>
               </div>
-              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
-                Patient: <strong>{labOrderCase.patientName}</strong> · {labOrderCase.id}
+              <div className="emergency-workflow-patient">
+                <div><span>Patient</span><strong>{labOrderCase.patientName}</strong></div>
+                <div><span>Case</span><strong>{labOrderCase.id}</strong></div>
+                <div><span>Triage</span><strong>{labOrderCase.acuity}</strong></div>
               </div>
               <form onSubmit={handleLabOrder} noValidate>
                 {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Investigation *</label>
-                    <input value={labForm.testName} onChange={e => setLabForm({ ...labForm, testName: e.target.value })} placeholder="e.g. Complete Blood Count" />
+                <section className="emergency-workflow-section">
+                  <div className="emergency-workflow-section-header">
+                    <div>
+                      <h3>Laboratory requisition</h3>
+                      <p>Select the investigation, specimen, and urgency for the laboratory.</p>
+                    </div>
+                  </div>
+                  <div className="form-grid emergency-workflow-form-grid">
+                    <div className="form-group">
+                      <label className="form-label">Investigation *</label>
+                      <input value={labForm.testName} onChange={e => setLabForm({ ...labForm, testName: e.target.value })} placeholder="e.g. Complete Blood Count" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Category *</label>
+                      <select value={labForm.category} onChange={e => setLabForm({ ...labForm, category: e.target.value })}>
+                        <option>Hematology</option><option>Biochemistry</option><option>Microbiology</option><option>Parasitology</option><option>Urinalysis</option><option>Other</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Specimen type *</label>
+                      <input value={labForm.specimenType} onChange={e => setLabForm({ ...labForm, specimenType: e.target.value })} placeholder="Blood, urine, swab..." />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Priority</label>
+                      <select value={labForm.priority} onChange={e => setLabForm({ ...labForm, priority: e.target.value as Priority })}>
+                        <option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Category *</label>
-                    <select value={labForm.category} onChange={e => setLabForm({ ...labForm, category: e.target.value })}>
-                      <option>Hematology</option><option>Biochemistry</option><option>Microbiology</option><option>Parasitology</option><option>Urinalysis</option><option>Other</option>
-                    </select>
+                    <label className="form-label">Instructions</label>
+                    <textarea rows={2} value={labForm.notes} onChange={e => setLabForm({ ...labForm, notes: e.target.value })} placeholder="Collection or clinical notes" />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Specimen type *</label>
-                    <input value={labForm.specimenType} onChange={e => setLabForm({ ...labForm, specimenType: e.target.value })} placeholder="Blood, urine, swab..." />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Priority</label>
-                    <select value={labForm.priority} onChange={e => setLabForm({ ...labForm, priority: e.target.value as Priority })}>
-                      <option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Instructions</label>
-                  <textarea rows={2} value={labForm.notes} onChange={e => setLabForm({ ...labForm, notes: e.target.value })} placeholder="Collection or clinical notes" />
-                </div>
-                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setLabOrderCase(null)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary"><FlaskConical size={15} /> Send to Laboratory</button>
+                </section>
+                <div className="modal-footer emergency-workflow-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setLabOrderCase(null)} disabled={savingLab}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={savingLab} loadingLabel="Sending…"><FlaskConical size={15} /> Send to Laboratory</LoadingButton>
                 </div>
               </form>
             </div>
@@ -947,47 +1012,63 @@ export default function EmergencyDashboard() {
       {/* ER pharmacy order */}
       {pharmacyOrderCase && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setPharmacyOrderCase(null)}>
-            <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+          <div className="modal-overlay" onClick={() => !savingPharmacy && setPharmacyOrderCase(null)}>
+            <div className="modal emergency-workflow-modal emergency-pharmacy-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><Pill size={17} className="text-primary" /> Order Pharmacy Medicines</h2>
-                <button type="button" className="modal-close-btn" onClick={() => setPharmacyOrderCase(null)} aria-label="Close dialog"><X size={16} /></button>
+                <button type="button" className="modal-close-btn" onClick={() => setPharmacyOrderCase(null)} disabled={savingPharmacy} aria-label="Close dialog"><X size={16} /></button>
               </div>
-              <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 7, padding: '0.65rem 0.8rem', marginBottom: '0.85rem', fontSize: '0.82rem' }}>
-                Patient: <strong>{pharmacyOrderCase.patientName}</strong> · {pharmacyOrderCase.id}
+              <div className="emergency-workflow-patient">
+                <div><span>Patient</span><strong>{pharmacyOrderCase.patientName}</strong></div>
+                <div><span>Case</span><strong>{pharmacyOrderCase.id}</strong></div>
+                <div><span>Triage</span><strong>{pharmacyOrderCase.acuity}</strong></div>
               </div>
               <form onSubmit={handlePharmacyOrder} noValidate>
                 {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {medicineLines.map((line, index) => (
-                    <div key={index} style={{ border: '1px solid var(--clr-border)', borderRadius: 8, padding: '0.75rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 2fr) repeat(4, minmax(80px, 1fr)) auto', gap: '0.5rem', alignItems: 'end' }}>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label">Medicine *</label>
-                          <MedicineSearchSelect
-                            value={line.name}
-                            medicineId={line.medicineId}
-                            medicines={medicines}
-                            onChange={result => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, name: result.name, medicineId: result.medicineId, isExternal: result.isCustom } : item))}
-                            placeholder="Search medicine"
-                            required
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Dosage *</label><input value={line.dosage} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, dosage: e.target.value } : item))} placeholder="500 mg" /></div>
-                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Frequency *</label><input value={line.frequency} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, frequency: e.target.value } : item))} placeholder="3 times/day" /></div>
-                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Duration *</label><input value={line.duration} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, duration: e.target.value } : item))} placeholder="5 days" /></div>
-                        <div className="form-group" style={{ margin: 0 }}><label className="form-label">Qty *</label><input type="number" min={1} value={line.quantity} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(e.target.value) } : item))} /></div>
-                        <button type="button" className="btn btn-secondary btn-sm" disabled={medicineLines.length === 1} onClick={() => setMedicineLines(previous => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label="Remove medicine"><Trash2 size={14} /></button>
-                      </div>
-                      <div className="form-group" style={{ margin: '0.6rem 0 0' }}><label className="form-label">Instructions</label><input value={line.instructions} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, instructions: e.target.value } : item))} placeholder="How the patient should take it" /></div>
+                <section className="emergency-workflow-section">
+                  <div className="emergency-workflow-section-header">
+                    <div>
+                      <h3>Prescription</h3>
+                      <p>Add medicines for direct fulfillment by the pharmacy.</p>
                     </div>
-                  ))}
-                </div>
-                <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: '0.75rem' }} onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add medicine</button>
-                <div className="form-group" style={{ marginTop: '0.75rem' }}><label className="form-label">Notes</label><textarea rows={2} value={pharmacyNotes} onChange={e => setPharmacyNotes(e.target.value)} placeholder="Pharmacy instructions" /></div>
-                <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setPharmacyOrderCase(null)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary"><Pill size={15} /> Send to Pharmacy</button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add medicine</button>
+                  </div>
+                  <div className="emergency-prescription-lines">
+                    {medicineLines.map((line, index) => (
+                      <div className="emergency-prescription-line" key={index}>
+                        <div className="emergency-prescription-line-header">
+                          <span className="badge badge-blue">Medicine #{index + 1}</span>
+                          <button type="button" className="btn btn-secondary btn-sm btn-icon emergency-remove-line" disabled={medicineLines.length === 1} onClick={() => setMedicineLines(previous => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label="Remove medicine">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="emergency-prescription-grid">
+                          <div className="form-group emergency-prescription-medicine">
+                            <label className="form-label">Medicine *</label>
+                            <MedicineSearchSelect
+                              value={line.name}
+                              medicineId={line.medicineId}
+                              medicines={medicines}
+                              onChange={result => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, name: result.name, medicineId: result.medicineId, isExternal: result.isCustom } : item))}
+                              placeholder="Search medicine formulary"
+                              required
+                            />
+                          </div>
+                          <div className="form-group"><label className="form-label">Dosage *</label><input value={line.dosage} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, dosage: e.target.value } : item))} placeholder="500 mg" /></div>
+                          <div className="form-group"><label className="form-label">Frequency *</label><input value={line.frequency} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, frequency: e.target.value } : item))} placeholder="3 times/day" /></div>
+                          <div className="form-group"><label className="form-label">Duration *</label><input value={line.duration} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, duration: e.target.value } : item))} placeholder="5 days" /></div>
+                          <div className="form-group"><label className="form-label">Quantity *</label><input type="number" min={1} value={line.quantity} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(e.target.value) } : item))} /></div>
+                          <div className="form-group emergency-prescription-instructions"><label className="form-label">Instructions</label><input value={line.instructions} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, instructions: e.target.value } : item))} placeholder="How the patient should take it" /></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" className="btn btn-secondary btn-sm emergency-add-line" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add another medicine</button>
+                  <div className="form-group emergency-pharmacy-notes"><label className="form-label">Notes</label><textarea rows={2} value={pharmacyNotes} onChange={e => setPharmacyNotes(e.target.value)} placeholder="Pharmacy instructions" /></div>
+                </section>
+                <div className="modal-footer emergency-workflow-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setPharmacyOrderCase(null)} disabled={savingPharmacy}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={savingPharmacy} loadingLabel="Sending…"><Pill size={15} /> Send to Pharmacy</LoadingButton>
                 </div>
               </form>
             </div>

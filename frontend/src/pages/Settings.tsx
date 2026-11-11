@@ -5,6 +5,7 @@ import type { UserRole } from '../types';
 import { apiGet, apiPost } from '../api/client';
 import PasswordChangeForm from '../components/PasswordChangeForm';
 import PasswordField from '../components/PasswordField';
+import LoadingButton from '../components/LoadingButton';
 import { validatePassword } from '../utils/validation';
 import { NavLink } from 'react-router-dom';
 import {
@@ -128,6 +129,7 @@ export default function Settings() {
 
   const saveDefaultPassword = async (event: FormEvent) => {
     event.preventDefault();
+    if (savingDefaultPassword) return;
     setDefaultPasswordError('');
     setDefaultPasswordMessage('');
     const passwordError = validatePassword(defaultPassword, 'Default password');
@@ -285,7 +287,7 @@ export default function Settings() {
             <form onSubmit={saveDefaultPassword} noValidate>
               <label className="form-label" htmlFor="default-staff-password">New default password</label>
               <PasswordField id="default-staff-password" className="form-control mb-3" autoComplete="new-password" value={defaultPassword} onChange={event => setDefaultPassword(event.target.value)} minLength={10} required />
-              <button type="submit" className="btn btn-warning" disabled={savingDefaultPassword}>{savingDefaultPassword ? 'Saving…' : 'Save default password'}</button>
+              <LoadingButton type="submit" className="btn btn-warning" loading={savingDefaultPassword} loadingLabel="Saving…">Save default password</LoadingButton>
             </form>
           </section>
         )}

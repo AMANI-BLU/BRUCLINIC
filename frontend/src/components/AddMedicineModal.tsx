@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import ModalPortal from './ModalPortal';
 import type { MedicineItem } from '../types';
 import { firstError, validateDate, validateNumber, validateTextLength } from '../utils/validation';
+import LoadingButton from './LoadingButton';
 
 interface AddMedicineModalProps {
   onClose: () => void;
@@ -170,7 +171,7 @@ export default function AddMedicineModal({ onClose }: AddMedicineModalProps) {
           <h2 id="add-medicine-title" className="modal-title">
             <Package size={18} className="text-primary" /> Add Medicine to Inventory
           </h2>
-          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close dialog">
+          <button type="button" className="modal-close-btn" onClick={onClose} disabled={saving} aria-label="Close dialog">
             <X size={16} />
           </button>
         </div>
@@ -316,9 +317,9 @@ export default function AddMedicineModal({ onClose }: AddMedicineModalProps) {
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              <CheckCircle2 size={16} /> {saving ? 'Saving…' : 'Add Medicine'}
-            </button>
+            <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel="Saving…">
+              <CheckCircle2 size={16} /> Add Medicine
+            </LoadingButton>
           </div>
         </form>
       </div>
