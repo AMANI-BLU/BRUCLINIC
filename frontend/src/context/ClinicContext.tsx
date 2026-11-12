@@ -30,7 +30,7 @@ interface ClinicContextType {
   sendOpdToPharmacyRequest: (queueItemId: string, data: { medicines: Array<{ medicineId?: string; name: string; quantity?: number; instructions?: string; isExternal?: boolean; dosage?: string; frequency?: string; duration?: string }>; doctorId?: string; doctorName?: string; notes?: string; doctorDiagnosis?: string }) => Promise<void>;
   completeOpdConsultation: (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => Promise<void>;
   saveOpdAssessment: (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => Promise<void>;
-  referOutside: (queueItemId: string, data: { destination: string; reason: string; doctorName: string; recordData: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>> }) => Promise<void>;
+  referOutside: (queueItemId: string, data: { destination: string; reason: string; doctorName: string; recordData: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>; referralDetails?: { occupation?: string; patientHistory?: string; physicalExamination?: string; actionTaken?: string; referralNumber?: string } }) => Promise<void>;
   transferToEmergency: (queueItemId: string, data: { arrivalMethod: ERCase['arrivalMethod']; acuity: ERCase['acuity']; chiefComplaint: string; bedNumber?: string; vitals?: Vitals; attendingDoctor?: string; diagnosis?: string; criticalNotes?: string; requestSource?: string; requestNotes?: string }) => Promise<void>;
   addERCase: (item: Omit<ERCase, 'id' | 'arrivalTime'>) => Promise<ERCase>;
   updateERCase: (id: string, changes: Partial<ERCase>) => Promise<void>;
@@ -225,7 +225,14 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     notifyActionSuccess('Patient request sent to the clinic queue');
     return item as ClinicQueueItem;
   }, [refresh, token]);
-  const sendOpdToLabRequest = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['sendOpdToLabRequest']>[1]) => { await apiPost('/workflows/opd-to-lab', { queueItemId, ...data }, token); await refresh(); notifyActionSuccess('Laboratory request sent'); }, [refresh, token]);
+  const sendOpdToLabRequest = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['sendOpdToLabRequest']>[1]) => {
+    const response = await apiPost<{ data?: { duplicateTestNames?: string[] } }>('/workflows/opd-to-lab', { queueItemId, ...data }, token);
+    await refresh();
+    const duplicates = response.data?.duplicateTestNames || [];
+    notifyActionSuccess(duplicates.length
+      ? `Laboratory request sent. Already-pending tests skipped: ${duplicates.join(', ')}`
+      : 'Laboratory request sent');
+  }, [refresh, token]);
   const sendOpdToPharmacyRequest = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['sendOpdToPharmacyRequest']>[1]) => { await apiPost('/workflows/opd-to-pharmacy', { queueItemId, ...data }, token); await refresh(); notifyActionSuccess('Prescription sent to Pharmacy'); }, [refresh, token]);
   const completeOpdConsultation = useCallback(async (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => { await apiPost('/workflows/complete-consultation', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Consultation completed'); }, [refresh, token]);
   const saveOpdAssessment = useCallback(async (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => { await apiPost('/workflows/save-assessment', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Assessment saved without completing the visit'); }, [refresh, token]);
@@ -276,17 +283,33 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(id)}`, changes, token);
     setLabOrders(previous => previous.map(item => item.id === id ? response.data : item));
     if (changes.status === 'Completed') {
-      const target = queue.find(item => item.labOrderId === id);
+      const target = queue.find(item => item.labOrderId === id)
+        || (response.data.queueItemId ? queue.find(item => item.id === response.data.queueItemId) : undefined)
+        || queue.find(item => item.stage === 'Laboratory' && item.patientId === response.data.patientId);
       if (target) {
-        await apiPatch(`/queue/${encodeURIComponent(target.id)}`, {
-          stage: 'Doctor Consultation', labStatus: 'Completed', labResult: changes.result, labUnit: changes.unit,
+        const relatedOrders = labOrders
+          .map(item => item.id === id ? response.data : item)
+          .filter(item => item.queueItemId === target.id || (!item.queueItemId && item.patientId === target.patientId));
+        const pendingOrders = relatedOrders.filter(item => item.status !== 'Completed');
+        const allResults = relatedOrders
+          .filter(item => item.status === 'Completed' && item.result)
+          .map(item => `${item.testName}: ${item.result}`)
+          .join(' | ');
+        await apiPatch(`/queue/${encodeURIComponent(target.id)}`, pendingOrders.length > 0 ? {
+          stage: 'Laboratory',
+          labStatus: 'Requested',
+          requestSource: 'Laboratory',
+          requestDestination: 'Laboratory',
+          requestNotes: `${pendingOrders.length} laboratory investigation(s) still pending.`,
+        } : {
+          stage: 'Doctor Consultation', labStatus: 'Completed', labResult: allResults || changes.result, labUnit: changes.unit,
           labReferenceRange: changes.referenceRange, labIsAbnormal: changes.isAbnormal, labCompletedAt: changes.completedAt,
-          requestSource: 'Laboratory', requestDestination: 'Doctor Consultation', requestNotes: `Lab results ready: ${changes.result || 'Analysis complete'}.`,
+          requestSource: 'Laboratory', requestDestination: 'Doctor Consultation', requestNotes: `All laboratory results ready: ${allResults || changes.result || 'Analysis complete'}.`,
         }, token);
       }
     }
     notifyActionSuccess(changes.status === 'Completed' ? 'Laboratory result verified' : 'Laboratory order updated');
-  }), [mutate, queue, token]);
+  }), [labOrders, mutate, queue, token]);
   const addPharmacyOrder = useCallback(async (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => {
     const response = await apiPost<{ data: PharmacyOrder }>('/pharmacy-orders', { ...order, prescribedAt: new Date().toISOString() }, token);
     setPharmacyOrders(previous => [response.data, ...previous]);

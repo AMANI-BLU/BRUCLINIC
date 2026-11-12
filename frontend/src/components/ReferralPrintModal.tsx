@@ -21,6 +21,11 @@ export interface ReferralPrintModalProps {
   symptoms?: string[];
   notes?: string;
   allergies?: string[];
+  occupation?: string;
+  patientHistory?: string;
+  physicalExamination?: string;
+  actionTaken?: string;
+  referralNumber?: string;
   date?: string;
 }
 
@@ -44,6 +49,11 @@ export default function ReferralPrintModal({
   symptoms = [],
   notes,
   allergies = [],
+  occupation,
+  patientHistory,
+  physicalExamination,
+  actionTaken,
+  referralNumber,
   date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
 }: ReferralPrintModalProps) {
   useEffect(() => {
@@ -113,6 +123,12 @@ export default function ReferralPrintModal({
     .reason-box { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; font-size: 0.82rem; line-height: 1.55; }
     .allergy-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 7px 10px; margin-bottom: 14px; color: #991b1b; font-weight: 600; font-size: 0.75rem; }
     .notes-section { font-size: 0.78rem; color: #334155; margin-bottom: 14px; }
+    .feedback-section { border-top: 2px solid #0f172a; margin-top: 18px; padding-top: 12px; }
+    .feedback-title { font-size: 0.82rem; font-weight: 800; text-decoration: underline; margin-bottom: 8px; }
+    .feedback-title span { font-size: 0.68rem; font-weight: 400; text-decoration: none; }
+    .feedback-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; font-size: 0.75rem; margin-bottom: 8px; }
+    .feedback-line { border-bottom: 1px solid #cbd5e1; min-height: 28px; padding: 7px 0; font-size: 0.75rem; }
+    .feedback-signature { font-size: 0.72rem; margin-top: 18px; }
     /* Footer */
     .transfer-note { font-size: 0.68rem; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 20px; line-height: 1.6; }
     .signature-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px; }
@@ -135,7 +151,8 @@ export default function ReferralPrintModal({
     <div class="meta-right">
       <div class="badge">OFFICIAL REFERRAL LETTER</div>
       <div>Date: <strong>${date}</strong></div>
-      ${patientCode ? `<div>Card No: <strong>${patientCode}</strong></div>` : ''}
+      ${patientCode ? `<div>Family Folder No: <strong>${patientCode}</strong></div>` : ''}
+      ${referralNumber ? `<div>Referral No: <strong>${referralNumber}</strong></div>` : ''}
       <div>Priority: <strong style="color:${urgency.includes('STAT') ? '#dc2626' : '#b45309'}">${urgency}</strong></div>
     </div>
   </div>
@@ -150,22 +167,47 @@ export default function ReferralPrintModal({
   <div class="demo-grid">
     <div><span class="label">Patient Full Name</span><strong>${patientName}</strong></div>
     <div><span class="label">Patient ID / Card Code</span><strong>${patientCode || '—'}</strong></div>
+    <div><span class="label">Age</span>${patientAge !== undefined ? `${patientAge} years` : '—'}</div>
+    <div><span class="label">Sex</span>${patientGender || '—'}</div>
+    <div><span class="label">Occupation</span>${occupation || '—'}</div>
     <div><span class="label">Category &amp; Department</span>${patientType || 'Patient'}${patientDepartment ? ` · ${patientDepartment}` : ''}</div>
-    ${(patientAge !== undefined || patientGender) ? `<div><span class="label">Age / Gender</span>${patientAge ? `${patientAge} yrs` : '—'} · ${patientGender || '—'}</div>` : ''}
     <div><span class="label">Referring Clinician</span><strong>Dr. ${doctorName}</strong></div>
     <div><span class="label">Referring Department</span>Outpatient Consultation (OPD)</div>
   </div>
 
   ${vitalsHtml}
 
-  <div class="field-label">Clinical Impression &amp; Presumptive Diagnosis</div>
+  <div class="field-label">Patient History (Pertinent)</div>
+  <div class="field-box diagnosis-box">${patientHistory || '—'}</div>
+
+  <div class="field-label">Physical Examination</div>
+  <div class="field-box diagnosis-box">${physicalExamination || '—'}</div>
+
+  <div class="field-label">Tentative Diagnosis</div>
   <div class="field-box diagnosis-box">${diagnosis || 'Clinical evaluation required at receiving center'}</div>
 
-  <div class="field-label">Detailed Reason for Referral &amp; Recommended Interventions</div>
+  <div class="field-label">Action Taken</div>
+  <div class="field-box diagnosis-box">${actionTaken || '—'}</div>
+
+  <div class="field-label">Reasons for Referral</div>
   <div class="field-box reason-box">${reason}</div>
 
   ${symptomsHtml}
   ${allergiesHtml}
+
+  <div class="feedback-section">
+    <div class="feedback-title">FEEDBACK PAPER <span>(Please detach and give feedback to referring health institution)</span></div>
+    <div class="feedback-grid">
+      <div>Name of patient: <strong>${patientName}</strong></div>
+      <div>Age: <strong>${patientAge !== undefined ? `${patientAge} years` : '—'}</strong></div>
+      <div>Sex: <strong>${patientGender || '—'}</strong></div>
+      <div>Address: ______________________________</div>
+    </div>
+    <div class="feedback-line"><strong>Pertinent history:</strong> ${patientHistory || ''}</div>
+    <div class="feedback-line"><strong>Diagnosis:</strong> ${diagnosis || ''}</div>
+    <div class="feedback-line"><strong>Treatment:</strong> ${actionTaken || ''}</div>
+    <div class="feedback-signature">Name of physician: ____________________ &nbsp; Signature: ____________________ &nbsp; Date: __________</div>
+  </div>
 
   <div class="transfer-note">
     Please evaluate and manage this patient according to your institutional protocols. After completion of care, please return a counter-referral note to ${CLINIC_NAME} for continuation of outpatient medical follow-up.
@@ -298,7 +340,8 @@ export default function ReferralPrintModal({
                   OFFICIAL REFERRAL LETTER
                 </div>
                 <div>Date: <strong>{date}</strong></div>
-                {patientCode && <div>Card No: <strong>{patientCode}</strong></div>}
+                {patientCode && <div>Family Folder No: <strong>{patientCode}</strong></div>}
+                {referralNumber && <div>Referral No: <strong>{referralNumber}</strong></div>}
                 <div>Priority: <strong style={{ color: urgency.includes('STAT') ? '#dc2626' : '#b45309' }}>{urgency}</strong></div>
               </div>
             </div>
@@ -346,19 +389,25 @@ export default function ReferralPrintModal({
                 <strong style={{ color: '#0f172a', fontSize: '0.88rem' }}>{patientName}</strong>
               </div>
               <div>
-                <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Patient ID / Card Code</span>
+                <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Family Folder No</span>
                 <strong style={{ color: '#0f172a' }}>{patientCode || '—'}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Age</span>
+                <span style={{ color: '#0f172a' }}>{patientAge !== undefined ? `${patientAge} years` : '—'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Sex</span>
+                <span style={{ color: '#0f172a' }}>{patientGender || '—'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Occupation</span>
+                <span style={{ color: '#0f172a' }}>{occupation || '—'}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Category &amp; Department</span>
                 <span style={{ color: '#0f172a' }}>{patientType || 'Patient'}{patientDepartment ? ` · ${patientDepartment}` : ''}</span>
               </div>
-              {(patientAge !== undefined || patientGender) && (
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Age / Gender</span>
-                  <span style={{ color: '#0f172a' }}>{patientAge ? `${patientAge} yrs` : '—'} · {patientGender || '—'}</span>
-                </div>
-              )}
               <div>
                 <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Referring Clinician</span>
                 <span style={{ color: '#0f172a', fontWeight: 700 }}>Dr. {doctorName}</span>
@@ -414,10 +463,28 @@ export default function ReferralPrintModal({
               </div>
             )}
 
-            {/* Clinical Impression & Diagnosis */}
+            {/* Patient History, Examination, Diagnosis & Action */}
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                Clinical Impression &amp; Presumptive Diagnosis
+                Patient History (Pertinent)
+              </div>
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 6, padding: '0.65rem 0.85rem', fontSize: '0.84rem' }}>
+                {patientHistory || '—'}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                Physical Examination
+              </div>
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 6, padding: '0.65rem 0.85rem', fontSize: '0.84rem' }}>
+                {physicalExamination || '—'}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                Tentative Diagnosis
               </div>
               <div
                 style={{
@@ -434,10 +501,19 @@ export default function ReferralPrintModal({
               </div>
             </div>
 
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                Action Taken
+              </div>
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 6, padding: '0.65rem 0.85rem', fontSize: '0.84rem' }}>
+                {actionTaken || '—'}
+              </div>
+            </div>
+
             {/* Reason for Referral */}
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                Detailed Reason for Referral &amp; Recommended Interventions
+                Reasons for Referral
               </div>
               <div
                 style={{
@@ -490,6 +566,22 @@ export default function ReferralPrintModal({
                 <AlertCircle size={16} /> Known Allergies: {allergies.join(', ')}
               </div>
             )}
+
+            <div style={{ borderTop: '2px solid #0f172a', marginTop: '1rem', paddingTop: '0.75rem' }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, textDecoration: 'underline', marginBottom: '0.6rem' }}>
+                FEEDBACK PAPER <span style={{ fontSize: '0.7rem', fontWeight: 400, textDecoration: 'none' }}>(Please detach and give feedback to referring health institution)</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.78rem', marginBottom: '0.5rem' }}>
+                <div>Name of patient: <strong>{patientName}</strong></div>
+                <div>Age: <strong>{patientAge !== undefined ? `${patientAge} years` : '—'}</strong></div>
+                <div>Sex: <strong>{patientGender || '—'}</strong></div>
+                <div>Address: ______________________________</div>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e1', padding: '0.35rem 0', fontSize: '0.78rem' }}><strong>Pertinent history:</strong> {patientHistory || ''}</div>
+              <div style={{ borderBottom: '1px solid #cbd5e1', padding: '0.35rem 0', fontSize: '0.78rem' }}><strong>Diagnosis:</strong> {diagnosis || ''}</div>
+              <div style={{ borderBottom: '1px solid #cbd5e1', padding: '0.35rem 0', fontSize: '0.78rem' }}><strong>Treatment:</strong> {actionTaken || ''}</div>
+              <div style={{ fontSize: '0.75rem', marginTop: '1rem' }}>Name of physician: ____________________ &nbsp; Signature: ____________________ &nbsp; Date: __________</div>
+            </div>
 
             {/* Transfer Instructions */}
             <div style={{ fontSize: '0.72rem', color: '#64748b', borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginBottom: '1.5rem' }}>

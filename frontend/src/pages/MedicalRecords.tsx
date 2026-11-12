@@ -875,8 +875,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
               <PVItem label="Card / File ID" value={patientCode(patient, record.patientId)} />
               <PVItem label="Patient Classification" value={patient.patientType} />
               <PVItem label="Gender" value={patient.gender} />
-              <PVItem label="Date of Birth" value={patient.dateOfBirth} />
-              <PVItem label="Age" value={calculateAge(patient.dateOfBirth) ? `${calculateAge(patient.dateOfBirth)} years` : undefined} />
+              <PVItem label="Age" value={calculateAge(patient.dateOfBirth) !== undefined ? `${calculateAge(patient.dateOfBirth)} years` : undefined} />
               <PVItem label="Phone Number" value={patient.phone} />
               <PVItem label="Email Address" value={patient.email} />
               <PVItem label="Department / Program" value={patient.department} />

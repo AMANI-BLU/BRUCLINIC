@@ -86,6 +86,14 @@ export async function workflowHandler(request, response, segments) {
     validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });
     validateText(request.body.destination, 'Referral destination', { required: true, max: 200 });
     validateText(request.body.reason, 'Referral reason', { required: true, max: 2000 });
+    if (request.body.referralDetails !== undefined) {
+      assertPlainObject(request.body.referralDetails);
+      validateText(request.body.referralDetails.occupation, 'Occupation', { required: false, max: 150 });
+      validateText(request.body.referralDetails.patientHistory, 'Patient history', { required: false, max: 3000 });
+      validateText(request.body.referralDetails.physicalExamination, 'Physical examination', { required: false, max: 3000 });
+      validateText(request.body.referralDetails.actionTaken, 'Action taken', { required: false, max: 2000 });
+      validateText(request.body.referralDetails.referralNumber, 'Referral number', { required: false, max: 80 });
+    }
   }
   if (action === 'dispense-pharmacy') {
     validateText(request.body.orderId, 'Order', { required: true, max: 80 });

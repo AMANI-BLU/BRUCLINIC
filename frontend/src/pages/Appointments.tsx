@@ -24,7 +24,9 @@ const EMPTY_APPT: Omit<Appointment, 'id'> = {
 export default function Appointments() {
   const { appointments, patients, doctors, addAppointment, updateAppointment, deleteAppointment } = useClinic();
   const { role } = useAuth();
-  const canManageAppointments = role === 'receptionist' || role === 'opd';
+  // Reception can view the schedule, but appointment creation and changes
+  // belong to the OPD/admin scheduling workflow.
+  const canManageAppointments = role === 'admin' || role === 'opd';
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<AppointmentStatus | 'All'>('All');
   const [modal, setModal] = useState<{ open: boolean; appt?: Appointment }>({ open: false });
@@ -117,6 +119,12 @@ export default function Appointments() {
           </button>
         )}
       </div>
+
+      {role === 'receptionist' && (
+        <div className="alert alert-info py-2 px-3" role="note">
+          Reception has read-only access to the appointment schedule. New appointments and schedule changes are handled by OPD/admin staff.
+        </div>
+      )}
 
       {/* Filters */}
       <div className="filters-bar" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>

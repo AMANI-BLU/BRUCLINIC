@@ -7,6 +7,7 @@ import ConfirmDispenseModal from '../../components/ConfirmDispenseModal';
 import RestockMedicineModal from '../../components/RestockMedicineModal';
 import type { MedicineItem, PharmacyOrder } from '../../types';
 import { patientCodeFor, patientNameFor } from '../../utils/patient';
+import { calculatePatientAge } from '../../utils/patient';
 import {
   Pill, AlertTriangle, Package, CheckCircle2,
   Clock, Search, DollarSign, Plus, Printer
@@ -17,7 +18,7 @@ import { formatDateTime12, formatTime12 } from '../../utils/date';
 export default function PharmacyDashboard() {
   const {
     pharmacyOrders, dispensePharmacyOrder,
-    medicines, updateMedicine, patients
+    medicines, updateMedicine, patients, records
   } = useClinic();
   const { currentUser } = useAuth();
 
@@ -424,6 +425,12 @@ export default function PharmacyDashboard() {
         <ConfirmDispenseModal
           order={selectOrder || dispenseModal}
           medicines={medicines}
+          patientCode={patientCodeFor(patients, (selectOrder || dispenseModal)?.patientId || '')}
+          patientAge={calculatePatientAge(patients.find(patient => patient.id === (selectOrder || dispenseModal)?.patientId)?.dateOfBirth)}
+          patientGender={patients.find(patient => patient.id === (selectOrder || dispenseModal)?.patientId)?.gender}
+          patientWeight={records
+            .filter(record => record.patientId === (selectOrder || dispenseModal)?.patientId && record.vitals?.weightKg !== undefined)
+            .sort((left, right) => String(right.visitDate).localeCompare(String(left.visitDate)))[0]?.vitals?.weightKg}
           onSelect={confirmDispense}
           onClose={() => { setSelectOrder(null); setDispenseModal(null); }}
         />

@@ -59,6 +59,10 @@ export default function OpdDashboard() {
   const [showOutsideReferral, setShowOutsideReferral] = useState(false);
   const [referralDestination, setReferralDestination] = useState('');
   const [referralReason, setReferralReason] = useState('');
+  const [referralOccupation, setReferralOccupation] = useState('');
+  const [referralHistory, setReferralHistory] = useState('');
+  const [referralPhysicalExam, setReferralPhysicalExam] = useState('');
+  const [referralActionTaken, setReferralActionTaken] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [assessmentSaved, setAssessmentSaved] = useState(false);
   const [actionLoading, setActionLoading] = useState<'lab' | 'pharmacy' | 'complete' | 'assessment' | 'referral' | null>(null);
@@ -77,6 +81,11 @@ export default function OpdDashboard() {
     symptoms?: string[];
     notes?: string;
     allergies?: string[];
+    occupation?: string;
+    patientHistory?: string;
+    physicalExamination?: string;
+    actionTaken?: string;
+    referralNumber?: string;
   } | null>(null);
 
   // Vitals form - start empty, do not fill with fake default numbers
@@ -104,6 +113,8 @@ export default function OpdDashboard() {
   const [labClinicalNotes, setLabClinicalNotes] = useState('');
   const [labTechInstructions, setLabTechInstructions] = useState('');
   const [labTests, setLabTests] = useState<Array<{ testName: string; category: string; specimenType: string; technologistInstructions: string }>>([]);
+
+  const hasRecordedVitals = Object.values(vitalsForm).some(value => value !== undefined && String(value).trim() !== '');
 
   // OPD to Pharmacy multi-item prescription state
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionLine[]>([]);
@@ -355,7 +366,7 @@ export default function OpdDashboard() {
         visitDate: new Date().toISOString().split('T')[0],
         diagnosis: consultation.diagnosis,
         symptoms: consultation.symptoms ? consultation.symptoms.split(',').map(s => s.trim()) : [selectedQueueItem.chiefComplaint],
-        vitals: vitalsForm,
+        ...(hasRecordedVitals ? { vitals: vitalsForm } : {}),
         notes: consultation.clinicalNotes || 'Outpatient clinical visit completed. Patient advised on care.',
       });
       setFormError(null);
@@ -378,7 +389,7 @@ export default function OpdDashboard() {
         visitDate: new Date().toISOString().slice(0, 10),
         diagnosis: consultation.diagnosis,
         symptoms: consultation.symptoms.split(',').map(value => value.trim()).filter(Boolean),
-        vitals: vitalsForm,
+        ...(hasRecordedVitals ? { vitals: vitalsForm } : {}),
         notes: consultation.clinicalNotes,
       });
       setFormError(null);
@@ -428,6 +439,11 @@ export default function OpdDashboard() {
         symptoms: consultation.symptoms.split(',').map(value => value.trim()).filter(Boolean),
         notes: consultation.clinicalNotes,
         allergies: Array.isArray(selectedQueueItem.allergies) ? selectedQueueItem.allergies : selectedQueueItem.allergies ? [String(selectedQueueItem.allergies)] : [],
+        occupation: referralOccupation.trim(),
+        patientHistory: referralHistory.trim() || consultation.symptoms.trim(),
+        physicalExamination: referralPhysicalExam.trim() || consultation.clinicalNotes.trim(),
+        actionTaken: referralActionTaken.trim(),
+        referralNumber: `REF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${selectedQueueItem.tokenNumber}`,
       };
 
       await referOutside(selectedQueueItem.id, {
@@ -442,11 +458,22 @@ export default function OpdDashboard() {
           vitals: vitalsForm,
           notes: consultation.clinicalNotes,
         },
+        referralDetails: {
+          occupation: referralOccupation.trim(),
+          patientHistory: referralHistory.trim() || consultation.symptoms.trim(),
+          physicalExamination: referralPhysicalExam.trim() || consultation.clinicalNotes.trim(),
+          actionTaken: referralActionTaken.trim(),
+          referralNumber: referralSlipData.referralNumber,
+        },
       });
       setShowOutsideReferral(false);
       setSelectedQueueItem(null);
       setReferralDestination('');
       setReferralReason('');
+      setReferralOccupation('');
+      setReferralHistory('');
+      setReferralPhysicalExam('');
+      setReferralActionTaken('');
       setPrintedReferral(referralSlipData);
       window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: 'Patient referred outside successfully. Referral slip ready for printing.' }));
     } catch (cause) {
@@ -898,7 +925,7 @@ export default function OpdDashboard() {
                     className={`btn btn-sm opd-consultation-tab ${activeConsultationTab === 'vitals' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setActiveConsultationTab('vitals')}
                   >
-                    <Activity size={14} /> Vitals
+                    <Activity size={14} /> Additional Vitals
                   </button>
                 </div>
 
@@ -1418,12 +1445,15 @@ export default function OpdDashboard() {
                   </form>
                 )}
 
-                {/* ── TAB 4: QUICK VITALS EDIT ── */}
+                {/* ── TAB 4: OPTIONAL ADDITIONAL VITALS ── */}
                 {activeConsultationTab === 'vitals' && (
                   <div>
                     <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Activity size={16} className="text-primary" /> Vitals
+                      <Activity size={16} className="text-primary" /> Additional Vitals <span className="text-muted" style={{ fontSize: '0.72rem', fontWeight: 500 }}>(optional)</span>
                     </h4>
+                    <p className="text-muted" style={{ fontSize: '0.78rem', marginBottom: '0.85rem' }}>
+                      Add measurements when available. Vitals are an additional clinical record and are not required to close the consultation.
+                    </p>
 
                     <div className="form-grid" style={{ marginBottom: '1rem' }}>
                       <div className="form-group">
@@ -1437,8 +1467,8 @@ export default function OpdDashboard() {
                         <label className="form-label">Heart Rate (bpm)</label>
                         <input
                           type="number"
-                          value={vitalsForm.heartRate}
-                          onChange={(e) => setVitalsForm({ ...vitalsForm, heartRate: Number(e.target.value) })}
+                          value={vitalsForm.heartRate ?? ''}
+                          onChange={(e) => setVitalsForm({ ...vitalsForm, heartRate: e.target.value === '' ? undefined : Number(e.target.value) })}
                         />
                       </div>
                       <div className="form-group">
@@ -1446,16 +1476,33 @@ export default function OpdDashboard() {
                         <input
                           type="number"
                           step="0.1"
-                          value={vitalsForm.temperature}
-                          onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: Number(e.target.value) })}
+                          value={vitalsForm.temperature ?? ''}
+                          onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value === '' ? undefined : Number(e.target.value) })}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Oxygen SpO2 (%)</label>
                         <input
                           type="number"
-                          value={vitalsForm.spo2}
-                          onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: Number(e.target.value) })}
+                          value={vitalsForm.spo2 ?? ''}
+                          onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Respiratory Rate (/min)</label>
+                        <input
+                          type="number"
+                          value={vitalsForm.respiratoryRate ?? ''}
+                          onChange={(e) => setVitalsForm({ ...vitalsForm, respiratoryRate: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Weight (kg)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={vitalsForm.weightKg ?? ''}
+                          onChange={(e) => setVitalsForm({ ...vitalsForm, weightKg: e.target.value === '' ? undefined : Number(e.target.value) })}
                         />
                       </div>
                     </div>
@@ -1614,6 +1661,46 @@ export default function OpdDashboard() {
                   </datalist>
                 </div>
 
+                <div className="form-grid" style={{ marginBottom: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Occupation</label>
+                    <input
+                      value={referralOccupation}
+                      onChange={e => setReferralOccupation(e.target.value)}
+                      placeholder="Occupation / role"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Patient history</label>
+                    <input
+                      value={referralHistory}
+                      onChange={e => setReferralHistory(e.target.value)}
+                      placeholder="Pertinent history"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid" style={{ marginBottom: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Physical examination</label>
+                    <textarea
+                      rows={2}
+                      value={referralPhysicalExam}
+                      onChange={e => setReferralPhysicalExam(e.target.value)}
+                      placeholder="Relevant examination findings"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Action taken</label>
+                    <textarea
+                      rows={2}
+                      value={referralActionTaken}
+                      onChange={e => setReferralActionTaken(e.target.value)}
+                      placeholder="Treatment or action taken before referral"
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                   <label className="form-label" style={{ fontWeight: 600 }}>Clinical Referral Reason &amp; Summary *</label>
                   <textarea
@@ -1658,6 +1745,11 @@ export default function OpdDashboard() {
           symptoms={printedReferral.symptoms}
           notes={printedReferral.notes}
           allergies={printedReferral.allergies}
+          occupation={printedReferral.occupation}
+          patientHistory={printedReferral.patientHistory}
+          physicalExamination={printedReferral.physicalExamination}
+          actionTaken={printedReferral.actionTaken}
+          referralNumber={printedReferral.referralNumber}
         />
       )}
     </div>

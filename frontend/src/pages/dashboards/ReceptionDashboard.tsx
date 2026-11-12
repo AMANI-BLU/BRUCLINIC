@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useClinic } from '../../context/ClinicContext';
-import type { ClinicQueueItem, QueueStage, QueuePriority, Patient } from '../../types';
-import { firstError, validateDate, validatePhone, validateRequired, validateEmail, validateTextLength, sanitizeInput } from '../../utils/validation';
+import type { ClinicQueueItem, QueueStage, QueuePriority } from '../../types';
+import { firstError, validateRequired, validateTextLength, sanitizeInput } from '../../utils/validation';
 import { patientCode, patientCodeFor, patientFullName, patientMatchesSearch, patientOptionLabel } from '../../utils/patient';
 import {
   CreditCard, UserPlus, Search, Plus,
@@ -16,13 +17,13 @@ import LoadingButton from '../../components/LoadingButton';
 export default function ReceptionDashboard() {
   const {
     patients, doctors, queue,
-    sendCardToOpdRequest, updateQueueItem, removeFromQueue, addPatient, transferToEmergency
+    sendCardToOpdRequest, updateQueueItem, removeFromQueue, transferToEmergency
   } = useClinic();
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [filterStage, setFilterStage] = useState<string>('All');
   const [modalOpen, setModalOpen] = useState(false);
-  const [formType, setFormType] = useState<'existing' | 'new'>('existing');
 
   // Search query within the existing card lookup
   const [cardSearchQuery, setCardSearchQuery] = useState('');
@@ -39,24 +40,6 @@ export default function ReceptionDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [forwardingKey, setForwardingKey] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-
-  // New patient registration form state
-  const [newPatient, setNewPatient] = useState({
-    firstName: '',
-    lastName: '',
-    gender: 'Male' as const,
-    dateOfBirth: '',
-    phone: '',
-    email: '',
-    address: '',
-    patientType: 'Student' as const,
-    department: 'Computer Science',
-    bloodGroup: null,
-    allergies: '',
-    chronicConditions: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-  });
 
   // Selected patient card details
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
@@ -84,17 +67,14 @@ export default function ReceptionDashboard() {
     return matchSearch && matchFilter;
   });
 
-  const handleOpenModal = (type: 'existing' | 'new' = 'existing', presetPatientId?: string) => {
-    setFormType(type);
+  const handleOpenModal = (presetPatientId?: string) => {
     setCardSearchQuery('');
     setChiefComplaint('');
     setFormError(null);
     if (presetPatientId) {
       setSelectedPatientId(presetPatientId);
-    } else if (type === 'existing' && patients.length > 0) {
+    } else if (patients.length > 0) {
       setSelectedPatientId(patients[0].id);
-    } else if (type === 'new') {
-      setSelectedPatientId('');
     }
     setModalOpen(true);
   };
@@ -103,22 +83,10 @@ export default function ReceptionDashboard() {
     e.preventDefault();
     if (submitting) return;
     setFormError(null);
-    const validationError = formType === 'existing'
-      ? firstError(
-        ...Object.values(validateRequired({ selectedPatientId }, { selectedPatientId: 'Patient' })),
-        validateTextLength(chiefComplaint, 'Reason / Chief Complaint', { max: 500 }),
-      )
-      : firstError(
-        ...Object.values(validateRequired(newPatient, {
-          firstName: 'First name', lastName: 'Last name', phone: 'Phone', dateOfBirth: 'Date of birth',
-        })),
-        validateTextLength(newPatient.firstName, 'First name', { min: 2, max: 100, required: true }),
-        validateTextLength(newPatient.lastName, 'Last name', { min: 2, max: 100, required: true }),
-        validatePhone(newPatient.phone),
-        validateDate(newPatient.dateOfBirth, 'Date of birth', { allowFuture: false }),
-        newPatient.email ? validateEmail(newPatient.email) : undefined,
-        newPatient.emergencyContactPhone ? validatePhone(newPatient.emergencyContactPhone, 'Emergency contact phone') : undefined,
-      );
+    const validationError = firstError(
+      ...Object.values(validateRequired({ selectedPatientId }, { selectedPatientId: 'Patient' })),
+      validateTextLength(chiefComplaint, 'Reason / Chief Complaint', { max: 500 }),
+    );
     if (validationError) {
       setFormError(validationError);
       return;
@@ -130,68 +98,27 @@ export default function ReceptionDashboard() {
 
     try {
       setSubmitting(true);
-      if (formType === 'existing') {
-        if (!selectedPatient) {
-          setFormError('Please select a registered patient.');
-          return;
-        }
-
-        const activeVisit = queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed');
-        if (activeVisit) {
-          setFormError(`This patient already has an active visit in progress (${activeVisit.stage}, ${activeVisit.tokenNumber}). Complete that visit before sending another request.`);
-          return;
-        }
-
-        await sendCardToOpdRequest({
-          patient: selectedPatient,
-          hasExistingCard: true,
-          chiefComplaint: sanitizeInput(chiefComplaint) || 'Routine medical examination and OPD consultation',
-          priority,
-          stage: destinationStage,
-          assignedDoctorId: effectiveDoctorId || undefined,
-          assignedDoctorName: doctorName,
-          assignedOpdRoom: selectedOpdRoom,
-        });
-      } else {
-        // Register New Patient Card first
-        const allergyArr = newPatient.allergies
-          ? newPatient.allergies.split(',').map(s => sanitizeInput(s)).filter(Boolean)
-          : [];
-        const chronicArr = newPatient.chronicConditions
-          ? newPatient.chronicConditions.split(',').map(s => sanitizeInput(s)).filter(Boolean)
-          : [];
-
-        const patientInput: Omit<Patient, 'id' | 'registeredAt'> = {
-          firstName: sanitizeInput(newPatient.firstName),
-          lastName: sanitizeInput(newPatient.lastName),
-          gender: newPatient.gender,
-          dateOfBirth: newPatient.dateOfBirth,
-          phone: sanitizeInput(newPatient.phone),
-          email: sanitizeInput(newPatient.email),
-          address: sanitizeInput(newPatient.address),
-          patientType: newPatient.patientType,
-          department: sanitizeInput(newPatient.department),
-          bloodGroup: newPatient.bloodGroup || null,
-          allergies: allergyArr,
-          chronicConditions: chronicArr,
-          emergencyContactName: sanitizeInput(newPatient.emergencyContactName),
-          emergencyContactPhone: sanitizeInput(newPatient.emergencyContactPhone),
-        };
-
-        const savedPatient = await addPatient(patientInput);
-
-        // Now dispatch the visit request to OPD
-        await sendCardToOpdRequest({
-          patient: savedPatient,
-          hasExistingCard: false,
-          chiefComplaint: sanitizeInput(chiefComplaint) || 'New patient file card created & initial consultation requested',
-          priority,
-          stage: destinationStage,
-          assignedDoctorId: effectiveDoctorId || undefined,
-          assignedDoctorName: doctorName,
-          assignedOpdRoom: selectedOpdRoom,
-        });
+      if (!selectedPatient) {
+        setFormError('Please select a registered patient.');
+        return;
       }
+
+      const activeVisit = queue.find(q => q.patientId === selectedPatient.id && q.stage !== 'Completed');
+      if (activeVisit) {
+        setFormError(`This patient already has an active visit in progress (${activeVisit.stage}, ${activeVisit.tokenNumber}). Complete that visit before sending another request.`);
+        return;
+      }
+
+      await sendCardToOpdRequest({
+        patient: selectedPatient,
+        hasExistingCard: true,
+        chiefComplaint: sanitizeInput(chiefComplaint) || 'Routine medical examination and OPD consultation',
+        priority,
+        stage: destinationStage,
+        assignedDoctorId: effectiveDoctorId || undefined,
+        assignedDoctorName: doctorName,
+        assignedOpdRoom: selectedOpdRoom,
+      });
 
       setModalOpen(false);
       setChiefComplaint('');
@@ -264,10 +191,10 @@ export default function ReceptionDashboard() {
   return (
     <div className="reception-dashboard">
       <div className="reception-actions d-flex justify-content-end flex-wrap mb-2">
-        <button type="button" className="btn btn-secondary" onClick={() => handleOpenModal('new')}>
-          <UserPlus size={16} /> New patient
+        <button type="button" className="btn btn-secondary" onClick={() => navigate('/patients?register=new')}>
+          <UserPlus size={16} /> Register New Patient
         </button>
-        <button type="button" className="btn btn-primary" onClick={() => handleOpenModal('existing')}>
+        <button type="button" className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Send size={16} /> Send to OPD
         </button>
       </div>
@@ -343,7 +270,7 @@ export default function ReceptionDashboard() {
             <button
               type="button"
               className="btn btn-primary btn-sm shadow-sm d-inline-flex align-items-center gap-1"
-              onClick={() => handleOpenModal('existing')}
+              onClick={() => handleOpenModal()}
             >
               <Plus size={14} /> <span>New OPD Request</span>
             </button>
@@ -437,7 +364,7 @@ export default function ReceptionDashboard() {
                             type="button"
                             className="btn btn-primary btn-sm w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
                             style={{ fontWeight: 600, fontSize: '0.78rem' }}
-                            onClick={() => handleOpenModal('existing', p.id)}
+                            onClick={() => handleOpenModal(p.id)}
                           >
                             <span>Send to OPD</span>
                             <ArrowRight size={13} />
@@ -628,7 +555,7 @@ export default function ReceptionDashboard() {
           <div className="modal reception-request-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header reception-request-header">
               <h2 className="modal-title">
-                {formType === 'existing' ? <><CreditCard size={16} className="text-primary" /> Send to OPD</> : <><UserPlus size={16} className="text-primary" /> New patient</>}
+                <><CreditCard size={16} className="text-primary" /> Send to OPD</>
               </h2>
               <button
                 type="button"
@@ -643,32 +570,7 @@ export default function ReceptionDashboard() {
 
             <form className="reception-request-form" onSubmit={handleDispatchCardToOpd} noValidate>
               {formError && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
-              <div className="reception-mode-tabs">
-                <button
-                  type="button"
-                  className={`btn ${formType === 'existing' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => {
-                    setFormType('existing');
-                    setCardSearchQuery('');
-                    if (patients[0]) setSelectedPatientId(patients[0].id);
-                  }}
-                >
-                  <Search size={16} /> Existing card
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${formType === 'new' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => {
-                    setFormType('new');
-                    setSelectedPatientId('');
-                  }}
-                >
-                  <UserPlus size={16} /> New card
-                </button>
-              </div>
-
-              {/* ── MODE 1: EXISTING CARD SELECTION & DOSSIER ── */}
-              {formType === 'existing' ? (
+              {/* Registered card lookup & dossier */}
                 <div className="reception-modal-section">
                   <div className="form-group">
                     <label className="form-label">Find a patient *</label>
@@ -698,7 +600,7 @@ export default function ReceptionDashboard() {
                       <div className="empty-state-icon tone-blue" style={{ width: 38, height: 38, margin: '0 auto 0.5rem' }}><Search size={18} /></div>
                       <h5 className="empty-state-title" style={{ fontSize: '0.88rem' }}>No matching patient card</h5>
                       <p className="empty-state-body" style={{ fontSize: '0.78rem', marginBottom: '0.75rem' }}>No registered patient matches "{cardSearchQuery}". You can register them directly.</p>
-                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setFormType('new')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/patients?register=new')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
                         <UserPlus size={13} /> Register New Patient
                       </button>
                     </div>
@@ -742,69 +644,6 @@ export default function ReceptionDashboard() {
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="reception-modal-section">
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label className="form-label">First name *</label>
-                      <input
-                        required
-                        value={newPatient.firstName}
-                        onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
-                        placeholder="First name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Last name *</label>
-                      <input
-                        required
-                        value={newPatient.lastName}
-                        onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
-                        placeholder="Last name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Patient type</label>
-                      <select
-                        value={newPatient.patientType}
-                        onChange={(e) => setNewPatient({ ...newPatient, patientType: e.target.value as typeof newPatient.patientType })}
-                      >
-                        <option value="Student">Student</option>
-                        <option value="Staff">Staff</option>
-                        <option value="External">External</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Phone *</label>
-                      <input
-                        required
-                        value={newPatient.phone}
-                        onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
-                        placeholder="Phone number"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Date of birth *</label>
-                      <input
-                        required
-                        type="date"
-                        value={newPatient.dateOfBirth}
-                        onChange={(e) => setNewPatient({ ...newPatient, dateOfBirth: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Gender</label>
-                      <select
-                        value={newPatient.gender}
-                        onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value as typeof newPatient.gender })}
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div className="reception-modal-section">
                 <div className="reception-section-title"><Send size={15} className="text-primary" /> Request details</div>
@@ -878,12 +717,12 @@ export default function ReceptionDashboard() {
                 <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={submitting}>
                   Cancel
                 </button>
-                <LoadingButton
+                  <LoadingButton
                   type="submit"
                   className="btn btn-primary"
-                  disabled={Boolean(formType === 'existing' && selectedPatient && queue.some(q => q.patientId === selectedPatient.id && q.stage !== 'Completed'))}
+                    disabled={Boolean(selectedPatient && queue.some(q => q.patientId === selectedPatient.id && q.stage !== 'Completed'))}
                   loading={submitting}
-                  loadingLabel={formType === 'new' ? 'Registering…' : 'Sending…'}
+                    loadingLabel="Sending…"
                 >
                   <Send size={16} /> Send
                 </LoadingButton>

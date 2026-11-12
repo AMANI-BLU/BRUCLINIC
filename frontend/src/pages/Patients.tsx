@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useClinic } from '../context/ClinicContext';
 import { useAuth } from '../context/AuthContext';
 import type { Patient, Gender, BloodGroup, PatientType, QueuePriority, QueueStage, MedicalRecord, ClinicQueueItem, LabOrder } from '../types';
@@ -6,8 +7,8 @@ import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
   Activity, HeartPulse
 } from 'lucide-react';
-import { firstError, validateDate, validateEmail, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
-import { patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
+import { firstError, validateEmail, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { calculatePatientAge, dateOfBirthForAge, patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
 import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
@@ -19,7 +20,7 @@ interface PatientFormData {
   firstName: string;
   lastName: string;
   gender: Gender;
-  dateOfBirth: string;
+  age: string;
   phone: string;
   email: string;
   address: string;
@@ -36,7 +37,7 @@ const EMPTY_PATIENT_FORM: PatientFormData = {
   firstName: '',
   lastName: '',
   gender: 'Male',
-  dateOfBirth: '',
+  age: '',
   phone: '',
   email: '',
   address: '',
@@ -81,6 +82,7 @@ export default function Patients() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Only receptionist can add/edit/delete patients
   const canManagePatients = role === 'receptionist';
@@ -92,19 +94,27 @@ export default function Patients() {
     return patientMatchesSearch(p, search) && matchType;
   });
 
-  const openAdd = () => {
+  const openAdd = useCallback(() => {
     setForm(EMPTY_PATIENT_FORM);
     setRequestDetails({ ...EMPTY_REQUEST, doctorId: doctors[0]?.id || '' });
     setFormError(null);
     setModal({ mode: 'add' });
-  };
+  }, [doctors]);
+
+  // Reception routes new-card registration here so the whole clinic uses the
+  // same complete "Register New Patient" form instead of a second mini-form.
+  useEffect(() => {
+    if (searchParams.get('register') !== 'new' || role !== 'receptionist') return;
+    openAdd();
+    setSearchParams({}, { replace: true });
+  }, [openAdd, role, searchParams, setSearchParams]);
 
   const openEdit = (p: Patient) => {
     setForm({
       firstName: p.firstName || '',
       lastName: p.lastName || '',
       gender: p.gender || 'Male',
-      dateOfBirth: p.dateOfBirth || '',
+      age: calculatePatientAge(p.dateOfBirth)?.toString() || '',
       phone: p.phone || '',
       email: p.email || '',
       address: p.address || '',
@@ -135,14 +145,14 @@ export default function Patients() {
     const requiredErrors = validateRequired(form as unknown as Record<string, unknown>, {
       firstName: 'First name',
       lastName: 'Last name',
-      dateOfBirth: 'Date of birth',
+      age: 'Age',
       phone: 'Phone',
     });
     const error = firstError(
       ...Object.values(requiredErrors),
       validateTextLength(form.firstName, 'First name', { min: 2, max: 100, required: true }),
       validateTextLength(form.lastName, 'Last name', { min: 2, max: 100, required: true }),
-      validateDate(form.dateOfBirth, 'Date of birth', { allowFuture: false }),
+      validateNumber(form.age, 'Age', { min: 0, max: 130, integer: true, required: true }),
       validatePhone(form.phone),
       form.email ? validateEmail(form.email) : undefined,
       form.emergencyContactPhone ? validatePhone(form.emergencyContactPhone, 'Emergency contact phone') : undefined,
@@ -164,7 +174,7 @@ export default function Patients() {
       firstName: sanitizeInput(form.firstName),
       lastName: sanitizeInput(form.lastName),
       gender: form.gender,
-      dateOfBirth: form.dateOfBirth,
+      dateOfBirth: dateOfBirthForAge(Number(form.age)),
       phone: sanitizeInput(form.phone),
       email: sanitizeInput(form.email),
       address: sanitizeInput(form.address),
@@ -350,6 +360,11 @@ export default function Patients() {
               <form onSubmit={handleSubmit} noValidate className="patient-register-form">
                 {formError && <div className="alert alert-danger py-2 px-3 mb-2" role="alert">{formError}</div>}
 
+                <div className="alert alert-info py-2 px-3 mb-3" role="status">
+                  <strong>Patient card ID:</strong>{' '}
+                  {modal.patient ? <code>{patientCode(modal.patient)}</code> : 'Assigned automatically when this registration is saved.'}
+                </div>
+
                 {/* Section 1: Demographics & Personal Info */}
                 <div className="patient-register-section">
                   <div className="patient-register-section-title">
@@ -385,12 +400,16 @@ export default function Patients() {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Date of birth *</label>
+                      <label className="form-label">Age *</label>
                       <input
                         required
-                        type="date"
-                        value={form.dateOfBirth}
-                        onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))}
+                        type="number"
+                        min="0"
+                        max="130"
+                        step="1"
+                        value={form.age}
+                        onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
+                        placeholder="Age in years"
                       />
                     </div>
                     <div className="form-group">
@@ -710,7 +729,8 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
 
       {activeTab === 'profile' && (
         <div className="view-info-grid">
-          <PVItem label="Date of Birth" value={p.dateOfBirth} />
+          <PVItem label="Card ID" value={patientCode(p)} />
+          <PVItem label="Age" value={calculatePatientAge(p.dateOfBirth) !== undefined ? `${calculatePatientAge(p.dateOfBirth)} years` : '—'} />
           <PVItem label="Phone" value={p.phone} />
           <PVItem label="Email" value={p.email || '—'} />
           <PVItem label="Department / Program" value={p.department ?? '—'} />

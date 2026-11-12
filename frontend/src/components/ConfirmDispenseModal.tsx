@@ -9,6 +9,10 @@ import LoadingButton from './LoadingButton';
 export interface ConfirmDispenseModalProps {
   order: PharmacyOrder | null;
   medicines: MedicineItem[];
+  patientCode?: string;
+  patientAge?: number;
+  patientGender?: string;
+  patientWeight?: number;
   onSelect: (orderId: string, medicineId?: string, quantity?: number, overrides?: Record<string, string>, quantities?: Record<string, number>) => Promise<void> | void;
   onClose: () => void;
 }
@@ -16,6 +20,10 @@ export interface ConfirmDispenseModalProps {
 export default function ConfirmDispenseModal({
   order,
   medicines,
+  patientCode,
+  patientAge,
+  patientGender,
+  patientWeight,
   onSelect,
   onClose,
 }: ConfirmDispenseModalProps) {
@@ -154,7 +162,7 @@ export default function ConfirmDispenseModal({
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}
               title="Print official prescription slip for patient"
             >
-              <Printer size={14} /> Print Rx Slip
+              <Printer size={14} /> Print Medication Slip
             </button>
             <button
               type="button"
@@ -478,7 +486,7 @@ export default function ConfirmDispenseModal({
             onClick={() => setShowPrintSlip(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Printer size={15} /> Print Rx Slip for Patient
+            <Printer size={15} /> Print Separate Medication Slip
           </button>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -510,6 +518,10 @@ export default function ConfirmDispenseModal({
           isOpen={showPrintSlip}
           onClose={() => setShowPrintSlip(false)}
           patientName={order.patientName}
+          patientCode={patientCode}
+          patientAge={patientAge}
+          patientGender={patientGender}
+          patientWeight={patientWeight}
           doctorName={order.doctorName}
           medicines={itemsWithStock.map((item) => ({
             name: item.name,
@@ -518,6 +530,7 @@ export default function ConfirmDispenseModal({
             isExternal: item.isExternal,
           }))}
           notes={order.notes}
+          initialMode={itemsWithStock.some(item => !item.isExternal) ? 'clinic' : 'outside'}
         />
       )}
     </div>

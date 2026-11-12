@@ -172,11 +172,39 @@ export async function sendOpdToLabRequest(queueItemId, data) {
     for (const test of requests) {
       requireValue(test?.testName, 'testName'); requireValue(test?.category, 'category'); requireValue(test?.specimenType, 'specimenType');
     }
+    // A doctor may reopen the Lab Request tab or retry after a network hiccup.
+    // Keep one active order per queue visit and investigation, while still
+    // allowing a new request after a previous result has been completed.
+    const requestSeen = new Set();
+    const inputDuplicateNames = [];
+    const uniqueRequests = requests.filter(test => {
+      const key = String(test.testName).trim().toLowerCase();
+      if (requestSeen.has(key)) {
+        inputDuplicateNames.push(String(test.testName).trim());
+        return false;
+      }
+      requestSeen.add(key);
+      return true;
+    });
+    const requestedNames = uniqueRequests.map(test => String(test.testName).trim().toLowerCase());
+    const existingPending = await client.query(
+      `SELECT test_name FROM lab_orders
+       WHERE queue_item_id = $1
+         AND status <> 'Completed'
+         AND LOWER(BTRIM(test_name)) = ANY($2::text[])`,
+      [queueItemId, requestedNames],
+    );
+    const duplicateNames = new Set(existingPending.rows.map(row => String(row.test_name).trim().toLowerCase()));
+    const newRequests = uniqueRequests.filter(test => !duplicateNames.has(String(test.testName).trim().toLowerCase()));
+    if (newRequests.length === 0) {
+      const duplicateLabels = [...new Set([...requests.map(test => String(test.testName).trim()), ...inputDuplicateNames])].join(', ');
+      throw workflowError(`These laboratory investigations are already pending for this visit: ${duplicateLabels}`, 409);
+    }
     const groupId = workflowId('LABREQ');
     const doctorId = data.doctorId || queueItem.assigned_doctor_id || null;
     const doctorName = data.doctorName || queueItem.assigned_doctor_name || 'OPD clinician';
     const createdOrders = [];
-    for (const test of requests) {
+    for (const test of newRequests) {
       const labId = workflowId('LAB');
       const techNotes = [test.technologistInstructions || test.notes, data.notes].filter(Boolean).join('\n');
       await client.query(
@@ -192,10 +220,26 @@ export async function sendOpdToLabRequest(queueItemId, data) {
       notes: data.consultationNotes || queueItem.consultation_notes || '',
     });
     const firstOrder = createdOrders[0];
-    const testNames = createdOrders.map(order => order.testName).join(', ');
-    await client.query(`UPDATE queue_items SET stage = 'Laboratory', lab_order_id = $1, lab_test_name = $2, lab_category = $3, lab_status = 'Requested', lab_notes = $4, doctor_diagnosis = COALESCE(NULLIF($5, ''), doctor_diagnosis), consultation_notes = COALESCE(NULLIF($6, ''), consultation_notes), request_source = 'OPD Consultation', request_destination = 'Laboratory', request_notes = $7, updated_at = NOW() WHERE id = $8`, [firstOrder.id, testNames, firstOrder.category, data.notes || null, data.doctorDiagnosis || '', data.consultationNotes || '', `Diagnostic lab request by ${doctorName}: ${testNames}`, queueItemId]);
+    const activeOrders = await client.query(
+      `SELECT id, test_name, category FROM lab_orders
+       WHERE queue_item_id = $1 AND status <> 'Completed'
+       ORDER BY created_at ASC`,
+      [queueItemId],
+    );
+    const testNames = activeOrders.rows.map(order => order.test_name).join(', ');
+    const activeFirstOrder = activeOrders.rows[0] || firstOrder;
+    await client.query(`UPDATE queue_items SET stage = 'Laboratory', lab_order_id = $1, lab_test_name = $2, lab_category = $3, lab_status = 'Requested', lab_notes = $4, doctor_diagnosis = COALESCE(NULLIF($5, ''), doctor_diagnosis), consultation_notes = COALESCE(NULLIF($6, ''), consultation_notes), request_source = 'OPD Consultation', request_destination = 'Laboratory', request_notes = $7, updated_at = NOW() WHERE id = $8`, [activeFirstOrder.id, testNames, activeFirstOrder.category, data.notes || null, data.doctorDiagnosis || '', data.consultationNotes || '', `Diagnostic lab request by ${doctorName}: ${testNames}`, queueItemId]);
     const updated = await client.query('SELECT * FROM queue_items WHERE id = $1', [queueItemId]);
-    return { queueItem: normalizeQueueRow(updated.rows[0]), labOrderId: firstOrder.id, labOrderIds: createdOrders.map(order => order.id), requestGroupId: groupId };
+    return {
+      queueItem: normalizeQueueRow(updated.rows[0]),
+      labOrderId: activeFirstOrder.id,
+      labOrderIds: createdOrders.map(order => order.id),
+      requestGroupId: groupId,
+      duplicateTestNames: [...new Set([
+        ...uniqueRequests.filter(test => duplicateNames.has(String(test.testName).trim().toLowerCase())).map(test => String(test.testName).trim()),
+        ...inputDuplicateNames,
+      ])],
+    };
   });
 }
 
@@ -279,6 +323,7 @@ export async function referOutside(queueItemId, data) {
       reason: String(data.reason).trim(),
       referredAt: new Date().toISOString(),
       referredBy: String(data.doctorName || queueItem.assigned_doctor_name || 'OPD clinician'),
+      ...(data.referralDetails && typeof data.referralDetails === 'object' ? data.referralDetails : {}),
     };
     const recordId = await saveEncounterRecord(client, queueItem, data.recordData || {});
     await client.query(

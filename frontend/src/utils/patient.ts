@@ -53,6 +53,33 @@ export function patientOptionLabel(patient: Patient): string {
   return `${patientFullName(patient)} — ${patientCode(patient)} (${patient.patientType})`;
 }
 
+/** Calculate the patient's current age from the persisted date of birth. */
+export function calculatePatientAge(dateOfBirth?: string): number | undefined {
+  if (!dateOfBirth) return undefined;
+  const birth = new Date(`${dateOfBirth.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return undefined;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const birthdayNotReached = today.getMonth() < birth.getMonth()
+    || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+  if (birthdayNotReached) age -= 1;
+  return age >= 0 ? age : undefined;
+}
+
+/**
+ * The database keeps date_of_birth for longitudinal age calculation, while
+ * registration presents the simpler Age field requested by the clinic.
+ * Use the patient's registration birthday as the stable approximation when
+ * only an age is supplied at the front desk.
+ */
+export function dateOfBirthForAge(age: number): string {
+  const today = new Date();
+  const year = today.getFullYear() - age;
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function patientMeta(patient?: Patient | null): string {
   if (!patient) return 'Unregistered patient';
   return [patient.patientType, patient.department].filter(Boolean).join(' · ');

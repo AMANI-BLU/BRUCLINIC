@@ -195,7 +195,7 @@ export interface ClinicQueueItem {
   labOrderId?: string;
   labTestName?: string;
   labCategory?: string;
-  labStatus?: 'Requested' | 'Sample Collected' | 'Analyzing' | 'Completed';
+  labStatus?: 'Requested' | 'Completed';
   labResult?: string;
   labUnit?: string;
   labReferenceRange?: string;
@@ -270,7 +270,7 @@ export interface LabOrder {
   testName: string;
   category: string;
   specimenType: string;
-  status: 'Requested' | 'Sample Collected' | 'Analyzing' | 'Completed';
+  status: 'Requested' | 'Completed';
   result?: string;
   unit?: string;
   referenceRange?: string;

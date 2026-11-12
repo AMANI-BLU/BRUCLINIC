@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import type { LabOrder } from '../../types';
@@ -13,8 +13,6 @@ import './LaboratoryDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
 import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
-
-const workflowSteps: LabOrder['status'][] = ['Requested', 'Sample Collected', 'Analyzing', 'Completed'];
 
 export default function LaboratoryDashboard() {
   const { labOrders, patients, updateLabOrder } = useClinic();
@@ -35,7 +33,6 @@ export default function LaboratoryDashboard() {
   const [activeStandardTest, setActiveStandardTest] = useState<StandardLabTest | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [savingResult, setSavingResult] = useState(false);
-  const [advancingId, setAdvancingId] = useState<string | null>(null);
 
   const pendingTests = labOrders.filter(o => o.status !== 'Completed');
   const completedTests = labOrders.filter(o => o.status === 'Completed');
@@ -44,7 +41,9 @@ export default function LaboratoryDashboard() {
 
   const filteredOrders = labOrders.filter(o => {
     const matchCat = filterCategory === 'All' || o.category === filterCategory;
-    const matchStatus = statusFilter === 'All' || o.status === statusFilter;
+    const matchStatus = statusFilter === 'All'
+      || (statusFilter === 'Completed' && o.status === 'Completed')
+      || (statusFilter === 'Requested' && o.status !== 'Completed');
     const matchPriority = priorityFilter === 'All' || o.priority === priorityFilter;
     const matchSearch = o.patientName.toLowerCase().includes(search.toLowerCase()) ||
       o.testName.toLowerCase().includes(search.toLowerCase()) ||
@@ -114,27 +113,6 @@ export default function LaboratoryDashboard() {
     }
   };
 
-  const handleAdvanceStatus = async (order: LabOrder) => {
-    if (advancingId) return;
-    if (order.status === 'Requested') {
-      setAdvancingId(order.id);
-      try {
-        await updateLabOrder(order.id, { status: 'Sample Collected' });
-      } catch (cause) {
-        setFormError(cause instanceof Error ? cause.message : 'Could not update the laboratory status.');
-      } finally { setAdvancingId(null); }
-    } else if (order.status === 'Sample Collected') {
-      setAdvancingId(order.id);
-      try {
-        await updateLabOrder(order.id, { status: 'Analyzing' });
-      } catch (cause) {
-        setFormError(cause instanceof Error ? cause.message : 'Could not update the laboratory status.');
-      } finally { setAdvancingId(null); }
-    } else if (order.status === 'Analyzing') {
-      handleOpenResultEntry(order);
-    }
-  };
-
   const handlePrintReport = (order: LabOrder) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -197,9 +175,9 @@ export default function LaboratoryDashboard() {
       <div className="lab-queue-summary">
         <div className="lab-queue-count">
           <span className="lab-queue-count-icon"><Clock size={16} /></span>
-          <span><strong>{pendingTests.length}</strong> tests in progress</span>
+          <span><strong>{pendingTests.length}</strong> requested tests</span>
         </div>
-        <span className="lab-queue-summary-copy">Move each order through collection, analysis, and verified reporting.</span>
+        <span className="lab-queue-summary-copy">Read the clinician request first, then enter and verify the result.</span>
       </div>
 
       {/* Laboratory KPIs */}
@@ -234,11 +212,11 @@ export default function LaboratoryDashboard() {
         <InfoBox
           tone="primary"
           icon={<Clock size={22} />}
-          value={labOrders.filter(order => order.status === 'Analyzing').length}
-          label="Tests In Analysis"
-          detail="Live laboratory queue"
-          onClick={() => { setStatusFilter('Analyzing'); setPriorityFilter('All'); }}
-          footerText="Filter in-progress"
+          value={pendingTests.length}
+          label="Awaiting Results"
+          detail="Ready for result entry"
+          onClick={() => { setStatusFilter('Requested'); setPriorityFilter('All'); }}
+          footerText="Filter requested"
         />
       </div>
 
@@ -247,7 +225,7 @@ export default function LaboratoryDashboard() {
         <div className="card-header lab-workbench-header">
           <div className="lab-workbench-heading">
             <h3 className="card-title"><FlaskConical size={18} className="text-primary" /> Clinical Diagnostics Workbench &amp; Test Orders</h3>
-            <p>Review requests, track specimen progress, and release verified results.</p>
+            <p>Review the requested investigation and clinician instructions, then record the verified result.</p>
           </div>
 
           <div className="lab-table-controls">
@@ -274,7 +252,7 @@ export default function LaboratoryDashboard() {
                   <th>Patient</th>
                   <th>Investigation &amp; Category</th>
                   <th>Specimen</th>
-                  <th>Status &amp; Workflow</th>
+                  <th>Request status</th>
                   <th>Result / Findings</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -307,6 +285,11 @@ export default function LaboratoryDashboard() {
                         <span className="badge badge-blue" style={{ fontSize: '0.68rem', marginTop: 2 }}>
                           {order.category}
                         </span>
+                        {order.notes && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)', marginTop: 5 }}>
+                            <strong>Requested:</strong> {order.notes}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span style={{ fontSize: '0.8rem', color: 'var(--clr-text-secondary)' }}>
@@ -315,21 +298,10 @@ export default function LaboratoryDashboard() {
                       </td>
                       <td>
                         <div className="lab-status-cell">
-                          <span className={`badge ${
-                          order.status === 'Completed' ? 'badge-green' :
-                          order.status === 'Analyzing' ? 'badge-indigo' :
-                          order.status === 'Sample Collected' ? 'badge-amber' :
-                          'badge-gray'
-                        }`}>
-                          {order.status}
+                          <span className={`badge ${order.status === 'Completed' ? 'badge-green' : 'badge-gray'}`}>
+                            {order.status === 'Completed' ? 'Result entered' : 'Requested'}
                           </span>
-                          <div className="lab-status-track" aria-label={`${order.status} of ${workflowSteps.length} steps`}>
-                            {workflowSteps.map((step, index) => {
-                              const currentIndex = workflowSteps.indexOf(order.status);
-                              return <span key={step} className={index <= currentIndex ? 'complete' : ''} />;
-                            })}
-                          </div>
-                          <small>{order.status === 'Requested' ? 'Awaiting specimen' : order.status === 'Sample Collected' ? 'Specimen received' : order.status === 'Analyzing' ? 'Analysis underway' : 'Verified and released'}</small>
+                          <small>{order.status === 'Completed' ? 'Verified and released to OPD' : 'Awaiting laboratory result'}</small>
                         </div>
                       </td>
                       <td>
@@ -355,15 +327,12 @@ export default function LaboratoryDashboard() {
                             <LoadingButton
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={() => void handleAdvanceStatus(order)}
-                              loading={advancingId === order.id}
-                              loadingLabel="Saving…"
-                              disabled={Boolean(advancingId && advancingId !== order.id)}
+                              onClick={() => handleOpenResultEntry(order)}
+                              loading={false}
+                              loadingLabel="Opening…"
                               style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }}
                             >
-                              {order.status === 'Requested' ? 'Collect Specimen' :
-                               order.status === 'Sample Collected' ? 'Start Analysis' :
-                               'Enter Real Result'}
+                              Enter Result
                             </LoadingButton>
                           ) : (
                             <>
@@ -418,6 +387,11 @@ export default function LaboratoryDashboard() {
                 <div><strong>Card number</strong>{patientCodeFor(patients, resultModal.patientId)}</div>
                 <div><strong>Ordering doctor</strong>Dr. {resultModal.doctorName}</div>
                 <div><strong>Specimen</strong>{resultModal.specimenType} · {resultModal.category}</div>
+              </div>
+
+              <div className="alert alert-info py-2 px-3 mb-3" role="note">
+                <strong>What was requested:</strong> {resultModal.testName}
+                {resultModal.notes ? ` — ${resultModal.notes}` : ''}
               </div>
 
               <div className="lab-result-presets">

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Printer, X, FileText, CheckCircle2, ShoppingBag } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
@@ -16,11 +16,15 @@ export interface PrescriptionPrintModalProps {
   onClose: () => void;
   patientName: string;
   patientCode?: string;
+  patientAge?: number;
+  patientGender?: string;
+  patientWeight?: number;
   doctorName: string;
   doctorDiagnosis?: string;
   date?: string;
   medicines: PrescriptionItemPrint[];
   notes?: string;
+  initialMode?: 'clinic' | 'outside';
 }
 
 export default function PrescriptionPrintModal({
@@ -28,11 +32,15 @@ export default function PrescriptionPrintModal({
   onClose,
   patientName,
   patientCode,
+  patientAge,
+  patientGender,
+  patientWeight,
   doctorName,
   doctorDiagnosis,
   date = new Date().toLocaleDateString(),
   medicines,
   notes,
+  initialMode,
 }: PrescriptionPrintModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -43,10 +51,12 @@ export default function PrescriptionPrintModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const externalMeds = medicines.filter(m => m.isExternal);
   const internalMeds = medicines.filter(m => !m.isExternal);
+  const [printMode, setPrintMode] = useState<'clinic' | 'outside'>(initialMode || (internalMeds.length > 0 ? 'clinic' : 'outside'));
+  const isOutsidePrint = printMode === 'outside';
+
+  if (!isOpen) return null;
 
   const handlePrint = () => {
     const externalRows = externalMeds.map((med, idx) => `
@@ -65,7 +75,7 @@ export default function PrescriptionPrintModal({
         <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
       </tr>`).join('');
 
-    const externalSection = externalMeds.length > 0 ? `
+    const externalSection = isOutsidePrint && externalMeds.length > 0 ? `
       <div class="section-header ext">🛒 MEDICINES TO PURCHASE FROM OUTSIDE RETAIL PHARMACY</div>
       <p class="section-note">The following medicine(s) are not currently stocked in the clinic dispensary. Please take this slip to any community pharmacy to purchase.</p>
       <table>
@@ -73,7 +83,7 @@ export default function PrescriptionPrintModal({
         <tbody>${externalRows}</tbody>
       </table>` : '';
 
-    const internalSection = internalMeds.length > 0 ? `
+    const internalSection = !isOutsidePrint && internalMeds.length > 0 ? `
       <div class="section-header int">✓ MEDICINES DISPENSED AT CLINIC PHARMACY</div>
       <table>
         <thead><tr><th>#</th><th>Medication Name</th><th>Instructions</th><th style="text-align:right">Qty</th></tr></thead>
@@ -131,7 +141,7 @@ export default function PrescriptionPrintModal({
       <div class="clinic-sub">Outpatient Department &amp; Clinical Medical Services</div>
     </div>
     <div class="meta-right">
-      <span class="rx-badge">OFFICIAL PRESCRIPTION</span>
+      <span class="rx-badge">${isOutsidePrint ? 'OUTSIDE PURCHASE SLIP' : 'CLINIC PHARMACY DISPENSE SLIP'}</span>
       <div>Date: ${date}</div>
       ${patientCode ? `<div>Patient Code: <strong>${patientCode}</strong></div>` : ''}
     </div>
@@ -139,6 +149,8 @@ export default function PrescriptionPrintModal({
 
   <div class="patient-meta">
     <div><span style="color:#64748b">Patient Name: </span><strong>${patientName}</strong></div>
+    <div><span style="color:#64748b">Age / Sex: </span><strong>${patientAge !== undefined ? `${patientAge} years` : '—'} / ${patientGender || '—'}</strong></div>
+    <div><span style="color:#64748b">Weight: </span><strong>${patientWeight !== undefined ? `${patientWeight} kg` : '—'}</strong></div>
     <div><span style="color:#64748b">Prescribing Clinician: </span><strong>${doctorName}</strong></div>
     ${doctorDiagnosis ? `<div class="span2"><span style="color:#64748b">Clinical Diagnosis: </span><strong>${doctorDiagnosis}</strong></div>` : ''}
   </div>
@@ -196,17 +208,35 @@ export default function PrescriptionPrintModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FileText size={20} className="text-primary" />
             <h2 id="rx-slip-title" style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-              Official Medical Prescription Slip
+              {isOutsidePrint ? 'Outside Purchase Slip' : 'Clinic Pharmacy Dispense Slip'}
             </h2>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="pill-tabs" style={{ fontSize: '0.72rem' }}>
+              <button
+                type="button"
+                className={`pill-tab ${!isOutsidePrint ? 'active' : ''}`}
+                onClick={() => setPrintMode('clinic')}
+                disabled={internalMeds.length === 0}
+              >
+                Clinic dispense
+              </button>
+              <button
+                type="button"
+                className={`pill-tab ${isOutsidePrint ? 'active' : ''}`}
+                onClick={() => setPrintMode('outside')}
+                disabled={externalMeds.length === 0}
+              >
+                Outside purchase
+              </button>
+            </div>
             <button
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handlePrint}
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <Printer size={15} /> Print / Save PDF
+              <Printer size={15} /> Print this slip
             </button>
             <button
               type="button"
@@ -254,7 +284,7 @@ export default function PrescriptionPrintModal({
               </div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#475569' }}>
-              <div style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.85rem' }}>OFFICIAL PRESCRIPTION</div>
+              <div style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.85rem' }}>{isOutsidePrint ? 'OUTSIDE PURCHASE SLIP' : 'CLINIC PHARMACY DISPENSE SLIP'}</div>
               <div>Date: {date}</div>
               {patientCode && <div>Patient Code: <strong>{patientCode}</strong></div>}
             </div>
@@ -279,6 +309,14 @@ export default function PrescriptionPrintModal({
               <strong style={{ color: '#0f172a' }}>{patientName}</strong>
             </div>
             <div>
+              <span style={{ color: '#64748b' }}>Age / Sex: </span>
+              <strong style={{ color: '#0f172a' }}>{patientAge !== undefined ? `${patientAge} years` : '—'} / {patientGender || '—'}</strong>
+            </div>
+            <div>
+              <span style={{ color: '#64748b' }}>Weight: </span>
+              <strong style={{ color: '#0f172a' }}>{patientWeight !== undefined ? `${patientWeight} kg` : '—'}</strong>
+            </div>
+            <div>
               <span style={{ color: '#64748b' }}>Prescribing Clinician: </span>
               <strong style={{ color: '#0f172a' }}>{doctorName}</strong>
             </div>
@@ -290,8 +328,8 @@ export default function PrescriptionPrintModal({
             )}
           </div>
 
-          {/* Section 1: Outside Retail Pharmacy Medications */}
-          {externalMeds.length > 0 && (
+          {/* Separate patient slip: outside purchase or clinic dispensing */}
+          {isOutsidePrint && externalMeds.length > 0 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <div
                 style={{
@@ -341,8 +379,14 @@ export default function PrescriptionPrintModal({
             </div>
           )}
 
-          {/* Section 2: In-House Clinic Pharmacy Medications */}
-          {internalMeds.length > 0 && (
+          {isOutsidePrint && externalMeds.length === 0 && (
+            <div style={{ padding: '1rem', border: '1px dashed #f59e0b', borderRadius: 6, color: '#92400e', fontSize: '0.8rem' }}>
+              No medicines were marked for outside purchase.
+            </div>
+          )}
+
+          {/* In-house clinic dispensing slip */}
+          {!isOutsidePrint && internalMeds.length > 0 && (
             <div style={{ marginBottom: '1.25rem' }}>
               <div
                 style={{
@@ -386,6 +430,12 @@ export default function PrescriptionPrintModal({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {!isOutsidePrint && internalMeds.length === 0 && (
+            <div style={{ padding: '1rem', border: '1px dashed #10b981', borderRadius: 6, color: '#065f46', fontSize: '0.8rem' }}>
+              No medicines are currently assigned to clinic dispensing.
             </div>
           )}
 
@@ -434,7 +484,7 @@ export default function PrescriptionPrintModal({
             Close
           </button>
           <button type="button" className="btn btn-primary" onClick={handlePrint}>
-            <Printer size={15} /> Print / Save Prescription PDF
+            <Printer size={15} /> Print / Save {isOutsidePrint ? 'Outside Purchase' : 'Clinic Dispense'} PDF
           </button>
         </div>
       </div>
