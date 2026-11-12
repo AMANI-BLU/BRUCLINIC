@@ -17,6 +17,7 @@ import ModalPortal from '../../components/ModalPortal';
 import ReferralPrintModal from '../../components/ReferralPrintModal';
 import LoadingButton from '../../components/LoadingButton';
 import { LAB_PANELS } from '../../utils/labPresets';
+import { cleanClinicalText } from '../../utils/clinicalText';
 import './OpdDashboard.css';
 import { formatTime12 } from '../../utils/date';
 
@@ -847,7 +848,7 @@ export default function OpdDashboard() {
               <section className="alert alert-info mb-3" aria-label="Completed visit review">
                 <strong>Completed visit, read-only.</strong> This encounter is closed. Review the saved diagnosis, notes, and patient history; create a new queue visit for another consultation.
                 <div className="mt-2"><strong>Diagnosis:</strong> {selectedQueueItem.doctorDiagnosis || 'Not recorded'}</div>
-                {selectedQueueItem.consultationNotes && <div className="mt-1"><strong>Clinical notes:</strong> {selectedQueueItem.consultationNotes}</div>}
+                {cleanClinicalText(selectedQueueItem.consultationNotes) && <div className="mt-1"><strong>Clinical notes:</strong> {cleanClinicalText(selectedQueueItem.consultationNotes)}</div>}
                 {selectedQueueItem.completedAt && <div className="mt-1"><strong>Completed:</strong> {formatTime12(selectedQueueItem.completedAt)}</div>}
               </section>
             )}

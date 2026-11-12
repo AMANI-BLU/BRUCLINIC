@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Printer, X, Building2, HeartPulse, AlertCircle } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 import type { Vitals } from '../types';
+import { cleanClinicalText, clinicalTextHtml } from '../utils/clinicalText';
 
 export interface ReferralPrintModalProps {
   isOpen: boolean;
@@ -65,6 +66,9 @@ export default function ReferralPrintModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const displaySymptoms = symptoms.map(cleanClinicalText).filter(Boolean);
+  const displayNotes = cleanClinicalText(notes);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
@@ -81,10 +85,10 @@ export default function ReferralPrintModal({
     const allergiesHtml = allergies.length > 0 ? `
       <div class="allergy-box">⚠ Known Allergies: ${allergies.join(', ')}</div>` : '';
 
-    const symptomsHtml = (symptoms.length > 0 || notes) ? `
+    const symptomsHtml = (displaySymptoms.length > 0 || displayNotes) ? `
       <div class="notes-section">
-        ${symptoms.length > 0 ? `<div><strong>Presenting Symptoms:</strong> ${symptoms.join(', ')}</div>` : ''}
-        ${notes ? `<div style="margin-top:4px"><strong>Clinical Consultation Notes:</strong> ${notes}</div>` : ''}
+        ${displaySymptoms.length > 0 ? `<div><strong>Presenting Symptoms:</strong> ${displaySymptoms.map(clinicalTextHtml).join(', ')}</div>` : ''}
+        ${displayNotes ? `<div style="margin-top:4px"><strong>Clinical Consultation Notes:</strong> ${clinicalTextHtml(displayNotes)}</div>` : ''}
       </div>` : '';
 
     const printWindow = window.open('', '_blank', 'width=900,height=700');
@@ -531,16 +535,16 @@ export default function ReferralPrintModal({
             </div>
 
             {/* Symptoms & Clinical Notes */}
-            {(symptoms.length > 0 || notes) && (
+            {(displaySymptoms.length > 0 || displayNotes) && (
               <div style={{ marginBottom: '1.25rem', fontSize: '0.8rem', color: '#334155' }}>
-                {symptoms.length > 0 && (
+                {displaySymptoms.length > 0 && (
                   <div style={{ marginBottom: 6 }}>
-                    <strong>Presenting Symptoms:</strong> {symptoms.join(', ')}
+                    <strong>Presenting Symptoms:</strong> {displaySymptoms.join(', ')}
                   </div>
                 )}
-                {notes && (
+                {displayNotes && (
                   <div>
-                    <strong>Clinical Consultation Notes:</strong> {notes}
+                    <strong>Clinical Consultation Notes:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{displayNotes}</span>
                   </div>
                 )}
               </div>

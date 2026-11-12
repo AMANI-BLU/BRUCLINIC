@@ -1,15 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Printer, X, FileText, CheckCircle2, ShoppingBag } from 'lucide-react';
 import ModalPortal from './ModalPortal';
+import { cleanClinicalText, clinicalTextHtml, escapeHtml } from '../utils/clinicalText';
 
 export interface PrescriptionItemPrint {
   name: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
   quantity?: number;
   instructions?: string;
   isExternal?: boolean;
 }
 
 const CLINIC_NAME = 'Borana University Clinic';
+
+function medicationDirections(medicine: PrescriptionItemPrint): string {
+  const structuredDirections = [medicine.dosage, medicine.frequency, medicine.duration]
+    .map(cleanClinicalText)
+    .filter(Boolean)
+    .join(' · ');
+  const additionalInstructions = cleanClinicalText(medicine.instructions);
+  return [structuredDirections, additionalInstructions].filter(Boolean).join(' — ')
+    || 'As directed by the prescriber';
+}
 
 export interface PrescriptionPrintModalProps {
   isOpen: boolean;
@@ -55,6 +69,7 @@ export default function PrescriptionPrintModal({
   const internalMeds = medicines.filter(m => !m.isExternal);
   const [printMode, setPrintMode] = useState<'clinic' | 'outside'>(initialMode || (internalMeds.length > 0 ? 'clinic' : 'outside'));
   const isOutsidePrint = printMode === 'outside';
+  const cleanNotes = cleanClinicalText(notes);
 
   if (!isOpen) return null;
 
@@ -62,16 +77,16 @@ export default function PrescriptionPrintModal({
     const externalRows = externalMeds.map((med, idx) => `
       <tr>
         <td>${idx + 1}</td>
-        <td><strong>${med.name}</strong></td>
-        <td>${med.instructions || 'As directed by the prescriber'}</td>
+        <td><strong>${escapeHtml(cleanClinicalText(med.name))}</strong></td>
+        <td>${clinicalTextHtml(medicationDirections(med))}</td>
         <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
       </tr>`).join('');
 
     const internalRows = internalMeds.map((med, idx) => `
       <tr>
         <td>${idx + 1}</td>
-        <td><strong>${med.name}</strong></td>
-        <td>${med.instructions || 'As directed by the prescriber'}</td>
+        <td><strong>${escapeHtml(cleanClinicalText(med.name))}</strong></td>
+        <td>${clinicalTextHtml(medicationDirections(med))}</td>
         <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
       </tr>`).join('');
 
@@ -90,7 +105,7 @@ export default function PrescriptionPrintModal({
         <tbody>${internalRows}</tbody>
       </table>` : '';
 
-    const notesHtml = notes ? `<div class="notes"><strong>Clinician Notes:</strong> ${notes}</div>` : '';
+    const notesHtml = cleanNotes ? `<div class="notes"><strong>Clinician Notes:</strong> ${clinicalTextHtml(cleanNotes)}</div>` : '';
 
     const printWindow = window.open('', '_blank', 'width=860,height=680');
     if (!printWindow) return;
@@ -152,7 +167,7 @@ export default function PrescriptionPrintModal({
     <div><span style="color:#64748b">Age / Sex: </span><strong>${patientAge !== undefined ? `${patientAge} years` : '—'} / ${patientGender || '—'}</strong></div>
     <div><span style="color:#64748b">Weight: </span><strong>${patientWeight !== undefined ? `${patientWeight} kg` : '—'}</strong></div>
     <div><span style="color:#64748b">Prescribing Clinician: </span><strong>${doctorName}</strong></div>
-    ${doctorDiagnosis ? `<div class="span2"><span style="color:#64748b">Clinical Diagnosis: </span><strong>${doctorDiagnosis}</strong></div>` : ''}
+      ${doctorDiagnosis ? `<div class="span2"><span style="color:#64748b">Clinical Diagnosis: </span><strong>${escapeHtml(cleanClinicalText(doctorDiagnosis))}</strong></div>` : ''}
   </div>
 
   ${externalSection}
@@ -368,7 +383,7 @@ export default function PrescriptionPrintModal({
                       <td style={{ padding: '8px' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a' }}>{med.name}</div>
                       </td>
-                      <td style={{ padding: '8px', color: '#334155' }}>{med.instructions || 'As directed by the prescriber'}</td>
+                      <td style={{ padding: '8px', color: '#334155', whiteSpace: 'pre-wrap' }}>{medicationDirections(med)}</td>
                       <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
                         {med.quantity || '—'}
                       </td>
@@ -422,7 +437,7 @@ export default function PrescriptionPrintModal({
                       <td style={{ padding: '8px' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a' }}>{med.name}</div>
                       </td>
-                      <td style={{ padding: '8px', color: '#334155' }}>{med.instructions || 'As directed by the prescriber'}</td>
+                      <td style={{ padding: '8px', color: '#334155', whiteSpace: 'pre-wrap' }}>{medicationDirections(med)}</td>
                       <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
                         {med.quantity || '—'}
                       </td>
@@ -439,9 +454,9 @@ export default function PrescriptionPrintModal({
             </div>
           )}
 
-          {notes && (
+          {cleanNotes && (
             <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#475569', fontStyle: 'italic' }}>
-              <strong>Clinician Notes:</strong> {notes}
+              <strong>Clinician Notes:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{cleanNotes}</span>
             </div>
           )}
 

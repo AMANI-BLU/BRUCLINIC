@@ -160,9 +160,9 @@ export default function ConfirmDispenseModal({
               className="btn btn-secondary btn-sm"
               onClick={() => setShowPrintSlip(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}
-              title="Print official prescription slip for patient"
+              title="Print the full prescription order for the patient"
             >
-              <Printer size={14} /> Print Medication Slip
+              <Printer size={14} /> Print Full Order
             </button>
             <button
               type="button"
@@ -486,7 +486,7 @@ export default function ConfirmDispenseModal({
             onClick={() => setShowPrintSlip(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Printer size={15} /> Print Separate Medication Slip
+            <Printer size={15} /> Print Full Order Slip
           </button>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -525,6 +525,9 @@ export default function ConfirmDispenseModal({
           doctorName={order.doctorName}
           medicines={itemsWithStock.map((item) => ({
             name: item.name,
+            dosage: item.dosage,
+            frequency: item.frequency,
+            duration: item.duration,
             quantity: item.quantity,
             instructions: item.instructions,
             isExternal: item.isExternal,

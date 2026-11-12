@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import AddMedicineModal from '../../components/AddMedicineModal';
 import ConfirmDispenseModal from '../../components/ConfirmDispenseModal';
+import PrescriptionPrintModal from '../../components/PrescriptionPrintModal';
 import RestockMedicineModal from '../../components/RestockMedicineModal';
 import type { MedicineItem, PharmacyOrder } from '../../types';
 import { patientCodeFor, patientNameFor } from '../../utils/patient';
@@ -28,6 +29,10 @@ export default function PharmacyDashboard() {
   const [restockModal, setRestockModal] = useState<MedicineItem | null>(null);
   const [selectOrder, setSelectOrder] = useState<PharmacyOrder | null>(null);
   const [dispenseModal, setDispenseModal] = useState<PharmacyOrder | null>(null);
+  const [singlePrint, setSinglePrint] = useState<{
+    order: PharmacyOrder;
+    medicine: PharmacyOrder['medicines'][number];
+  } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const pendingOrders = pharmacyOrders.filter(p => p.status === 'Pending');
@@ -66,6 +71,15 @@ export default function PharmacyDashboard() {
       setFormError(cause instanceof Error ? cause.message : 'Could not dispense this order.');
     }
   };
+
+  const singlePrintPatient = singlePrint
+    ? patients.find(patient => patient.id === singlePrint.order.patientId)
+    : undefined;
+  const singlePrintWeight = singlePrint
+    ? records
+      .filter(record => record.patientId === singlePrint.order.patientId && record.vitals?.weightKg !== undefined)
+      .sort((left, right) => String(right.visitDate).localeCompare(String(left.visitDate)))[0]?.vitals?.weightKg
+    : undefined;
 
   return (
     <div className="pharmacy-dashboard-container">
@@ -267,7 +281,22 @@ export default function PharmacyDashboard() {
                               )}
                             </div>
                           </div>
-                          <span className="badge badge-blue">Qty: {med.quantity > 0 ? med.quantity : 'Pharmacist sets'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+                            <span className="badge badge-blue">Qty: {med.quantity > 0 ? med.quantity : 'Pharmacist sets'}</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              title={`Print ${med.name} medicine slip`}
+                              aria-label={`Print ${med.name} medicine slip`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSinglePrint({ order, medicine: med });
+                              }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                            >
+                              <Printer size={13} /> Print
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -286,7 +315,7 @@ export default function PharmacyDashboard() {
                         onClick={() => handleDispense(order.id)}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                       >
-                        <Printer size={13} /> Review &amp; Print Slip
+                        <Printer size={13} /> Review &amp; Print All
                       </button>
                       {order.status === 'Pending' && (
                         <button
@@ -433,6 +462,29 @@ export default function PharmacyDashboard() {
             .sort((left, right) => String(right.visitDate).localeCompare(String(left.visitDate)))[0]?.vitals?.weightKg}
           onSelect={confirmDispense}
           onClose={() => { setSelectOrder(null); setDispenseModal(null); }}
+        />
+      )}
+      {singlePrint && (
+        <PrescriptionPrintModal
+          isOpen={Boolean(singlePrint)}
+          onClose={() => setSinglePrint(null)}
+          patientName={patientNameFor(patients, singlePrint.order.patientId, singlePrint.order.patientName)}
+          patientCode={patientCodeFor(patients, singlePrint.order.patientId)}
+          patientAge={calculatePatientAge(singlePrintPatient?.dateOfBirth)}
+          patientGender={singlePrintPatient?.gender}
+          patientWeight={singlePrintWeight}
+          doctorName={singlePrint.order.doctorName}
+          medicines={[{
+            name: singlePrint.medicine.name,
+            dosage: singlePrint.medicine.dosage,
+            frequency: singlePrint.medicine.frequency,
+            duration: singlePrint.medicine.duration,
+            quantity: singlePrint.medicine.quantity,
+            instructions: singlePrint.medicine.instructions,
+            isExternal: singlePrint.medicine.isExternal,
+          }]}
+          notes={singlePrint.order.notes}
+          initialMode={singlePrint.medicine.isExternal ? 'outside' : 'clinic'}
         />
       )}
     </div>

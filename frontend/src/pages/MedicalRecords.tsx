@@ -6,6 +6,7 @@ import type { MedicalRecord, Patient, LabOrder, PharmacyOrder } from '../types';
 import { findPatient, patientCode, patientFullName, patientInitials, patientOptionLabel, patientTypeClass } from '../utils/patient';
 import { diagnosisLabel, hasDiagnosis, normalizeDiagnosis } from '../utils/diagnosis';
 import { firstError, validateDate, validateRequired } from '../utils/validation';
+import { cleanClinicalText } from '../utils/clinicalText';
 import {
   Activity, Calendar, Clock, FileText,
   FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2,
@@ -407,6 +408,7 @@ function RecordRow({ record, patient, links, onView }: {
   const pharmacyOrder = links?.pharmacyOrders.at(-1);
   const medicationCount = (record.prescription?.length || 0) || pharmacyOrder?.medicines.length || 0;
   const hasItems = medicationCount > 0 || labCount > 0 || Boolean(pharmacyOrder);
+  const displaySymptoms = record.symptoms.map(cleanClinicalText).filter(Boolean);
 
   return (
     <tr>
@@ -428,9 +430,9 @@ function RecordRow({ record, patient, links, onView }: {
         <div style={{ fontWeight: 600, color: 'var(--clr-text-primary)' }}>
           {diagnosisLabel(record.diagnosis, Boolean(record.externalReferral))}
         </div>
-        {record.symptoms.length > 0 && (
+        {displaySymptoms.length > 0 && (
           <div style={{ fontSize: '0.74rem', color: 'var(--clr-text-muted)', marginTop: '0.15rem' }}>
-            {record.symptoms.slice(0, 2).join(', ')}{record.symptoms.length > 2 ? '…' : ''}
+            {displaySymptoms.slice(0, 2).join(', ')}{displaySymptoms.length > 2 ? '…' : ''}
           </div>
         )}
       </td>
@@ -516,6 +518,8 @@ function RecordView({ record }: { record: MedicalRecord }) {
   } | null>(null);
 
   const patient = findPatient(patients, record.patientId);
+  const displaySymptoms = (record.symptoms || []).map(cleanClinicalText).filter(Boolean);
+  const displayNotes = cleanClinicalText(record.notes);
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
   const linkedQueueItem = (record.queueItemId ? queue.find(q => q.id === record.queueItemId) : null) || queue.find(q => q.patientId === record.patientId);
   const vitals = record.vitals || linkedQueueItem?.vitals;
@@ -638,11 +642,11 @@ function RecordView({ record }: { record: MedicalRecord }) {
               <span className="badge badge-gray">Dr. {record.doctorName}</span>
             </div>
 
-            {record.symptoms && record.symptoms.length > 0 && (
+            {displaySymptoms.length > 0 && (
               <div className="view-card-row">
                 <span>Symptoms</span>
                 <div className="record-tags">
-                  {record.symptoms.map(s => <span key={s} className="badge badge-gray">{s}</span>)}
+                  {displaySymptoms.map((symptom, index) => <span key={`${symptom}-${index}`} className="badge badge-gray">{symptom}</span>)}
                 </div>
               </div>
             )}
@@ -667,10 +671,10 @@ function RecordView({ record }: { record: MedicalRecord }) {
             )}
           </section>
 
-          {record.notes && (
+          {displayNotes && (
             <section className="view-section">
               <div className="view-section-head"><h4>Clinical notes</h4></div>
-              <p className="record-notes">{record.notes}</p>
+              <p className="record-notes" style={{ whiteSpace: 'pre-wrap' }}>{displayNotes}</p>
               {record.followUpDate && (
                 <div className="view-followup">
                   <Calendar size={13} aria-hidden="true" />
@@ -712,7 +716,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
                   Token: <strong>{linkedQueueItem?.tokenNumber || 'Standard visit'}</strong> · {linkedQueueItem?.cardStatus || 'Active card'}
                 </div>
                 <div className="record-step-note">
-                  Chief complaint: {linkedQueueItem?.chiefComplaint || (record.symptoms.length ? record.symptoms[0] : 'Consultation')}
+                  Chief complaint: {linkedQueueItem?.chiefComplaint || (displaySymptoms.length ? displaySymptoms[0] : 'Consultation')}
                 </div>
               </div>
 
@@ -795,8 +799,8 @@ function RecordView({ record }: { record: MedicalRecord }) {
                         reason: externalRef.reason,
                         diagnosis: normalizeDiagnosis(record.diagnosis),
                         vitals: vitals,
-                        symptoms: record.symptoms,
-                        notes: record.notes,
+                        symptoms: displaySymptoms,
+                        notes: displayNotes,
                         date: record.visitDate,
                       })}
                     >

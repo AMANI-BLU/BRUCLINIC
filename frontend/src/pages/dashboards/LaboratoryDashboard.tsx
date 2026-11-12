@@ -13,6 +13,7 @@ import './LaboratoryDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
 import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
+import { cleanClinicalText, clinicalTextHtml } from '../../utils/clinicalText';
 
 export default function LaboratoryDashboard() {
   const { labOrders, patients, updateLabOrder } = useClinic();
@@ -156,7 +157,7 @@ export default function LaboratoryDashboard() {
           <div style="font-size: 13px; margin-top: 6px; color: #475569;">
             Reference Range: ${order.referenceRange || 'Standard normal'}
           </div>
-          ${order.notes ? `<div style="font-size: 13px; margin-top: 10px; font-style: italic;">Remarks: ${order.notes}</div>` : ''}
+          ${order.notes ? `<div style="font-size: 13px; margin-top: 10px; font-style: italic;">Remarks: ${clinicalTextHtml(order.notes)}</div>` : ''}
         </div>
         <div class="footer">
           <div>Verified by Medical Laboratory Technologist on duty.</div>
@@ -287,7 +288,7 @@ export default function LaboratoryDashboard() {
                         </span>
                         {order.notes && (
                           <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)', marginTop: 5 }}>
-                            <strong>Requested:</strong> {order.notes}
+                            <strong>Requested:</strong> {cleanClinicalText(order.notes)}
                           </div>
                         )}
                       </td>
