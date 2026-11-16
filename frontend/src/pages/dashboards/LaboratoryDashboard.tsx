@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import type { LabOrder } from '../../types';
@@ -60,6 +61,7 @@ function escapeHtml(value: string | number | null | undefined): string {
 }
 
 export default function LaboratoryDashboard() {
+  const { t } = useLanguage();
   const { labOrders, patients, updateLabOrderGroup } = useClinic();
   const { currentUser } = useAuth();
 
@@ -257,37 +259,37 @@ export default function LaboratoryDashboard() {
           tone="info"
           icon={<FlaskConical size={22} />}
           value={pendingTests.length}
-          label="Pending Lab Requests"
-          detail="From OPD and Emergency"
+          label={t('Pending Lab Requests')}
+          detail={t('From OPD and Emergency')}
           onClick={() => { setStatusFilter('Requested'); setPriorityFilter('All'); }}
-          footerText="Filter pending"
+          footerText={t('Filter pending')}
         />
         <InfoBox
           tone="success"
           icon={<CheckCircle2 size={22} />}
           value={completedTests.length}
-          label="Completed Tests"
-          detail="Released to doctors"
+          label={t('Completed Tests')}
+          detail={t('Released to doctors')}
           onClick={() => { setStatusFilter('Completed'); setPriorityFilter('All'); }}
-          footerText="Filter completed"
+          footerText={t('Filter completed')}
         />
         <InfoBox
           tone="danger"
           icon={<AlertTriangle size={22} />}
           value={criticalResults.length}
-          label="Critical Abnormal Flags"
-          detail="Urgent clinician alert"
+          label={t('Critical Abnormal Flags')}
+          detail={t('Urgent clinician alert')}
           onClick={() => { setPriorityFilter('Critical'); setStatusFilter('All'); }}
-          footerText="Filter critical"
+          footerText={t('Filter critical')}
         />
         <InfoBox
           tone="primary"
           icon={<Clock size={22} />}
           value={pendingTests.length}
-          label="Awaiting Results"
-          detail="Ready for result entry"
+          label={t('Awaiting Results')}
+          detail={t('Ready for result entry')}
           onClick={() => { setStatusFilter('Requested'); setPriorityFilter('All'); }}
-          footerText="Filter requested"
+          footerText={t('Filter requested')}
         />
       </div>
 
@@ -295,7 +297,7 @@ export default function LaboratoryDashboard() {
       <div className="card admin-card lab-workbench-card">
         <div className="card-header lab-workbench-header">
           <div className="lab-workbench-heading">
-            <h3 className="card-title"><FlaskConical size={18} className="text-primary" /> Clinical Diagnostics Workbench &amp; Test Orders</h3>
+            <h3 className="card-title"><FlaskConical size={18} className="text-primary" /> {t('Clinical Diagnostics Workbench & Test Orders')}</h3>
             <p>Review the requested investigation and clinician instructions, then record the verified result.</p>
           </div>
 

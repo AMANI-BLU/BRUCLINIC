@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import AddMedicineModal from '../../components/AddMedicineModal';
@@ -18,6 +19,7 @@ import { formatDateTime12, formatTime12 } from '../../utils/date';
 import { normalizeDoctorName } from '../../utils/doctorName';
 
 export default function PharmacyDashboard() {
+  const { t } = useLanguage();
   const {
     pharmacyOrders, dispensePharmacyOrder,
     medicines, updateMedicine, patients, records
@@ -104,37 +106,37 @@ export default function PharmacyDashboard() {
           tone="info"
           icon={<Pill size={22} />}
           value={pendingOrders.length}
-          label="Pending dispenses"
-          detail="From OPD and Emergency"
+          label={t('Pending dispenses')}
+          detail={t('From OPD and Emergency')}
           onClick={() => setStatusFilter('Pending')}
-          footerText="Filter pending"
+          footerText={t('Filter pending')}
         />
         <InfoBox
           tone="danger"
           icon={<AlertTriangle size={22} />}
           value={lowStock.length}
-          label="Low stock alerts"
-          detail={`${outOfStock.length} items out of stock`}
+          label={t('Low stock alerts')}
+          detail={`${outOfStock.length} ${t('items out of stock')}`}
           to="/pharmacy"
-          footerText="Manage inventory"
+          footerText={t('Manage inventory')}
         />
         <InfoBox
           tone="success"
           icon={<CheckCircle2 size={22} />}
           value={dispensedOrders.length}
-          label="Dispensed orders"
-          detail="Fulfilled prescriptions"
+          label={t('Dispensed orders')}
+          detail={t('Fulfilled prescriptions')}
           onClick={() => setStatusFilter('Dispensed')}
-          footerText="Filter dispensed"
+          footerText={t('Filter dispensed')}
         />
         <InfoBox
           tone="primary"
           icon={<DollarSign size={22} />}
           value={`${totalValue.toFixed(0)} ETB`}
-          label="Drug inventory"
-          detail={`${medicines.length} items in catalog`}
+          label={t('Drug inventory')}
+          detail={`${medicines.length} ${t('items in catalog')}`}
           to="/pharmacy"
-          footerText="Full catalog"
+          footerText={t('Full catalog')}
         />
       </div>
 

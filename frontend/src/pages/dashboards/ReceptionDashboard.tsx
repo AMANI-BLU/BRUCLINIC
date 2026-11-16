@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import type { ClinicQueueItem, QueueStage, QueuePriority } from '../../types';
 import { firstError, validateRequired, validateTextLength, sanitizeInput } from '../../utils/validation';
 import { patientCode, patientCodeFor, patientFullName, patientMatchesSearch, patientOptionLabel } from '../../utils/patient';
@@ -16,6 +17,7 @@ import InfoBox from '../../components/AdminLTE/InfoBox';
 import LoadingButton from '../../components/LoadingButton';
 
 export default function ReceptionDashboard() {
+  const { t } = useLanguage();
   const {
     patients, doctors, queue,
     sendCardToOpdRequest, updateQueueItem, removeFromQueue, transferToEmergency
@@ -193,10 +195,10 @@ export default function ReceptionDashboard() {
     <div className="reception-dashboard">
       <div className="reception-actions d-flex justify-content-end flex-wrap mb-2">
         <button type="button" className="btn btn-secondary" onClick={() => navigate('/patients?register=new')}>
-          <UserPlus size={16} /> Register New Patient
+          <UserPlus size={16} /> {t('Register New Patient')}
         </button>
         <button type="button" className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Send size={16} /> Send to OPD
+          <Send size={16} /> {t('Send to OPD')}
         </button>
       </div>
       {formError && !modalOpen && <div className="alert alert-danger py-2 px-3" role="alert">{formError}</div>}
@@ -207,37 +209,37 @@ export default function ReceptionDashboard() {
           tone="info"
           icon={<CreditCard size={22} />}
           value={patients.length}
-          label="Patient cards"
-          detail="Registered in database"
+          label={t('Patient cards')}
+          detail={t('Registered in database')}
           to="/patients"
-          footerText="Manage cards"
+          footerText={t('Manage cards')}
         />
         <InfoBox
           tone="success"
           icon={<Activity size={22} />}
           value={queue.filter(q => q.stage === 'Doctor Consultation').length}
-          label="OPD queue"
-          detail="In doctor consultation"
+          label={t('OPD queue')}
+          detail={t('In doctor consultation')}
           onClick={() => setFilterStage('Doctor Consultation')}
-          footerText="Filter OPD queue"
+          footerText={t('Filter OPD queue')}
         />
         <InfoBox
           tone="warning"
           icon={<Clock size={22} />}
           value={queue.filter(q => q.stage === 'Laboratory').length}
-          label="At laboratory"
-          detail="Under diagnostic testing"
+          label={t('At laboratory')}
+          detail={t('Under diagnostic testing')}
           onClick={() => setFilterStage('Laboratory')}
-          footerText="Filter lab queue"
+          footerText={t('Filter lab queue')}
         />
         <InfoBox
           tone="primary"
           icon={<CheckCircle2 size={22} />}
           value={queue.filter(q => q.stage === 'Pharmacy' || q.stage === 'Completed').length}
-          label="Completed"
-          detail="Prescriptions & discharged"
+          label={t('Completed')}
+          detail={t('Prescriptions & discharged')}
           onClick={() => setFilterStage('Completed')}
-          footerText="Filter completed"
+          footerText={t('Filter completed')}
         />
       </div>
 

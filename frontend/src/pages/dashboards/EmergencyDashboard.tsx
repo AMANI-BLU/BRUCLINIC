@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import ModalPortal from '../../components/ModalPortal';
 import { useAuth } from '../../context/AuthContext';
@@ -43,6 +44,7 @@ function emptyMedicineLine(): EmergencyMedicineLine {
 }
 
 export default function EmergencyDashboard() {
+  const { t } = useLanguage();
   const {
     erCases, emergencyBays, patients, medicines,
     addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, addPharmacyOrder,
@@ -379,37 +381,37 @@ export default function EmergencyDashboard() {
           tone="danger"
           icon={<ShieldAlert size={22} />}
           value={redCases.length}
-          label="RED: Critical"
-          detail="Immediate resuscitation"
+          label={t('RED: Critical')}
+          detail={t('Immediate resuscitation')}
           onClick={() => setFilterAcuity('Red')}
-          footerText="Filter RED cases"
+          footerText={t('Filter RED cases')}
         />
         <InfoBox
           tone="warning"
           icon={<AlertTriangle size={22} />}
           value={yellowCases.length}
-          label="YELLOW: Urgent"
-          detail="Assessed within 15 mins"
+          label={t('YELLOW: Urgent')}
+          detail={t('Assessed within 15 mins')}
           onClick={() => setFilterAcuity('Yellow')}
-          footerText="Filter YELLOW cases"
+          footerText={t('Filter YELLOW cases')}
         />
         <InfoBox
           tone="success"
           icon={<Activity size={22} />}
           value={greenCases.length}
-          label="GREEN: Non-urgent"
-          detail="Stable walking patients"
+          label={t('GREEN: Non-urgent')}
+          detail={t('Stable walking patients')}
           onClick={() => setFilterAcuity('Green')}
-          footerText="Filter GREEN cases"
+          footerText={t('Filter GREEN cases')}
         />
         <InfoBox
           tone="info"
           icon={<Bed size={22} />}
           value={`${Math.max(bays.length - activeCases.length, 0)} / ${bays.length}`}
-          label="Available ER bays"
-          detail={`${activeCases.length} occupied currently`}
+          label={t('Available ER bays')}
+          detail={`${activeCases.length} ${t('occupied currently')}`}
           onClick={() => setFilterAcuity('All')}
-          footerText="View all bays"
+          footerText={t('View all bays')}
         />
       </div>
 

@@ -4,6 +4,7 @@
  */
 
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { hasDiagnosis, normalizeDiagnosis } from '../../utils/diagnosis';
 import {
@@ -20,6 +21,7 @@ import { diagnosisKey } from '../../utils/diagnosis';
 type DepartmentTone = 'info' | 'success' | 'danger' | 'warning' | 'primary' | 'secondary';
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
   const { patients, doctors, records, medicines, queue, erCases, labOrders, pharmacyOrders } = useClinic();
 
   const activeDocs = doctors.filter(d => d.available).length;
@@ -54,32 +56,32 @@ export default function AdminDashboard() {
     }));
 
   const kpis = [
-    { label: 'Patients', value: patients.length, detail: 'Database total', icon: Users, tone: 'info' as const, to: '/patients' },
-    { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: 'Coverage today', icon: Stethoscope, tone: 'success' as const, to: '/doctors' },
-    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} red priority`, icon: HeartPulse, tone: 'danger' as const, to: '/records' },
-    { label: 'Prescriptions', value: pendingRx, detail: 'Pharmacy queue', icon: Pill, tone: 'warning' as const, to: '/pharmacy' },
-    { label: 'Lab Tests', value: pendingLab, detail: 'Open orders', icon: FlaskConical, tone: 'primary' as const, to: '/records' },
-    { label: 'Queue Tokens', value: queue.length, detail: 'Real-time tokens', icon: CreditCard, tone: 'secondary' as const, to: '/' },
+    { label: 'Patients', value: patients.length, detail: t('Database total'), icon: Users, tone: 'info' as const, to: '/patients' },
+    { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: t('Coverage today'), icon: Stethoscope, tone: 'success' as const, to: '/doctors' },
+    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} ${t('red priority')}`, icon: HeartPulse, tone: 'danger' as const, to: '/records' },
+    { label: 'Prescriptions', value: pendingRx, detail: t('Pharmacy queue'), icon: Pill, tone: 'warning' as const, to: '/pharmacy' },
+    { label: 'Lab Tests', value: pendingLab, detail: t('Open orders'), icon: FlaskConical, tone: 'primary' as const, to: '/records' },
+    { label: 'Queue Tokens', value: queue.length, detail: t('Real-time tokens'), icon: CreditCard, tone: 'secondary' as const, to: '/' },
   ];
 
   const departments: Array<{
     name: string; status: string; metric: string; value: string | number;
     secondary: string; secondaryValue: string | number; icon: typeof Users; tone: DepartmentTone;
   }> = [
-    { name: 'Reception & Cards', status: 'Normal', metric: 'Checked-in patients', value: queue.length, secondary: 'Registered cards', secondaryValue: patients.length, icon: CreditCard, tone: 'info' },
-    { name: 'OPD & Triage', status: 'Active', metric: 'Doctor consultation', value: queue.filter(i => i.stage === 'Doctor Consultation').length, secondary: 'Nurse triage queue', secondaryValue: queue.filter(i => i.stage === 'Nurse Triage').length, icon: Stethoscope, tone: 'success' },
-    { name: 'Emergency (ER)', status: criticalER > 0 ? 'High Acuity' : 'Normal', metric: 'Active cases', value: erCases.length, secondary: 'Red priority cases', secondaryValue: criticalER, icon: HeartPulse, tone: 'danger' },
-    { name: 'Pharmacy', status: lowStock > 0 ? `${lowStock} low stock` : 'Stock OK', metric: 'Pending prescriptions', value: pendingRx, secondary: 'Tracked medicines', secondaryValue: medicines.length, icon: Pill, tone: 'warning' },
-    { name: 'Laboratory', status: 'Active', metric: 'Diagnostic orders', value: labOrders.length, secondary: 'Pending verification', secondaryValue: pendingLab, icon: FlaskConical, tone: 'primary' },
-    { name: 'Administration', status: 'Normal', metric: 'Medical professionals', value: doctors.length, secondary: 'On-duty doctors', secondaryValue: activeDocs, icon: Building2, tone: 'secondary' },
+    { name: 'Reception & Cards', status: t('Normal'), metric: 'Checked-in patients', value: queue.length, secondary: 'Registered cards', secondaryValue: patients.length, icon: CreditCard, tone: 'info' },
+    { name: 'OPD & Triage', status: t('Active'), metric: 'Doctor consultation', value: queue.filter(i => i.stage === 'Doctor Consultation').length, secondary: 'Nurse triage queue', secondaryValue: queue.filter(i => i.stage === 'Nurse Triage').length, icon: Stethoscope, tone: 'success' },
+    { name: 'Emergency (ER)', status: criticalER > 0 ? t('High Acuity') : t('Normal'), metric: 'Active cases', value: erCases.length, secondary: 'Red priority cases', secondaryValue: criticalER, icon: HeartPulse, tone: 'danger' },
+    { name: 'Pharmacy', status: lowStock > 0 ? `${lowStock} ${t('low stock')}` : t('Stock OK'), metric: 'Pending prescriptions', value: pendingRx, secondary: 'Tracked medicines', secondaryValue: medicines.length, icon: Pill, tone: 'warning' },
+    { name: 'Laboratory', status: t('Active'), metric: 'Diagnostic orders', value: labOrders.length, secondary: 'Pending verification', secondaryValue: pendingLab, icon: FlaskConical, tone: 'primary' },
+    { name: 'Administration', status: t('Normal'), metric: 'Medical professionals', value: doctors.length, secondary: 'On-duty doctors', secondaryValue: activeDocs, icon: Building2, tone: 'secondary' },
   ];
 
   return (
     <div className="admin-dashboard">
       <div className="content-header admin-content-header py-1 mb-3">
         <div className="container-fluid px-0">
-          <h1 className="m-0" style={{ fontSize: '1.35rem', fontWeight: 700 }}>Clinic Administration Dashboard</h1>
-          <p className="admin-page-subtitle mb-0" style={{ fontSize: '0.85rem' }}>Executive KPI metrics, patient volume trends, and departmental oversight</p>
+          <h1 className="m-0" style={{ fontSize: '1.35rem', fontWeight: 700 }}>{t('Clinic Administration Dashboard')}</h1>
+          <p className="admin-page-subtitle mb-0" style={{ fontSize: '0.85rem' }}>{t('Executive KPI metrics, patient volume trends, and departmental oversight')}</p>
         </div>
       </div>
 
@@ -92,23 +94,23 @@ export default function AdminDashboard() {
                   tone={tone}
                   icon={<Icon aria-hidden="true" size={24} />}
                   value={value}
-                  label={label}
+                  label={t(label)}
                   detail={detail}
                   to={to}
-                  footerText="More info"
+                  footerText={t('More info')}
                 />
               </div>
             ))}
           </div>
         </section>
 
-        <section className="adm-dashboard-section" aria-label="Clinical analytics">
+        <section className="adm-dashboard-section" aria-label={t('Clinical analytics')}>
           <div className="row g-4 admin-analytics-row">
             <div className="col-lg-8">
               <div className="card card-outline card-primary admin-card admin-chart-card">
                 <div className="card-header">
-                  <h3 className="card-title"><Activity size={19} /> Patient Volume &amp; Departmental Visits</h3>
-                  <span className="admin-card-period">2026 Academic Year</span>
+                  <h3 className="card-title"><Activity size={19} /> {t('Patient Volume & Departmental Visits')}</h3>
+                  <span className="admin-card-period">{t('2026 Academic Year')}</span>
                 </div>
                 <div className="card-body">
                   <div className="admin-chart-wrap">
@@ -134,7 +136,7 @@ export default function AdminDashboard() {
 
             <div className="col-lg-4">
               <div className="card card-outline card-info admin-card admin-mix-card">
-                <div className="card-header"><h3 className="card-title"><Activity size={19} /> Case Category Mix</h3></div>
+                <div className="card-header"><h3 className="card-title"><Activity size={19} /> {t('Case Category Mix')}</h3></div>
                 <div className="card-body">
                   <div className="admin-donut-wrap">
                     <ResponsiveContainer width="100%" height="100%">
@@ -155,10 +157,10 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section className="card card-outline card-secondary admin-card admin-departments-card adm-dashboard-section" aria-label="Active departmental workloads">
+        <section className="card card-outline card-secondary admin-card admin-departments-card adm-dashboard-section" aria-label={t('Active Departmental Workloads')}>
           <div className="card-header">
-            <h3 className="card-title"><Building2 size={19} /> Active Departmental Workloads</h3>
-            <span className="admin-card-period">Live operational snapshot</span>
+            <h3 className="card-title"><Building2 size={19} /> {t('Active Departmental Workloads')}</h3>
+            <span className="admin-card-period">{t('Live operational snapshot')}</span>
           </div>
           <div className="card-body">
             <div className="row g-3 admin-departments-grid">
@@ -167,10 +169,10 @@ export default function AdminDashboard() {
                   <div className={`info-box admin-department-box admin-department-${tone}`}>
                     <span className={`info-box-icon bg-${tone}`}><Icon aria-hidden="true" /></span>
                     <div className="info-box-content">
-                      <span className="info-box-text">{name}</span>
+                      <span className="info-box-text">{t(name)}</span>
                       <span className="admin-department-status">{status}</span>
-                      <span className="admin-department-metric">{metric} <strong>{value}</strong></span>
-                      <span className="admin-department-metric">{secondary} <strong>{secondaryValue}</strong></span>
+                      <span className="admin-department-metric">{t(metric)} <strong>{value}</strong></span>
+                      <span className="admin-department-metric">{t(secondary)} <strong>{secondaryValue}</strong></span>
                     </div>
                   </div>
                 </div>

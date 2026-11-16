@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { useAuth } from '../../context/AuthContext';
 import type { ClinicQueueItem, Vitals, Priority } from '../../types';
@@ -44,6 +45,7 @@ function calculateAge(dateOfBirth?: string): number | undefined {
 }
 
 export default function OpdDashboard() {
+  const { t } = useLanguage();
   const {
     queue, records, medicines, patients, doctors, erCases, labOrders,
     updateQueueItem, sendOpdToLabRequest, sendOpdToPharmacyRequest,
@@ -625,37 +627,37 @@ export default function OpdDashboard() {
           tone="info"
           icon={<Stethoscope size={22} />}
           value={waitingForDoctor.length}
-          label="OPD queue"
-          detail="In doctor consultation"
+          label={t('OPD queue')}
+          detail={t('In doctor consultation')}
           onClick={() => { setOpdTabFilter('all'); setDoctorQueueScope('all'); }}
-          footerText="View queue"
+          footerText={t('View queue')}
         />
         <InfoBox
           tone="success"
           icon={<FlaskConical size={22} />}
           value={atLaboratory.length}
-          label="At laboratory"
-          detail="Diagnostic tests ordered"
+          label={t('At laboratory')}
+          detail={t('Diagnostic tests ordered')}
           onClick={() => setOpdTabFilter('lab_returned')}
-          footerText="Check lab results"
+          footerText={t('Check lab results')}
         />
         <InfoBox
           tone="warning"
           icon={<Pill size={22} />}
           value={atPharmacy.length}
-          label="At pharmacy"
-          detail="Prescriptions pending dispensary"
+          label={t('At pharmacy')}
+          detail={t('Prescriptions pending dispensary')}
           to="/pharmacy"
-          footerText="View pharmacy"
+          footerText={t('View pharmacy')}
         />
         <InfoBox
           tone="secondary"
           icon={<CheckCircle2 size={22} />}
           value={completedConsultationsToday}
-          label="Completed"
-          detail="Consultations treated today"
+          label={t('Completed')}
+          detail={t('Consultations treated today')}
           onClick={() => setOpdTabFilter('completed')}
-          footerText="View completed"
+          footerText={t('View completed')}
         />
       </div>
 
@@ -669,7 +671,7 @@ export default function OpdDashboard() {
                 <div className="opd-queue-title-wrap">
                   <span className="opd-queue-title-icon"><Stethoscope size={19} /></span>
                   <div>
-                    <h3>OPD Doctor Consultation Queue</h3>
+                    <h3>{t('OPD Doctor Consultation Queue')}</h3>
                     <span className="opd-queue-subtitle">
                       {doctorQueueScope === 'my'
                         ? `Patients assigned to ${currentUser?.name ? formatDoctorName(currentUser.name) : 'your station'}`
