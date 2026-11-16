@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, User, ArrowRight, KeyRound, Sun, Moon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelect from '../components/LanguageSelect';
 import type { UserRole } from '../types';
 import { validateRequired, validateTextLength } from '../utils/validation';
 import LoadingButton from '../components/LoadingButton';
@@ -11,6 +13,7 @@ import './Login.css';
 export default function Login() {
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -78,16 +81,19 @@ export default function Login() {
 
   return (
     <div className="login-page-container">
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="login-theme-toggle"
-        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-        aria-label="Toggle theme"
-      >
-        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-      </button>
+      <div className="login-utility-controls">
+        <LanguageSelect className="language-select--login" />
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="login-theme-toggle"
+          title={`${t('Switch to')} ${theme === 'dark' ? t('Light') : t('Dark')} ${t('mode')}`}
+          aria-label={t('Toggle theme')}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          <span>{theme === 'dark' ? t('Light mode') : t('Dark mode')}</span>
+        </button>
+      </div>
 
       <div className="login-glow-orb login-glow-1" />
       <div className="login-glow-orb login-glow-2" />
@@ -106,8 +112,8 @@ export default function Login() {
 
         <section className="login-right-panel">
           <div className="login-form-header">
-            <h1 className="login-form-title">Sign In</h1>
-            <p className="login-form-sub">Enter your clinic credentials to access your clinical dashboard.</p>
+            <h1 className="login-form-title">{t('Sign In')}</h1>
+            <p className="login-form-sub">{t('Enter your clinic credentials to access your clinical dashboard.')}</p>
           </div>
 
           {errorMessage && (
@@ -126,14 +132,14 @@ export default function Login() {
               }}
             >
               <AlertCircle size={17} style={{ flexShrink: 0, color: '#ef4444' }} />
-              <span>{errorMessage}</span>
+              <span>{t(errorMessage)}</span>
             </div>
           )}
 
           <form className="login-form" onSubmit={handleFormSubmit} noValidate>
             <div className="login-input-group">
               <label className="login-label" htmlFor="login-username">
-                <User size={14} /> Username / Staff ID
+                <User size={14} /> {t('Username / Staff ID')}
               </label>
               <div className="login-input-wrap">
                 <User size={16} className="login-input-icon" />
@@ -150,17 +156,17 @@ export default function Login() {
                   onBlur={() => validateField('username')}
                   aria-invalid={Boolean(fieldErrors.username)}
                   aria-describedby={fieldErrors.username ? 'login-username-error' : undefined}
-                  placeholder="username"
+                  placeholder={t('Username')}
                   autoComplete="username"
                   disabled={isSubmitting}
                 />
               </div>
-              {fieldErrors.username && <small id="login-username-error" className="login-field-error">{fieldErrors.username}</small>}
+              {fieldErrors.username && <small id="login-username-error" className="login-field-error">{t(fieldErrors.username)}</small>}
             </div>
 
             <div className="login-input-group">
               <label className="login-label" htmlFor="login-password">
-                <Lock size={14} /> Password
+                <Lock size={14} /> {t('Password')}
               </label>
               <div className="login-input-wrap">
                 <KeyRound size={16} className="login-input-icon" />
@@ -177,7 +183,7 @@ export default function Login() {
                   onBlur={() => validateField('password')}
                   aria-invalid={Boolean(fieldErrors.password)}
                   aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
-                  placeholder="password"
+                  placeholder={t('Password')}
                   autoComplete="current-password"
                   disabled={isSubmitting}
                 />
@@ -185,20 +191,20 @@ export default function Login() {
                   type="button"
                   className="login-password-toggle"
                   onClick={() => setShowPassword(current => !current)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={t(showPassword ? 'Hide password' : 'Show password')}
                   aria-pressed={showPassword}
                   aria-controls="login-password"
-                  title={showPassword ? 'Hide password' : 'Show password'}
+                  title={t(showPassword ? 'Hide password' : 'Show password')}
                   disabled={isSubmitting}
                 >
                   {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
                 </button>
               </div>
-              {fieldErrors.password && <small id="login-password-error" className="login-field-error">{fieldErrors.password}</small>}
+              {fieldErrors.password && <small id="login-password-error" className="login-field-error">{t(fieldErrors.password)}</small>}
             </div>
 
-            <LoadingButton type="submit" className="login-btn-submit" loading={isSubmitting} loadingLabel="Authenticating…">
-              <span>Sign In</span>
+            <LoadingButton type="submit" className="login-btn-submit" loading={isSubmitting} loadingLabel={t('Authenticating…')}>
+              <span>{t('Sign In')}</span>
               <ArrowRight size={17} />
             </LoadingButton>
           </form>

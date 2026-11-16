@@ -24,6 +24,15 @@
   color: #ff8b94;
 }
 
+.network-status-banner--online {
+  border-color: rgba(25, 135, 84, 0.55);
+  background: #174c37;
+}
+
+.network-status-banner--online svg {
+  color: #86efac;
+}
+
 @media (max-width: 575.98px) {
   .network-status-banner {
     bottom: 0.65rem;

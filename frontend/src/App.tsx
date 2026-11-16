@@ -5,6 +5,7 @@ import { ThemeProvider }   from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
 import { NetworkProvider } from './context/NetworkContext';
+import { LanguageProvider } from './context/LanguageContext';
 import MaintenancePage     from './components/Maintenance/MaintenancePage';
 import Layout              from './components/Layout/Layout';
 import ProtectedRoute, { roleLandingPage } from './components/ProtectedRoute';
@@ -306,20 +307,22 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <NetworkProvider>
-            <MaintenanceProvider>
-              <ClinicProvider>
-                <NotificationProvider>
-                  <AppRoutes />
-                  <NetworkStatusBanner />
-                </NotificationProvider>
-              </ClinicProvider>
-            </MaintenanceProvider>
-          </NetworkProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NetworkProvider>
+              <MaintenanceProvider>
+                <ClinicProvider>
+                  <NotificationProvider>
+                    <AppRoutes />
+                    <NetworkStatusBanner />
+                  </NotificationProvider>
+                </ClinicProvider>
+              </MaintenanceProvider>
+            </NetworkProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

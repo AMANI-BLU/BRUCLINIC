@@ -5,9 +5,11 @@ import { Lock } from 'lucide-react';
 import { firstError, validatePassword, validateRequired, validateTextLength } from '../utils/validation';
 import './PasswordChangeForm.css';
 import LoadingButton from './LoadingButton';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
   const { changePassword, logout } = useAuth();
+  const { t } = useLanguage();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,22 +56,22 @@ export default function PasswordChangeForm({ forced = false }: { forced?: boolea
           <Lock size={18} />
         </div>
         <div>
-          <h2 className="pcf-title">{forced ? 'Change your temporary password' : 'Change password'}</h2>
-          <p className="pcf-subtitle">{forced ? 'A password change is required before you can continue.' : 'Enter your current password and choose a new one.'}</p>
+          <h2 className="pcf-title">{t(forced ? 'Change your temporary password' : 'Change password')}</h2>
+          <p className="pcf-subtitle">{t(forced ? 'A password change is required before you can continue.' : 'Enter your current password and choose a new one.')}</p>
         </div>
       </div>
-      {error && <div className="alert alert-danger" role="alert">{error}</div>}
-      {message && <div className="alert alert-success" role="status">{message}</div>}
+      {error && <div className="alert alert-danger" role="alert">{t(error)}</div>}
+      {message && <div className="alert alert-success" role="status">{t(message)}</div>}
       <form onSubmit={submit} noValidate>
-        <label className="form-label" htmlFor="password-current">Current password</label>
+        <label className="form-label" htmlFor="password-current">{t('Current password')}</label>
         <PasswordField id="password-current" className="form-control mb-3" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} required />
-        <label className="form-label" htmlFor="password-new">New password</label>
+        <label className="form-label" htmlFor="password-new">{t('New password')}</label>
         <PasswordField id="password-new" className="form-control mb-3" autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} minLength={10} required />
-        <label className="form-label" htmlFor="password-confirm">Confirm new password</label>
+        <label className="form-label" htmlFor="password-confirm">{t('Confirm new password')}</label>
         <PasswordField id="password-confirm" className="form-control mb-3" autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} minLength={10} required />
         <div className="d-flex gap-2">
-          <LoadingButton className="btn btn-primary" type="submit" loading={saving} loadingLabel="Updating…">Update password</LoadingButton>
-          <button className="btn btn-secondary" type="button" onClick={logout}>Sign out</button>
+          <LoadingButton className="btn btn-primary" type="submit" loading={saving} loadingLabel={t('Updating…')}>{t('Update password')}</LoadingButton>
+          <button className="btn btn-secondary" type="button" onClick={logout}>{t('Sign out')}</button>
         </div>
       </form>
     </section>

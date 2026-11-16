@@ -26,7 +26,9 @@ import {
   Users,
   Camera,
   Trash2,
+  Languages,
 } from 'lucide-react';
+import { LANGUAGE_OPTIONS, useLanguage } from '../context/LanguageContext';
 import './Settings.css';
 
 interface RoleSetting {
@@ -138,6 +140,7 @@ function resizeProfileImage(file: File): Promise<string> {
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
   const { currentUser, role, token, updateProfile } = useAuth();
   const roleSetting = ROLE_SETTINGS[role];
   const RoleIcon = roleSetting.icon;
@@ -225,11 +228,11 @@ export default function Settings() {
     <div className="settings-page">
       <div className="page-header settings-page-header">
         <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Personal preferences.</p>
+          <h1 className="page-title">{t('Settings')}</h1>
+          <p className="page-subtitle">{t('Personal preferences.')}</p>
         </div>
-        <div className="settings-header-status" aria-label={`${theme} theme active`}>
-          <span /> {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+        <div className="settings-header-status" aria-label={`${theme === 'dark' ? t('Dark') : t('Light')} ${t('theme active')}`}>
+          <span /> {theme === 'dark' ? t('Dark mode') : t('Light mode')}
         </div>
       </div>
 
@@ -238,8 +241,8 @@ export default function Settings() {
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-blue"><Sun size={18} /></div>
             <div>
-              <h2>Appearance</h2>
-              <p>Choose the theme for this device.</p>
+              <h2>{t('Appearance')}</h2>
+              <p>{t('Choose the theme for this device.')}</p>
             </div>
           </div>
 
@@ -256,8 +259,8 @@ export default function Settings() {
                 >
                   <span className="settings-choice-icon"><Icon size={20} /></span>
                   <span>
-                    <strong>{label}</strong>
-                    <small>{description}</small>
+                    <strong>{t(label)}</strong>
+                    <small>{t(description)}</small>
                   </span>
                   {selected && <Check className="settings-choice-check" size={16} />}
                 </button>
@@ -266,45 +269,61 @@ export default function Settings() {
           </div>
         </section>
 
+        <section className="card card-outline card-info settings-card settings-language-card">
+          <div className="settings-card-heading">
+            <div className="settings-icon settings-icon-purple"><Languages size={18} /></div>
+            <div>
+              <h2>{t('Language')}</h2>
+              <p>{t('Choose the language for this device.')}</p>
+            </div>
+          </div>
+          <label className="settings-language-control">
+            <span>{t('Language')}</span>
+            <select value={language} onChange={event => setLanguage(event.target.value as typeof language)} aria-label={t('Language')}>
+              {LANGUAGE_OPTIONS.map(option => <option key={option.code} value={option.code}>{option.nativeName}</option>)}
+            </select>
+          </label>
+        </section>
+
         <section className="card card-outline card-success settings-card settings-account-card">
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-green"><UserRound size={18} /></div>
             <div>
-              <h2>Your account</h2>
-              <p>Signed-in staff profile from the database.</p>
+              <h2>{t('Your account')}</h2>
+              <p>{t('Signed-in staff profile from the database.')}</p>
             </div>
           </div>
 
           <div className="settings-account-summary">
             <div className="settings-account-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }}>
-              {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Your profile" /> : (currentUser?.avatarInitials || 'ST')}
+              {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt={t('Your profile')} /> : (currentUser?.avatarInitials || 'ST')}
             </div>
             <div className="settings-account-name">
               <strong>{currentUser?.name || 'Staff User'}</strong>
-              <span>{currentUser?.roleTitle || 'Clinic staff'}</span>
+              <span>{t(currentUser?.roleTitle || 'Clinic staff')}</span>
             </div>
           </div>
 
           <div className="settings-profile-picture-actions">
             <label className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: savingProfilePicture ? 'wait' : 'pointer' }}>
-              <Camera size={14} /> {savingProfilePicture ? 'Saving…' : currentUser?.avatarUrl ? 'Change picture' : 'Add profile picture'}
+              <Camera size={14} /> {savingProfilePicture ? t('Saving…') : currentUser?.avatarUrl ? t('Change picture') : t('Add profile picture')}
               <input type="file" accept="image/*" onChange={handleProfilePicture} disabled={savingProfilePicture} hidden />
             </label>
             {currentUser?.avatarUrl && (
               <button type="button" className="btn btn-link btn-sm" onClick={removeProfilePicture} disabled={savingProfilePicture}>
-                <Trash2 size={13} /> Remove
+                <Trash2 size={13} /> {t('Remove')}
               </button>
             )}
           </div>
-          {profileError && <div className="alert alert-danger py-1 px-2 mt-2 mb-0" role="alert">{profileError}</div>}
-          {profileMessage && <div className="alert alert-success py-1 px-2 mt-2 mb-0" role="status">{profileMessage}</div>}
+          {profileError && <div className="alert alert-danger py-1 px-2 mt-2 mb-0" role="alert">{t(profileError)}</div>}
+          {profileMessage && <div className="alert alert-success py-1 px-2 mt-2 mb-0" role="status">{t(profileMessage)}</div>}
 
           <dl className="settings-details">
-            <div><dt>Username</dt><dd>{currentUser?.username || '—'}</dd></div>
-            <div><dt>Email</dt><dd>{currentUser?.email || '—'}</dd></div>
-            <div><dt>Phone</dt><dd>{currentUser?.phone || '—'}</dd></div>
-            <div><dt>Gender</dt><dd>{currentUser?.gender || '—'}</dd></div>
-            <div><dt>Department</dt><dd>{currentUser?.department || '—'}</dd></div>
+            <div><dt>{t('Username')}</dt><dd>{currentUser?.username || '—'}</dd></div>
+            <div><dt>{t('Email')}</dt><dd>{currentUser?.email || '—'}</dd></div>
+            <div><dt>{t('Phone')}</dt><dd>{currentUser?.phone || '—'}</dd></div>
+            <div><dt>{t('Gender')}</dt><dd>{t(currentUser?.gender || '—')}</dd></div>
+            <div><dt>{t('Department')}</dt><dd>{t(currentUser?.department || '—')}</dd></div>
           </dl>
 
         </section>
@@ -316,14 +335,14 @@ export default function Settings() {
             <div className="settings-card-heading">
               <div className="settings-icon settings-icon-orange"><KeyRound size={18} /></div>
               <div>
-                <h2>Default staff password</h2>
-                <p>New staff accounts use this temporary password and must change it at first sign-in.</p>
+              <h2>{t('Default staff password')}</h2>
+              <p>{t('New staff accounts use this temporary password and must change it at first sign-in.')}</p>
               </div>
             </div>
 
             {/* Current default password display */}
             <div className="mb-3">
-              <span className="form-label d-block" style={{ marginBottom: 4 }}>Current default password</span>
+              <span className="form-label d-block" style={{ marginBottom: 4 }}>{t('Current default password')}</span>
               {defaultPasswordConfigured ? (
                 defaultPasswordValue ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -357,22 +376,22 @@ export default function Settings() {
                   </div>
                 ) : (
                   <div className="alert alert-info py-2 mb-0" style={{ fontSize: '0.78rem' }}>
-                    A default password is configured but was saved before it could be displayed here. Save a new one below to see it.
+                    {t('A default password is configured but was saved before it could be displayed here. Save a new one below to see it.')}
                   </div>
                 )
               ) : (
                 <div className="alert alert-warning py-2 mb-0" style={{ fontSize: '0.78rem' }}>
-                  No default password is set. New staff accounts will not be able to sign in until one is configured.
+                  {t('No default password is set. New staff accounts will not be able to sign in until one is configured.')}
                 </div>
               )}
             </div>
 
-            {defaultPasswordError && <div className="alert alert-danger py-2" role="alert">{defaultPasswordError}</div>}
-            {defaultPasswordMessage && <div className="alert alert-success py-2" role="status">{defaultPasswordMessage}</div>}
+            {defaultPasswordError && <div className="alert alert-danger py-2" role="alert">{t(defaultPasswordError)}</div>}
+            {defaultPasswordMessage && <div className="alert alert-success py-2" role="status">{t(defaultPasswordMessage)}</div>}
             <form onSubmit={saveDefaultPassword} noValidate>
-              <label className="form-label" htmlFor="default-staff-password">New default password</label>
+              <label className="form-label" htmlFor="default-staff-password">{t('New default password')}</label>
               <PasswordField id="default-staff-password" className="form-control mb-3" autoComplete="new-password" value={defaultPassword} onChange={event => setDefaultPassword(event.target.value)} minLength={10} required />
-              <LoadingButton type="submit" className="btn btn-warning" loading={savingDefaultPassword} loadingLabel="Saving…">Save default password</LoadingButton>
+              <LoadingButton type="submit" className="btn btn-warning" loading={savingDefaultPassword} loadingLabel={t('Saving…')}>{t('Save default password')}</LoadingButton>
             </form>
           </section>
         )}
@@ -381,15 +400,15 @@ export default function Settings() {
           <div className="settings-card-heading">
             <div className="settings-icon settings-icon-purple"><RoleIcon size={18} /></div>
             <div>
-              <h2>{roleSetting.label}</h2>
-              <p>{roleSetting.description}</p>
+              <h2>{t(roleSetting.label)}</h2>
+              <p>{t(roleSetting.description)}</p>
             </div>
           </div>
 
           <div className="settings-role-list">
             {roleSetting.items.map(item => (
               <NavLink className="settings-role-item" key={item.to} to={item.to}>
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
                 <ArrowUpRight size={14} />
               </NavLink>
             ))}
@@ -401,14 +420,14 @@ export default function Settings() {
             <div className="settings-icon settings-icon-orange"><Building2 size={18} /></div>
             <div>
               <h2>Clinic workspace</h2>
-              <p>Shared clinic information.</p>
+              <p>{t('Shared clinic information.')}</p>
             </div>
           </div>
 
           <div className="settings-details settings-clinic-details">
-            <div><span>Facility</span><strong>Borana University Clinic</strong></div>
-            <div><span>Location</span><strong>Yabelo, Oromia, Ethiopia</strong></div>
-            <div><span>Database</span><strong className="settings-status"><span /> Connected through API</strong></div>
+            <div><span>{t('Facility')}</span><strong>Borana University Clinic</strong></div>
+            <div><span>{t('Location')}</span><strong>Yabelo, Oromia, Ethiopia</strong></div>
+            <div><span>{t('Database')}</span><strong className="settings-status"><span /> {t('Connected through API')}</strong></div>
           </div>
         </section>
 

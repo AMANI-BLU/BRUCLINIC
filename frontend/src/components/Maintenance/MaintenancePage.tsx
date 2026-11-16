@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { Clock, LogOut, Moon, RefreshCw, ShieldCheck, Sun, Wrench } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageSelect from '../LanguageSelect';
 import './MaintenancePage.css';
 import '../../pages/Login.css';
 
@@ -23,6 +25,7 @@ interface MaintenancePageProps {
 export default function MaintenancePage({ message, onRefresh, onAdminAccess }: MaintenancePageProps) {
   const { isAuthenticated, currentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { language, t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
 
@@ -30,7 +33,8 @@ export default function MaintenancePage({ message, onRefresh, onAdminAccess }: M
     setRefreshing(true);
     try {
       await onRefresh();
-      setLastChecked(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
+      const locale = language === 'om' ? 'om-ET' : language === 'am' ? 'am-ET' : 'en-US';
+      setLastChecked(new Date().toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', hour12: true }));
     } finally {
       setRefreshing(false);
     }
@@ -38,16 +42,19 @@ export default function MaintenancePage({ message, onRefresh, onAdminAccess }: M
 
   return (
     <div className="login-page-container maintenance-page">
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="login-theme-toggle"
-        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-        aria-label="Toggle theme"
-      >
-        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-      </button>
+      <div className="login-utility-controls">
+        <LanguageSelect className="language-select--login" />
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="login-theme-toggle"
+          title={`${t('Switch to')} ${theme === 'dark' ? t('Light') : t('Dark')} ${t('mode')}`}
+          aria-label={t('Toggle theme')}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          <span>{theme === 'dark' ? t('Light mode') : t('Dark mode')}</span>
+        </button>
+      </div>
 
       <div className="login-glow-orb login-glow-1" />
       <div className="login-glow-orb login-glow-2" />
@@ -66,44 +73,44 @@ export default function MaintenancePage({ message, onRefresh, onAdminAccess }: M
         <section className="login-right-panel">
           <div className="maintenance-state" role="status" aria-live="polite">
             <span className="maintenance-badge">
-              <Wrench size={13} /> Scheduled maintenance
+              <Wrench size={13} /> {t('Scheduled maintenance')}
             </span>
 
-            <h1 className="login-form-title">We&rsquo;ll be back shortly</h1>
+            <h1 className="login-form-title">{t('We’ll be back shortly')}</h1>
             <p className="login-form-sub maintenance-message">{message}</p>
 
             <div className="maintenance-actions">
               <button type="button" className="login-btn-submit" onClick={() => void handleRefresh()} disabled={refreshing}>
-                <span>{refreshing ? 'Checking…' : 'Check again'}</span>
+                <span>{refreshing ? t('Checking…') : t('Check again')}</span>
                 <RefreshCw size={17} className={refreshing ? 'maintenance-spin' : ''} />
               </button>
 
               {!isAuthenticated && (
                 <button type="button" className="login-btn-demo" onClick={onAdminAccess}>
-                  <ShieldCheck size={15} /> Administrator sign in
+                  <ShieldCheck size={15} /> {t('Administrator sign in')}
                 </button>
               )}
 
               {isAuthenticated && (
                 <button type="button" className="login-btn-demo" onClick={logout}>
                   <LogOut size={15} />
-                  Sign out{currentUser?.name ? ` (${currentUser.name})` : ''}
+                  {t('Sign out')}{currentUser?.name ? ` (${currentUser.name})` : ''}
                 </button>
               )}
             </div>
 
             <div className="maintenance-note">
               <ShieldCheck size={15} />
-              <span>Patient records are safe. Clinical activity is paused until maintenance ends.</span>
+              <span>{t('Patient records are safe. Clinical activity is paused until maintenance ends.')}</span>
             </div>
 
             <div className="maintenance-meta">
               <Clock size={13} />
-              <span>{lastChecked ? `Last checked at ${lastChecked}` : 'Checks automatically every 30 seconds'}</span>
+              <span>{lastChecked ? `${t('Last checked at')} ${lastChecked}` : t('Checks automatically every 30 seconds')}</span>
             </div>
 
             <p className="maintenance-contact">
-              Urgent clinical need? Call reception on <strong>+251 46 441 0000</strong>.
+              {t('Urgent clinical need? Call reception on')} <strong>+251 46 441 0000</strong>.
             </p>
           </div>
         </section>

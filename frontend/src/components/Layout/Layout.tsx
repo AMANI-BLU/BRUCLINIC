@@ -10,6 +10,7 @@ import {
 import './Layout.css';
 import '../Maintenance/MaintenancePage.css';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import { useMaintenance } from '../../context/MaintenanceContext';
@@ -19,6 +20,7 @@ import PasswordField from '../PasswordField';
 import { apiGet } from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
 import { validateRequired } from '../../utils/validation';
+import LanguageSelect from '../LanguageSelect';
 
 interface NavItemDef {
   to: string;
@@ -108,6 +110,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { language, t } = useLanguage();
   const { currentUser, role, logout, idleLockMinutes, unlockSession, token } = useAuth();
   const { loading: clinicLoading, error: clinicError, refresh } = useClinic();
   const { enabled: maintenance } = useMaintenance();
@@ -260,7 +263,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = ALL_NAV_ITEMS.filter(item => !item.roles || item.roles.includes(role));
   const currentPage = ALL_NAV_ITEMS.find(item => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dateLocale = language === 'om' ? 'om-ET' : language === 'am' ? 'am-ET' : 'en-GB';
+  const today = new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const isFullscreenPage = location.pathname === '/messages';
   const isAsideExpanded = sidebarOpen || mobileOpen;
 
@@ -289,13 +293,14 @@ export default function Layout({ children }: LayoutProps) {
             </button>
           </li>
           <li className="nav-item d-none d-sm-inline-block">
-            <span className="nav-link app-current-page"><HeartPulse size={15} /> {currentPage?.label || 'Clinic workspace'}</span>
+            <span className="nav-link app-current-page"><HeartPulse size={15} /> {t(currentPage?.label || 'Clinic workspace')}</span>
           </li>
         </ul>
         <ul className="navbar-nav ms-auto app-header-actions">
+          <li className="nav-item"><LanguageSelect className="language-select--header" /></li>
           <li className="nav-item d-none d-md-inline-block"><span className="nav-link app-date"><CalendarDays size={14} /> {today}</span></li>
           <li className="nav-item">
-            <button type="button" className="nav-link app-header-btn" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <button type="button" className="nav-link app-header-btn" onClick={toggleTheme} title={theme === 'dark' ? t('Switch to light mode') : t('Switch to dark mode')} aria-label={t('Toggle theme')}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
           </li>
@@ -320,7 +325,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="app-notification-dropdown">
                 <div className="app-notification-heading">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <strong><Bell size={14} /> Live Alerts</strong>
+                    <strong><Bell size={14} /> {t('Live Alerts')}</strong>
                     <span className="badge text-bg-primary">{totalAlerts}</span>
                   </div>
                   {totalAlerts > 0 && (
@@ -331,7 +336,7 @@ export default function Layout({ children }: LayoutProps) {
                         style={{ fontSize: '0.72rem', color: 'var(--clr-primary-400)', cursor: 'pointer' }}
                         onClick={() => markAlertsRead()}
                       >
-                        Mark read
+                        {t('Mark read')}
                       </button>
                       <span style={{ color: 'var(--clr-border, #cbd5e1)', fontSize: '0.7rem' }}>·</span>
                       <button
@@ -339,9 +344,9 @@ export default function Layout({ children }: LayoutProps) {
                         className="btn btn-link btn-sm p-0 text-decoration-none text-danger"
                         style={{ fontSize: '0.72rem', cursor: 'pointer' }}
                         onClick={clearAllAlerts}
-                        title="Clear and delete all active alerts"
+                        title={t('Clear and delete all active alerts')}
                       >
-                        Clear all
+                        {t('Clear all')}
                       </button>
                     </div>
                   )}
@@ -351,7 +356,7 @@ export default function Layout({ children }: LayoutProps) {
                   {visibleNotifications.length === 0 ? (
                     <div className="app-notification-empty">
                       <CheckCircle2 size={22} style={{ color: '#10b981' }} />
-                      <span>No active notifications for {currentUser?.roleTitle || role}</span>
+                      <span>{t('No active notifications for')} {t(currentUser?.roleTitle || role)}</span>
                     </div>
                   ) : (
                     visibleNotifications.slice(0, 6).map(alert => {
@@ -375,10 +380,10 @@ export default function Layout({ children }: LayoutProps) {
                           </div>
                           <div className="app-notification-item-content">
                             <div className="app-notification-item-header">
-                              <span className="app-notification-item-title">{alert.title}</span>
+                            <span className="app-notification-item-title">{t(alert.title)}</span>
                               {alert.time && <span className="app-notification-item-time">{alert.time}</span>}
                             </div>
-                            <p className="app-notification-item-msg">{alert.message}</p>
+                            <p className="app-notification-item-msg">{t(alert.message)}</p>
                           </div>
                           <button
                             type="button"
@@ -388,8 +393,8 @@ export default function Layout({ children }: LayoutProps) {
                               e.stopPropagation();
                               dismissAlert(alert.id);
                             }}
-                            title="Dismiss notification"
-                            aria-label="Dismiss notification"
+                            title={t('Dismiss notification')}
+                            aria-label={t('Dismiss notification')}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -410,7 +415,7 @@ export default function Layout({ children }: LayoutProps) {
                         navigate('/notifications');
                       }}
                     >
-                      <span>View All Notifications ({visibleNotifications.length})</span>
+                      <span>{t('View All Notifications')} ({visibleNotifications.length})</span>
                       <ArrowRight size={13} />
                     </button>
                   </div>
@@ -424,7 +429,7 @@ export default function Layout({ children }: LayoutProps) {
               <span className="app-header-user-copy d-none d-md-inline-flex"><strong>{currentUser?.name || 'Staff User'}</strong></span>
             </span>
           </li>
-          <li className="nav-item"><button type="button" className="nav-link app-header-btn app-logout" onClick={handleLogout} title="Sign out"><LogOut size={17} /></button></li>
+          <li className="nav-item"><button type="button" className="nav-link app-header-btn app-logout" onClick={handleLogout} title={t('Sign out')} aria-label={t('Sign out')}><LogOut size={17} /></button></li>
         </ul>
       </header>
 
@@ -438,10 +443,10 @@ export default function Layout({ children }: LayoutProps) {
         <div className="sidebar-wrapper">
           <div className="user-panel mt-2 pb-2 mb-2 d-flex app-user-panel">
             <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={currentUser?.name || 'Staff User'}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</div></div>
-            {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{currentUser?.roleTitle || role}</small></div>}
+            {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{t(currentUser?.roleTitle || role)}</small></div>}
           </div>
           <nav className="mt-1" aria-label="Main navigation">
-            {isAsideExpanded && <p className="app-nav-heading">Main Menu</p>}
+            {isAsideExpanded && <p className="app-nav-heading">{t('Main Menu')}</p>}
             <ul className="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu">
               {navItems.map(({ to, icon: Icon, label, end }) => (
                 <li className="nav-item" key={to}>
@@ -452,28 +457,28 @@ export default function Layout({ children }: LayoutProps) {
                     onClick={closeMobile}
                   >
                     <Icon className="nav-icon" size={18} />
-                    {isAsideExpanded && <p>{label}<ChevronRight className="right" size={14} /></p>}
-                    {!isAsideExpanded && <span className="app-nav-tooltip">{label}</span>}
+                    {isAsideExpanded && <p>{t(label)}<ChevronRight className="right" size={14} /></p>}
+                    {!isAsideExpanded && <span className="app-nav-tooltip">{t(label)}</span>}
                   </NavLink>
                 </li>
               ))}
             </ul>
           </nav>
           <div className="app-sidebar-footer">
-            {isAsideExpanded && <p className="app-nav-heading">Account</p>}
+            {isAsideExpanded && <p className="app-nav-heading">{t('Account')}</p>}
             <ul className="nav sidebar-menu flex-column">
               <li className="nav-item">
                 <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}>
                   <Settings className="nav-icon" size={18} />
-                  {isAsideExpanded && <p>Settings</p>}
-                  {!isAsideExpanded && <span className="app-nav-tooltip">Settings</span>}
+                  {isAsideExpanded && <p>{t('Settings')}</p>}
+                  {!isAsideExpanded && <span className="app-nav-tooltip">{t('Settings')}</span>}
                 </NavLink>
               </li>
               <li className="nav-item app-signout-item">
-                <button type="button" className="nav-link" onClick={handleLogout} title={!isAsideExpanded ? 'Sign out' : undefined}>
+                <button type="button" className="nav-link" onClick={handleLogout} title={!isAsideExpanded ? t('Sign out') : undefined}>
                   <LogOut className="nav-icon" size={18} />
-                  {isAsideExpanded && <p>Sign out</p>}
-                  {!isAsideExpanded && <span className="app-nav-tooltip">Sign out</span>}
+                  {isAsideExpanded && <p>{t('Sign out')}</p>}
+                  {!isAsideExpanded && <span className="app-nav-tooltip">{t('Sign out')}</span>}
                 </button>
               </li>
             </ul>
@@ -484,14 +489,14 @@ export default function Layout({ children }: LayoutProps) {
       <main className={`app-main${isFullscreenPage ? ' app-main-fullscreen' : ''}`}>
         {!isFullscreenPage && (
           <div className="app-content-header">
-            <div className="container-fluid"><ol className="breadcrumb ms-auto"><li className="breadcrumb-item"><NavLink to="/">Home</NavLink></li><li className="breadcrumb-item active">{currentPage?.label || 'Clinic'}</li></ol></div>
+            <div className="container-fluid"><ol className="breadcrumb ms-auto"><li className="breadcrumb-item"><NavLink to="/">{t('Home')}</NavLink></li><li className="breadcrumb-item active">{t(currentPage?.label || 'Clinic')}</li></ol></div>
           </div>
         )}
         <div className={`app-content${isFullscreenPage ? ' app-content-fullscreen' : ''}`}>
           <div className={`container-fluid app-content-container${isFullscreenPage ? ' app-content-container-fullscreen' : ''}`}>
-            {maintenance && <div className="alert alert-warning app-maintenance-banner" role="status"><Wrench size={16} /><div><strong>Maintenance mode is on</strong><span>Clinical staff are paused. You still have administrator access.</span></div><NavLink to="/security" className="btn btn-secondary btn-sm">Manage</NavLink></div>}
-            {clinicError && <div className="alert alert-warning clinic-data-alert" role="alert"><AlertTriangle size={16} /><div><strong>Clinic data could not be refreshed</strong><span>{clinicError}</span></div></div>}
-            {clinicLoading && <div className="alert alert-info py-2" role="status">Loading clinic data…</div>}
+            {maintenance && <div className="alert alert-warning app-maintenance-banner" role="status"><Wrench size={16} /><div><strong>{t('Maintenance mode is on')}</strong><span>{t('Clinical staff are paused. You still have administrator access.')}</span></div><NavLink to="/security" className="btn btn-secondary btn-sm">{t('Manage')}</NavLink></div>}
+            {clinicError && <div className="alert alert-warning clinic-data-alert" role="alert"><AlertTriangle size={16} /><div><strong>{t('Clinic data could not be refreshed')}</strong><span>{clinicError}</span></div></div>}
+            {clinicLoading && <div className="alert alert-info py-2" role="status">{t('Loading clinic data…')}</div>}
             <PageVisitContent key={location.pathname}>{children}</PageVisitContent>
           </div>
         </div>
@@ -501,10 +506,10 @@ export default function Layout({ children }: LayoutProps) {
       {actionToast && <div className="app-action-toast" role="status"><CheckCircle2 size={17} />{actionToast}</div>}
       <ConfirmModal
         isOpen={logoutConfirmOpen}
-        title="Sign out of BruClinic?"
-        message="You will need to sign in again."
-        confirmText="Sign out"
-        cancelText="Stay signed in"
+        title={t('Sign out of BruClinic?')}
+        message={t('You will need to sign in again.')}
+        confirmText={t('Sign out')}
+        cancelText={t('Stay signed in')}
         variant="warning"
         icon="alert"
         compact
@@ -518,19 +523,19 @@ export default function Layout({ children }: LayoutProps) {
               <div style={{ width: 62, height: 62, borderRadius: '50%', background: currentUser?.badgeColor || '#0284c7', color: '#fff', fontSize: '1.4rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
                 {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (currentUser?.avatarInitials || 'ST')}
               </div>
-              <h2 id="session-lock-title" style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>Session Locked</h2>
+              <h2 id="session-lock-title" style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>{t('Session Locked')}</h2>
               <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)', fontSize: '0.94rem' }}>{currentUser?.name || 'Staff User'}</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>{currentUser?.roleTitle || role}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>{t(currentUser?.roleTitle || role)}</div>
             </div>
             <p style={{ margin: '0 0 16px', color: 'var(--clr-text-muted, #5f6c87)', fontSize: '.84rem', textAlign: 'center', lineHeight: 1.45 }}>
-              This workstation was locked after inactivity. Enter your account password to resume your session.
+              {t('This workstation was locked after inactivity. Enter your account password to resume your session.')}
             </p>
             {unlockError && <div className="alert alert-danger py-2 mb-3" role="alert" style={{ fontSize: '0.84rem' }}>{unlockError}</div>}
-            <label className="form-label" htmlFor="unlock-password" style={{ fontWeight: 600, fontSize: '0.82rem' }}>Account Password</label>
-            <PasswordField id="unlock-password" className="form-control mb-3" autoComplete="current-password" autoFocus value={unlockPassword} onChange={event => setUnlockPassword(event.target.value)} required placeholder="Enter password to unlock..." />
+            <label className="form-label" htmlFor="unlock-password" style={{ fontWeight: 600, fontSize: '0.82rem' }}>{t('Account Password')}</label>
+            <PasswordField id="unlock-password" className="form-control mb-3" autoComplete="current-password" autoFocus value={unlockPassword} onChange={event => setUnlockPassword(event.target.value)} required placeholder={t('Enter password to unlock...')} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-              <button className="btn btn-secondary btn-sm" type="button" onClick={directSignOut}>Sign out</button>
-              <button className="btn btn-primary btn-sm" type="submit" disabled={unlocking}>{unlocking ? 'Unlocking…' : 'Unlock Workstation'}</button>
+              <button className="btn btn-secondary btn-sm" type="button" onClick={directSignOut}>{t('Sign out')}</button>
+              <button className="btn btn-primary btn-sm" type="submit" disabled={unlocking}>{unlocking ? t('Unlocking…') : t('Unlock Workstation')}</button>
             </div>
           </form>
         </div>
