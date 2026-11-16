@@ -35,6 +35,11 @@ const ROLE_PRESETS: Record<UserRole, { title: string; dept: string; tone: string
   laboratory: { title: 'Lab Technologist', dept: 'Laboratory', tone: 'warning' },
 };
 
+type StaffEditForm = Pick<UserProfile, 'name' | 'username' | 'role' | 'roleTitle' | 'department' | 'email'> & {
+  phone: string;
+  gender: Gender;
+};
+
 export default function StaffAccounts() {
   const {
     currentUser,
@@ -72,7 +77,7 @@ export default function StaffAccounts() {
 
   // Edit account dialog
   const [editTargetUser, setEditTargetUser] = useState<UserProfile | null>(null);
-  const [editForm, setEditForm] = useState<Pick<UserProfile, 'name' | 'username' | 'role' | 'roleTitle' | 'department' | 'email' | 'phone' | 'gender'>>({
+  const [editForm, setEditForm] = useState<StaffEditForm>({
     name: '', username: '', role: 'receptionist', roleTitle: '', department: '', email: '', phone: '', gender: 'Male',
   });
   const [savingEdit, setSavingEdit] = useState(false);
