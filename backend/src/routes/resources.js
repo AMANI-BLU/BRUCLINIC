@@ -295,6 +295,60 @@ async function notifyEmergencyStaff({ item, user }) {
   }
 }
 
+async function reconcileLabQueueVisits() {
+  // Queue visits and lab orders are separate records. Repair older or
+  // interrupted handoffs so closed/missing lab work cannot strand a patient
+  // at the Laboratory stage where neither department can act on the visit.
+  await query(`
+    WITH lab_visit_summary AS (
+      SELECT
+        q.id AS queue_item_id,
+        COUNT(l.id)::int AS total_count,
+        (COUNT(l.id) FILTER (WHERE l.status <> 'Completed'))::int AS pending_count,
+        (COUNT(l.id) FILTER (WHERE l.status = 'Completed'))::int AS completed_count,
+        (ARRAY_AGG(l.id ORDER BY l.created_at) FILTER (WHERE l.id IS NOT NULL))[1] AS first_order_id,
+        LEFT(STRING_AGG(l.test_name, ', ' ORDER BY l.created_at) FILTER (WHERE l.id IS NOT NULL), 180) AS test_names,
+        STRING_AGG(
+          l.test_name || ': ' || l.result || CASE WHEN NULLIF(BTRIM(l.unit), '') IS NOT NULL THEN ' ' || l.unit ELSE '' END,
+          ' | ' ORDER BY l.created_at
+        ) FILTER (WHERE l.status = 'Completed' AND NULLIF(BTRIM(l.result), '') IS NOT NULL) AS result_summary,
+        STRING_AGG(l.test_name || ': ' || l.reference_range, ' | ' ORDER BY l.created_at)
+          FILTER (WHERE l.status = 'Completed' AND NULLIF(BTRIM(l.reference_range), '') IS NOT NULL) AS reference_summary,
+        BOOL_OR(l.is_abnormal) FILTER (WHERE l.status = 'Completed') AS has_abnormal,
+        MAX(l.completed_at) FILTER (WHERE l.status = 'Completed') AS last_completed
+      FROM queue_items q
+      LEFT JOIN lab_orders l ON l.queue_item_id = q.id OR l.id = q.lab_order_id
+      WHERE q.stage = 'Laboratory'
+      GROUP BY q.id
+    )
+    UPDATE queue_items q SET
+      stage = 'Doctor Consultation',
+      lab_order_id = s.first_order_id,
+      lab_test_name = s.test_names,
+      lab_status = CASE WHEN s.pending_count > 0 THEN 'Partial' WHEN s.total_count > 0 THEN 'Completed' ELSE NULL END,
+      lab_result = s.result_summary,
+      lab_unit = '',
+      lab_reference_range = CASE WHEN LENGTH(s.reference_summary) > 90 THEN 'See individual lab results' ELSE s.reference_summary END,
+      lab_is_abnormal = COALESCE(s.has_abnormal, FALSE),
+      lab_completed_at = CASE
+        WHEN s.completed_count > 0 THEN COALESCE(s.last_completed, q.lab_completed_at, NOW()::text)
+        ELSE q.lab_completed_at
+      END,
+      request_source = 'Laboratory',
+      request_destination = 'Doctor Consultation',
+      request_notes = CASE
+        WHEN s.pending_count > 0 THEN s.pending_count || ' laboratory investigation(s) remain pending; partial results returned to OPD.'
+        WHEN s.completed_count > 0 THEN 'Laboratory results ready: ' || COALESCE(s.result_summary, 'Verified tests')
+        WHEN s.total_count > 0 THEN 'Laboratory orders are closed; visit returned to OPD for review.'
+        ELSE 'No active laboratory request found; visit returned to OPD for review.'
+      END,
+      updated_at = NOW()
+    FROM lab_visit_summary s
+    WHERE q.id = s.queue_item_id
+      AND (s.pending_count = 0 OR s.completed_count > 0)
+  `);
+}
+
 export function createResourceHandler(resource) {
   const definition = resourceDefinitions[resource];
   const allowedFields = Object.keys(definition.fields);
@@ -307,6 +361,7 @@ export function createResourceHandler(resource) {
 
     // ── GET (list) ───────────────────────────────────────────
     if (request.method === 'GET' && !id) {
+      if (resource === 'queue') await reconcileLabQueueVisits();
       if (resource === 'doctors') {
         // Auto-sync OPD staff into the doctors table
         try {

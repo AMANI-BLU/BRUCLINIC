@@ -394,6 +394,9 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       }));
       const updatedById = new Map(updated.map(order => [order.id, order]));
       setLabOrders(previous => previous.map(order => updatedById.get(order.id) || order));
+      // The queue visit may not be present in this browser's cached list. A
+      // fresh queue read lets the backend repair any closed/orphaned lab stage.
+      await refresh({ silent: true });
     } catch (cause) {
       await refresh({ silent: true });
       throw cause;
