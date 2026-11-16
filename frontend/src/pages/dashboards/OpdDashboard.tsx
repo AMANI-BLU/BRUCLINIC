@@ -17,7 +17,7 @@ import ModalPortal from '../../components/ModalPortal';
 import ReferralPrintModal from '../../components/ReferralPrintModal';
 import LoadingButton from '../../components/LoadingButton';
 import LaboratoryPaperForm, { type LabRequestLine } from '../../components/LaboratoryPaperForm';
-import { LAB_FORM_SECTIONS, type StandardLabTest } from '../../utils/labPresets';
+import type { StandardLabTest } from '../../utils/labPresets';
 import { cleanClinicalText } from '../../utils/clinicalText';
 import './OpdDashboard.css';
 import { formatTime12 } from '../../utils/date';
@@ -109,7 +109,6 @@ export default function OpdDashboard() {
 
   // OPD to Lab request state
   const [labTestName, setLabTestName] = useState('');
-  const [labCategory, setLabCategory] = useState('Hematology');
   const [labSpecimenType, setLabSpecimenType] = useState('');
   const [labCustomUnit, setLabCustomUnit] = useState('');
   const [labCustomReferenceRange, setLabCustomReferenceRange] = useState('');
@@ -304,7 +303,7 @@ export default function OpdDashboard() {
       await sendOpdToLabRequest(selectedQueueItem.id, {
         priority: labPriority,
         ...(labTests.length ? { tests: labTests } : {
-          testName: labTestName.trim(), category: labCategory, specimenType: labSpecimenType.trim(),
+          testName: labTestName.trim(), category: 'Others', specimenType: labSpecimenType.trim(),
           unit: labCustomUnit.trim(), referenceRange: labCustomReferenceRange.trim(), technologistInstructions: labTechInstructions.trim(),
         }),
         notes: labClinicalNotes || `OPD referral for ${selectedQueueItem.chiefComplaint}`,
@@ -1080,8 +1079,6 @@ export default function OpdDashboard() {
                     onRemoveTest={index => setLabTests(previous => previous.filter((_, lineIndex) => lineIndex !== index))}
                     labTestName={labTestName}
                     setLabTestName={setLabTestName}
-                    labCategory={labCategory}
-                    setLabCategory={setLabCategory}
                     labSpecimenType={labSpecimenType}
                     setLabSpecimenType={setLabSpecimenType}
                     labCustomUnit={labCustomUnit}
@@ -1098,283 +1095,6 @@ export default function OpdDashboard() {
                     onBack={() => setActiveConsultationTab('overview')}
                     actionLoading={actionLoading}
                   />
-                )}
-
-                {/* Legacy inline form kept temporarily as a source-compatible fallback. */}
-                {false && activeConsultationTab === 'lab' && (
-                  <form onSubmit={handleDispatchToLab} noValidate>
-                    <div style={{
-                      background: 'var(--clr-bg-surface)',
-                      border: '1px solid var(--clr-border)',
-                      borderRadius: 10,
-                      padding: '1.15rem',
-                      marginBottom: '1.25rem',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    }}>
-                      <div className="opd-panel-header" style={{ marginBottom: '0.75rem' }}>
-                        <div>
-                          <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--clr-text-primary)', display: 'flex', alignItems: 'center', gap: 7, margin: 0 }}>
-                            <FlaskConical size={17} className="text-primary" /> Laboratory Investigation Requisitions
-                          </h4>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-secondary)', margin: '3px 0 0' }}>
-                            Select diagnostic investigations below or add to the grid. Specify what findings the technologist should inspect.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Patient information section from the Borana laboratory form */}
-                      <div style={{ margin: '0.5rem 0 1rem', padding: '0.85rem', background: 'var(--clr-bg-hover)', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                          <strong style={{ fontSize: '0.78rem', color: 'var(--clr-text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Patient information</strong>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Ref unit: OPD · Date: {new Date().toLocaleDateString()}</span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 8, fontSize: '0.78rem' }}>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>Name</span><strong style={{ display: 'block' }}>{selectedPatientName}</strong></div>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>Age</span><strong style={{ display: 'block' }}>{selectedPatientAge ?? '—'}</strong></div>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>Sex</span><strong style={{ display: 'block' }}>{selectedPatient?.gender || '—'}</strong></div>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>MRN</span><strong style={{ display: 'block' }}>{selectedPatientCode || '—'}</strong></div>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>Address</span><strong style={{ display: 'block' }}>{selectedPatient?.address || '—'}</strong></div>
-                          <div><span style={{ color: 'var(--clr-text-muted)' }}>Requesting clinician</span><strong style={{ display: 'block' }}>{currentUser?.name || selectedQueueItem?.assignedDoctorName || 'OPD clinician'}</strong></div>
-                        </div>
-                        <div style={{ marginTop: 8, fontSize: '0.78rem' }}><span style={{ color: 'var(--clr-text-muted)' }}>Clinical notes</span><div style={{ marginTop: 2, color: 'var(--clr-text-primary)' }}>{consultation.clinicalNotes || selectedQueueItem?.chiefComplaint || '—'}</div></div>
-                      </div>
-
-                      {/* Exact check-box style test catalogue from the paper form */}
-                      <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem', background: 'var(--clr-bg-hover)', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--clr-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                          Select investigations on the laboratory request form
-                        </div>
-                        <div style={{ display: 'grid', gap: 10 }}>
-                          {LAB_FORM_SECTIONS.map(section => (
-                            <div key={section.title}>
-                              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text-primary)', marginBottom: 5 }}>{section.title}</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {section.tests.map(preset => {
-                                  const isAdded = labTests.some(test => test.testName === preset.testName && test.category === preset.category && test.specimenType === preset.specimenType);
-                                  return (
-                                    <button
-                                      key={`${section.title}-${preset.testName}`}
-                                      type="button"
-                                      className={`btn btn-sm ${isAdded ? 'btn-primary' : 'btn-secondary'}`}
-                                      onClick={() => toggleLabPreset(preset)}
-                                      style={{ fontSize: '0.73rem', padding: '0.25rem 0.55rem' }}
-                                      title={`${preset.defaultUnit} · Ref: ${preset.defaultRefRange}`}
-                                    >
-                                      {isAdded ? '✓ ' : '□ '}{preset.testName}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Tabular Requisition Grid */}
-                      <div style={{ marginBottom: '1rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <strong style={{ fontSize: '0.85rem', color: 'var(--clr-text-primary)' }}>
-                            Requisition Order Grid ({labTests.length} item{labTests.length !== 1 ? 's' : ''})
-                          </strong>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>
-                            Edit instructions directly on each row for the lab technologist
-                          </span>
-                        </div>
-
-                        <div className="table-wrapper" style={{ border: '1px solid var(--clr-border)', borderRadius: 8, overflowX: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                            <thead>
-                              <tr style={{ background: 'var(--clr-bg-hover)', borderBottom: '1px solid var(--clr-border)', textAlign: 'left' }}>
-                                <th style={{ padding: '8px 10px', width: 36 }}>#</th>
-                                <th style={{ padding: '8px 10px', minWidth: 160 }}>Investigation</th>
-                                <th style={{ padding: '8px 10px', minWidth: 90 }}>Category</th>
-                                <th style={{ padding: '8px 10px', minWidth: 115 }}>Specimen</th>
-                                <th style={{ padding: '8px 10px', minWidth: 70 }}>Unit</th>
-                                <th style={{ padding: '8px 10px', minWidth: 150 }}>Reference range</th>
-                                <th style={{ padding: '8px 10px', minWidth: 220 }}>What Technologist Has To Look For / Notes</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', width: 50 }}>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {labTests.length === 0 ? (
-                                <tr className="empty-state-row">
-                                  <td colSpan={8}>
-                                    <div className="empty-state" style={{ padding: '1.5rem' }}>
-                                      <div className="empty-state-icon tone-blue" style={{ width: 40, height: 40 }}><FlaskConical size={20} /></div>
-                                      <h5 className="empty-state-title" style={{ fontSize: '0.9rem' }}>No investigations added yet</h5>
-                                      <p className="empty-state-body">Click any quick diagnostic panel test above or search and add a custom investigation below.</p>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ) : (
-                                labTests.map((t, idx) => (
-                                  <tr key={idx} style={{ borderBottom: '1px solid var(--clr-border)' }}>
-                                    <td style={{ padding: '8px 10px', color: 'var(--clr-text-muted)' }}>{idx + 1}</td>
-                                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>{t.testName}</td>
-                                    <td style={{ padding: '8px 10px' }}><span className="badge badge-blue">{t.category}</span></td>
-                                    <td style={{ padding: '8px 10px', color: 'var(--clr-text-secondary)' }}>{t.specimenType}</td>
-                                    <td style={{ padding: '8px 10px', color: 'var(--clr-text-secondary)' }}>{t.unit || '—'}</td>
-                                    <td style={{ padding: '8px 10px', color: 'var(--clr-text-secondary)' }}>{t.referenceRange || '—'}</td>
-                                    <td style={{ padding: '6px 10px' }}>
-                                      <input
-                                        type="text"
-                                        placeholder="Specific instructions for lab technician..."
-                                        value={t.technologistInstructions}
-                                        onChange={(e) => {
-                                          const next = [...labTests];
-                                          next[idx].technologistInstructions = e.target.value;
-                                          setLabTests(next);
-                                        }}
-                                        style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--clr-border)', background: 'var(--clr-bg-card)', color: 'var(--clr-text-primary)' }}
-                                      />
-                                    </td>
-                                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>
-                                      <button
-                                        type="button"
-                                        className="btn btn-secondary btn-sm btn-icon"
-                                        onClick={() => setLabTests(labTests.filter((_, i) => i !== idx))}
-                                        style={{ color: 'var(--clr-rose-400)', padding: '3px 6px' }}
-                                        title="Remove test"
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Custom Test Adder */}
-                      <div style={{ background: 'var(--clr-bg-hover)', borderRadius: 8, padding: '0.75rem', marginBottom: '1rem', border: '1px solid var(--clr-border)' }}>
-                        <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--clr-text-secondary)', marginBottom: 6 }}>
-                          + Add Any Custom Investigation to Requisition Grid
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr)) auto', gap: 8, alignItems: 'flex-end' }}>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Test Name</label>
-                            <input
-                              value={labTestName}
-                              onChange={e => setLabTestName(e.target.value)}
-                              placeholder="e.g. Widal Test or Stool O&P"
-                              style={{ fontSize: '0.78rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Category</label>
-                            <select
-                              value={labCategory}
-                              onChange={e => setLabCategory(e.target.value)}
-                              style={{ fontSize: '0.78rem' }}
-                            >
-                              <option value="Hematology">Hematology</option>
-                              <option value="Biochemistry">Biochemistry</option>
-                              <option value="Urinalysis">Urinalysis</option>
-                              <option value="Serology">Serology</option>
-                              <option value="Microbiology">Microbiology</option>
-                              <option value="Parasitology">Parasitology</option>
-                              <option value="Others">Others</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Specimen Type</label>
-                            <input
-                              value={labSpecimenType}
-                              onChange={e => setLabSpecimenType(e.target.value)}
-                              placeholder="e.g. Serum, Stool"
-                              style={{ fontSize: '0.78rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Unit</label>
-                            <input
-                              value={labCustomUnit}
-                              onChange={e => setLabCustomUnit(e.target.value)}
-                              placeholder="e.g. mg/dl"
-                              style={{ fontSize: '0.78rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Reference range</label>
-                            <input
-                              value={labCustomReferenceRange}
-                              onChange={e => setLabCustomReferenceRange(e.target.value)}
-                              placeholder="Optional reference"
-                              style={{ fontSize: '0.78rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: 2 }}>Technologist Notes</label>
-                            <input
-                              value={labTechInstructions}
-                              onChange={e => setLabTechInstructions(e.target.value)}
-                              placeholder="Instructions for technician"
-                              style={{ fontSize: '0.78rem' }}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              if (!labTestName.trim()) return;
-                              setLabTests([
-                                ...labTests,
-                                {
-                                  testName: labTestName.trim(),
-                                  category: labCategory.trim() || 'Others',
-                                  specimenType: labSpecimenType.trim() || 'Clinical Sample',
-                                  unit: labCustomUnit.trim(),
-                                  referenceRange: labCustomReferenceRange.trim(),
-                                  technologistInstructions: labTechInstructions.trim(),
-                                },
-                              ]);
-                              setLabTestName('');
-                              setLabCustomUnit('');
-                              setLabCustomReferenceRange('');
-                              setLabTechInstructions('');
-                            }}
-                            style={{ height: 34, whiteSpace: 'nowrap', fontWeight: 600 }}
-                          >
-                            <Plus size={14} /> Add to Grid
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="form-grid" style={{ marginBottom: '1rem' }}>
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 600 }}>Clinical Acuity / Urgency</label>
-                          <select
-                            value={labPriority}
-                            onChange={(e) => setLabPriority(e.target.value as Priority)}
-                          >
-                            <option value="Medium">Routine Outpatient (Normal)</option>
-                            <option value="High">Urgent OPD Workup (High)</option>
-                            <option value="Critical">STAT / Emergency Case (Immediate)</option>
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 600 }}>Clinical Indication &amp; Presumptive Diagnosis</label>
-                          <input
-                            value={labClinicalNotes}
-                            onChange={(e) => setLabClinicalNotes(e.target.value)}
-                            placeholder="Why are these tests needed? (e.g. Suspected acute typhoid or malaria)"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="opd-form-actions">
-                      <button type="button" className="btn btn-secondary" onClick={() => setActiveConsultationTab('overview')}>
-                        Back to Assessment
-                      </button>
-                      <LoadingButton type="submit" className="btn btn-primary" disabled={(labTests.length === 0 && !labTestName.trim()) || Boolean(actionLoading && actionLoading !== 'lab')} loading={actionLoading === 'lab'} loadingLabel="Sending…">
-                        <Send size={15} /> Dispatch {labTests.length > 0 ? `${labTests.length} Investigation(s)` : 'Requisition'} to Laboratory
-                      </LoadingButton>
-                    </div>
-                  </form>
                 )}
 
                 {/* ── TAB 3: REQUEST FROM OPD TO PHARMACY ── */}

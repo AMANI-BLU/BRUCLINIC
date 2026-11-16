@@ -38,7 +38,7 @@ export async function workflowHandler(request, response, segments) {
   if (action === 'opd-to-lab') {
     validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });
     const tests = Array.isArray(request.body.tests) ? request.body.tests : [request.body];
-    if (!tests.length || tests.length > 30) return sendError(response, 422, 'Select between 1 and 30 laboratory investigations');
+    if (!tests.length || tests.length > 100) return sendError(response, 422, 'Select between 1 and 100 laboratory investigations');
     for (const test of tests) {
       validateText(test.testName, 'Test name', { required: true, max: 150 });
       validateText(test.category, 'Category', { required: true, max: 80 });

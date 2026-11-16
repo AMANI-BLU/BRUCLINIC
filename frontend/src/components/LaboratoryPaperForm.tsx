@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react';
+import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import {
   Activity, ChevronLeft, ChevronRight, ClipboardList, FileText,
   FlaskConical, Plus, Send, ShieldCheck, Sparkles, Trash2, UserRound,
@@ -32,8 +32,6 @@ interface LaboratoryPaperFormProps {
   onRemoveTest: (index: number) => void;
   labTestName: string;
   setLabTestName: Dispatch<SetStateAction<string>>;
-  labCategory: string;
-  setLabCategory: Dispatch<SetStateAction<string>>;
   labSpecimenType: string;
   setLabSpecimenType: Dispatch<SetStateAction<string>>;
   labCustomUnit: string;
@@ -69,10 +67,16 @@ function splitReferenceRange(value: string) {
 }
 
 function referenceRows(category: string) {
-  return sectionTests(category).flatMap(section => section.tests.flatMap(test => {
-    if (!test.parameters || test.testName !== 'CBC/FBC') return [{ testName: test.testName, unit: test.defaultUnit, range: test.defaultRefRange }];
-    return test.parameters.map(parameter => ({ testName: parameter.name, unit: parameter.unit, range: parameter.refRange }));
-  }));
+  const tests = sectionTests(category).flatMap(section => section.tests);
+  const cbcParameters = tests.find(test => test.testName === 'CBC/FBC')?.parameters || [];
+  const cbcNames = new Set(cbcParameters.map(parameter => parameter.name));
+  return tests.flatMap(test => {
+    if (test.testName === 'CBC/FBC' && test.parameters) {
+      return test.parameters.map(parameter => ({ testName: parameter.name, unit: parameter.unit, range: parameter.refRange }));
+    }
+    if (cbcNames.has(test.testName)) return [];
+    return [{ testName: test.testName, unit: test.defaultUnit, range: test.defaultRefRange }];
+  });
 }
 
 function CheckMark({ checked }: { checked: boolean }) {
@@ -83,7 +87,6 @@ function InvestigationSection({
   section,
   labTests,
   onTogglePreset,
-  onAddCustomTest,
 }: {
   section: LabFormSection;
   labTests: LabRequestLine[];
@@ -153,12 +156,11 @@ export default function LaboratoryPaperForm({
   consultation,
   labTests,
   onTogglePreset,
+  onAddCustomTest,
   onUpdateInstruction,
   onRemoveTest,
   labTestName,
   setLabTestName,
-  labCategory,
-  setLabCategory,
   labSpecimenType,
   setLabSpecimenType,
   labCustomUnit,
@@ -187,9 +189,9 @@ export default function LaboratoryPaperForm({
     if (!labTestName.trim()) return;
     onAddCustomTest({
       testName: labTestName.trim(),
-      category: labCategory || 'Others',
+      category: 'Others',
       specimenType: labSpecimenType.trim() || 'Clinical Sample',
-      defaultUnit: labCustomUnit.trim(),
+      unit: labCustomUnit.trim(),
       referenceRange: labCustomReferenceRange.trim() || 'Not specified on form',
       technologistInstructions: labTechInstructions.trim(),
     });
@@ -255,22 +257,25 @@ export default function LaboratoryPaperForm({
             <div className="lab-paper-investigation-grid">
               <div>{hemaSections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
               <div>{bioSections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
-              <div>{urineSections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
+              <section className="lab-paper-urinalysis-group">
+                <div className="lab-paper-section-band"><span>Urinalysis</span><span className="lab-paper-section-hint">Chemical and microscopic examination</span></div>
+                <div className="lab-paper-urinalysis-grid">{urineSections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
+              </section>
               <div>{serologySections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
               <div>{microbiologySections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
-              <div>{parasitologySections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
+              <section className="lab-paper-custom-block lab-paper-grid-span">
+                <div className="lab-paper-section-band"><span>Others</span><span className="lab-paper-section-hint">For tests not listed on the form</span></div>
+                <div className="lab-paper-custom-grid">
+                  <label>Test name<input value={labTestName} onChange={event => setLabTestName(event.target.value)} placeholder="Specify investigation" /></label>
+                  <label>Specimen<input value={labSpecimenType} onChange={event => setLabSpecimenType(event.target.value)} placeholder="Serum, stool, swab…" /></label>
+                  <label>Unit<input value={labCustomUnit} onChange={event => setLabCustomUnit(event.target.value)} placeholder="Unit" /></label>
+                  <label>Reference range<input value={labCustomReferenceRange} onChange={event => setLabCustomReferenceRange(event.target.value)} placeholder="Optional" /></label>
+                  <label>Technologist notes<input value={labTechInstructions} onChange={event => setLabTechInstructions(event.target.value)} placeholder="Notes / initials" /></label>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomTest}><Plus size={14} /> Add</button>
+                </div>
+              </section>
+              <div className="lab-paper-grid-span">{parasitologySections.map(section => <InvestigationSection key={section.title} section={section} labTests={labTests} onTogglePreset={onTogglePreset} />)}</div>
             </div>
-
-            <section className="lab-paper-custom-block">
-              <div className="lab-paper-section-band"><span>Others</span><span className="lab-paper-section-hint">For tests not listed on the form</span></div>
-              <div className="lab-paper-custom-grid">
-                <label>Test name<input value={labTestName} onChange={event => setLabTestName(event.target.value)} placeholder="Specify investigation" /></label>
-                <label>Specimen<input value={labSpecimenType} onChange={event => setLabSpecimenType(event.target.value)} placeholder="Serum, stool, swab…" /></label>
-                <label>Unit<input value={labCustomUnit} onChange={event => setLabCustomUnit(event.target.value)} placeholder="Unit" /></label>
-                <label>Reference range<input value={labCustomReferenceRange} onChange={event => setLabCustomReferenceRange(event.target.value)} placeholder="Optional" /></label>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomTest}><Plus size={14} /> Add</button>
-              </div>
-            </section>
 
             <section className="lab-paper-request-grid">
               <div className="lab-paper-selected-lines">
@@ -291,7 +296,9 @@ export default function LaboratoryPaperForm({
 
             <div className="lab-paper-signatures">
               <div><b>Requesting Clinician</b><span>Name: {currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician'}</span><span>Sign: {currentUser?.name || 'Digital signature'}</span></div>
-              <div><b>Technologist / Lab use</b><span>Tech initials: __________________</span><span>Cost / Log in / Log out completed by laboratory</span></div>
+              <div><b>Tech’s Comment</b><span>____________________________________________________________</span><span>____________________________________________________________</span></div>
+              <div><b>Approved by</b><span>Laboratory technologist: ___________________________</span><span>Sign: ____________________ · Date: ______________</span></div>
+              <div><b>Laboratory use</b><span>Tech initials: __________________ · Cost: __________</span><span>Log in: ______________ · Log out: ______________</span></div>
             </div>
           </>
         ) : (

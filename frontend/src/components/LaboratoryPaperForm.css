@@ -52,6 +52,7 @@
 .lab-paper-sheet { overflow: hidden; border: 1px solid #cbd5e1; border-radius: 0.25rem; background: #fff; color: var(--lab-ink); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1); }
 .lab-paper-header { display: grid; grid-template-columns: 4.7rem minmax(13rem, 1fr) minmax(15rem, 1.2fr); min-height: 5.6rem; border-bottom: 2px solid #334155; background: linear-gradient(180deg, #f8fafc, #eef2f7); }
 .lab-paper-logo { display: grid; align-content: center; justify-items: center; gap: 0.1rem; border-right: 1px solid #64748b; color: #1e3a8a; }
+.lab-paper-logo svg { box-sizing: content-box; width: 1.9rem; height: 1.9rem; padding: 0.25rem; border: 1px solid #1e3a8a; border-radius: 50%; background: radial-gradient(circle, #fff 0 45%, #dbeafe 46% 61%, #fff 62%); box-shadow: 0 0 0 2px #fff, 0 0 0 3px #64748b; }
 .lab-paper-logo small { font-size: 0.62rem; font-weight: 900; letter-spacing: 0.12em; }
 .lab-paper-title-block { align-items: center; flex-direction: column; justify-content: center; gap: 0.08rem; padding: 0.45rem; text-align: center; border-right: 1px solid #64748b; }
 .lab-paper-title-block strong { font-size: 0.86rem; letter-spacing: 0.06em; }
@@ -83,6 +84,11 @@
 
 .lab-paper-investigation-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.65rem; padding: 0 0.75rem 0.65rem; }
 .lab-paper-investigation-grid > div:nth-child(n+3) { grid-column: span 1; }
+.lab-paper-grid-span, .lab-paper-urinalysis-group { grid-column: 1 / -1; }
+.lab-paper-investigation-grid .lab-paper-custom-block { margin: 0; }
+.lab-paper-urinalysis-group { overflow: hidden; border: 1px solid #64748b; border-radius: 0.15rem; background: #fff; }
+.lab-paper-urinalysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; padding: 0.5rem; }
+.lab-paper-urinalysis-grid .lab-paper-investigation-section { height: 100%; }
 .lab-paper-investigation-section { overflow: hidden; height: fit-content; border: 1px solid #64748b; border-radius: 0.15rem; background: #fff; }
 .lab-paper-section-band { justify-content: space-between; gap: 0.4rem; padding: 0.32rem 0.45rem; border-bottom: 1px solid #64748b; color: #0f172a; background: #dbeafe; font-size: 0.68rem; font-weight: 900; }
 .lab-paper-section-hint { color: #475569; font-size: 0.58rem; font-weight: 600; }
@@ -101,7 +107,7 @@
 .lab-paper-check.is-checked { border-color: var(--lab-green); background: var(--lab-green); }
 
 .lab-paper-custom-block, .lab-paper-request-grid, .lab-paper-signatures { margin: 0 0.75rem 0.65rem; border: 1px solid #94a3b8; border-radius: 0.15rem; }
-.lab-paper-custom-grid { display: grid; grid-template-columns: 1.35fr 1fr 0.8fr 1fr auto; gap: 0.45rem; align-items: end; padding: 0.5rem; background: #f8fafc; }
+.lab-paper-custom-grid { display: grid; grid-template-columns: 1.2fr 0.9fr 0.65fr 0.85fr 1.1fr auto; gap: 0.45rem; align-items: end; padding: 0.5rem; background: #f8fafc; }
 .lab-paper-custom-grid label, .lab-paper-order-details label { display: grid; gap: 0.18rem; color: #475569; font-size: 0.6rem; font-weight: 800; }
 .lab-paper-custom-grid input, .lab-paper-order-details input, .lab-paper-order-details select, .lab-paper-order-details textarea, .lab-paper-selected-line input { width: 100%; min-width: 0; padding: 0.34rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.2rem; background: #fff; color: #1e293b; font-size: 0.68rem; }
 .lab-paper-custom-grid button { height: 1.85rem; white-space: nowrap; }
@@ -119,6 +125,8 @@
 .lab-paper-order-details textarea { resize: vertical; }
 .lab-paper-signatures { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
 .lab-paper-signatures > div { display: grid; gap: 0.25rem; min-height: 4.2rem; padding: 0.5rem; font-size: 0.65rem; }
+.lab-paper-signatures > div:nth-child(-n+2) { grid-column: 1 / -1; }
+.lab-paper-signatures > div:nth-child(2) { border-top: 1px solid #94a3b8; }
 .lab-paper-signatures > div + div { border-left: 1px solid #94a3b8; }
 .lab-paper-signatures b { padding-bottom: 0.22rem; border-bottom: 1px solid #cbd5e1; font-size: 0.68rem; }
 .lab-paper-signatures span { color: #475569; }
@@ -154,7 +162,10 @@
   .lab-paper-page-switcher button { flex: 1; justify-content: center; }
   .lab-paper-investigation-grid, .lab-paper-reference-grid, .lab-paper-signatures, .lab-paper-request-grid { grid-template-columns: 1fr; }
   .lab-paper-investigation-grid > div { grid-column: auto; }
+  .lab-paper-investigation-grid > .lab-paper-grid-span, .lab-paper-investigation-grid > .lab-paper-urinalysis-group { grid-column: 1; }
+  .lab-paper-urinalysis-grid { grid-template-columns: 1fr; }
   .lab-paper-selected-lines { border-right: 0; border-bottom: 1px solid #94a3b8; }
+  .lab-paper-signatures > div:nth-child(-n+2) { grid-column: 1; }
   .lab-paper-signatures > div + div { border-top: 1px solid #94a3b8; border-left: 0; }
   .lab-paper-selected-line { grid-template-columns: 1.2rem minmax(6rem, 0.8fr) minmax(5rem, 0.8fr) 1.5rem; }
   .lab-paper-selected-line small { display: none; }

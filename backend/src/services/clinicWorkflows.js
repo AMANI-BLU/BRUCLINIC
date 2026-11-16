@@ -165,7 +165,7 @@ export async function transferToEmergency(queueItemId, data, user) {
 export async function sendOpdToLabRequest(queueItemId, data) {
   requireValue(queueItemId, 'queueItemId');
   const requests = Array.isArray(data?.tests) ? data.tests : [data];
-  if (!requests.length || requests.length > 30) throw workflowError('Select between 1 and 30 laboratory investigations');
+  if (!requests.length || requests.length > 100) throw workflowError('Select between 1 and 100 laboratory investigations');
   return withTransaction(async client => {
     const queueResult = await client.query('SELECT * FROM queue_items WHERE id = $1 FOR UPDATE', [queueItemId]);
     const queueItem = queueResult.rows[0]; if (!queueItem) throw workflowError('Queue item not found', 404);

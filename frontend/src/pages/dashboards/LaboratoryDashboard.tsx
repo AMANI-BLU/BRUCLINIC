@@ -35,6 +35,12 @@ function nameInitials(name?: string): string {
     .join('');
 }
 
+function escapeHtml(value: string | number | null | undefined): string {
+  return String(value ?? '—').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character] || character);
+}
+
 export default function LaboratoryDashboard() {
   const { labOrders, patients, updateLabOrder } = useClinic();
   const { currentUser } = useAuth();
@@ -82,7 +88,7 @@ export default function LaboratoryDashboard() {
   const resultPatient = resultModal ? patients.find(patient => patient.id === resultModal.patientId) : undefined;
 
   const handleOpenResultEntry = (order: LabOrder) => {
-    const standard = findStandardLabTest(order.testName);
+    const standard = findStandardLabTest(order.testName, order.category);
     setActiveStandardTest(standard || null);
     setResultModal(order);
     setResultValue(order.result || '');
@@ -161,11 +167,12 @@ export default function LaboratoryDashboard() {
   const handlePrintReport = (order: LabOrder) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+    const patient = patients.find(item => item.id === order.patientId);
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Lab Report - ${order.patientName}</title>
+        <title>Lab Report - ${escapeHtml(order.patientName)}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #111; }
           .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
@@ -185,30 +192,30 @@ export default function LaboratoryDashboard() {
           <div class="subtitle">Clinical Diagnostic Pathology &amp; Medical Laboratory Report</div>
         </div>
         <div class="meta-grid">
-          <div><strong>Patient:</strong> ${order.patientName}</div>
-          <div><strong>Order ID:</strong> ${order.id}</div>
-          <div><strong>Requesting Clinician:</strong> ${order.doctorName}</div>
-          <div><strong>Specimen:</strong> ${order.specimenType} (${order.category})</div>
-          <div><strong>Sex:</strong> ${patients.find(patient => patient.id === order.patientId)?.gender || '—'}</div>
-          <div><strong>Address:</strong> ${patients.find(patient => patient.id === order.patientId)?.address || '—'}</div>
-          <div><strong>Ordered:</strong> ${formatDateTime12(order.orderedAt)}</div>
-          <div><strong>Verified:</strong> ${order.completedAt ? formatTime12(order.completedAt) : 'Completed today'}</div>
-          <div><strong>Cost:</strong> ${order.cost ?? '—'}</div>
+          <div><strong>Patient:</strong> ${escapeHtml(order.patientName)}</div>
+          <div><strong>Order ID:</strong> ${escapeHtml(order.id)}</div>
+          <div><strong>Requesting Clinician:</strong> ${escapeHtml(order.doctorName)}</div>
+          <div><strong>Specimen:</strong> ${escapeHtml(order.specimenType)} (${escapeHtml(order.category)})</div>
+          <div><strong>Sex:</strong> ${escapeHtml(patient?.gender)}</div>
+          <div><strong>Address:</strong> ${escapeHtml(patient?.address)}</div>
+          <div><strong>Ordered:</strong> ${escapeHtml(formatDateTime12(order.orderedAt))}</div>
+          <div><strong>Verified:</strong> ${escapeHtml(order.completedAt ? formatTime12(order.completedAt) : 'Completed today')}</div>
+          <div><strong>Cost:</strong> ${escapeHtml(order.cost)}</div>
           <div><strong>STAR / STAT:</strong> ${order.star ? 'Yes' : 'No'}</div>
-          <div><strong>Tech initials:</strong> ${order.technicianInitials || '—'}</div>
+          <div><strong>Tech initials:</strong> ${escapeHtml(order.technicianInitials)}</div>
         </div>
         <div class="result-box">
-          <div class="result-title">Investigation: ${order.testName}</div>
+          <div class="result-title">Investigation: ${escapeHtml(order.testName)}</div>
           <div class="result-val ${order.isAbnormal ? 'abnormal' : ''}">
-            Measured Result: ${order.result} ${order.unit || ''}
+            Measured Result: ${escapeHtml(order.result)} ${escapeHtml(order.unit || '')}
             ${order.isAbnormal ? ' [CRITICAL / ABNORMAL FLAG]' : ' [NORMAL]'}
           </div>
           <div style="font-size: 13px; margin-top: 6px; color: #475569;">
-            Reference Range: ${order.referenceRange || 'Standard normal'}
+            Reference Range: ${escapeHtml(order.referenceRange || 'Standard normal')}
           </div>
           ${order.notes ? `<div style="font-size: 13px; margin-top: 10px; font-style: italic;">Remarks: ${clinicalTextHtml(order.notes)}</div>` : ''}
           ${order.technicianComment ? `<div style="font-size: 13px; margin-top: 10px;">Tech's comment: ${clinicalTextHtml(order.technicianComment)}</div>` : ''}
-          ${order.approvedBy ? `<div style="font-size: 13px; margin-top: 10px;">Approved by: ${order.approvedBy} · ${order.approvedAt ? formatDateTime12(order.approvedAt) : ''}</div>` : ''}
+          ${order.approvedBy ? `<div style="font-size: 13px; margin-top: 10px;">Approved by: ${escapeHtml(order.approvedBy)} · ${order.approvedAt ? escapeHtml(formatDateTime12(order.approvedAt)) : ''}</div>` : ''}
         </div>
         <div class="footer">
           <div>Verified by Medical Laboratory Technologist on duty.</div>

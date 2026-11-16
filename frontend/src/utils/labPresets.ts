@@ -42,7 +42,7 @@ const hematologyCbcTests: StandardLabTest[] = [
     testName: 'CBC/FBC', category: 'Hematology', formSection: 'Hematology', specimenType: hematologySpecimen,
     defaultUnit: 'Panel', defaultRefRange: 'See WBC, RBC, HGB, HCT, MCV, MCH, MCHC, RDW and PLT',
     parameters: [
-      { name: 'WBC', unit: 'k/µl', refRange: 'M: 4.0–11 · F: 4.0–11' },
+      { name: 'WBC', unit: 'k/µl', refRange: 'M: — · F: 4.0–11' },
       { name: 'RBC', unit: 'k/µl', refRange: 'M: 4.5–6.0 · F: 4.0–5.0' },
       { name: 'HGB', unit: 'g/dl', refRange: 'M: 14–18 · F: 12–16' },
       { name: 'HCT', unit: '%', refRange: 'M: 41–50 · F: 36–45' },
@@ -53,7 +53,7 @@ const hematologyCbcTests: StandardLabTest[] = [
       { name: 'PLT', unit: 'k/µl', refRange: '150–400' },
     ],
   },
-  { testName: 'WBC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: 'M: 4.0–11 · F: 4.0–11' },
+  { testName: 'WBC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: 'M: — · F: 4.0–11' },
   { testName: 'RBC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: 'M: 4.5–6.0 · F: 4.0–5.0' },
   { testName: 'HGB', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'g/dl', defaultRefRange: 'M: 14–18 · F: 12–16' },
   { testName: 'HCT', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: 'M: 41–50 · F: 36–45' },
@@ -145,8 +145,8 @@ export const LAB_FORM_SECTIONS: LabFormSection[] = [
   { title: 'Hematology · CBC/FBC', category: 'Hematology', tests: hematologyCbcTests },
   { title: 'Hematology · WBC Differential', category: 'Hematology', tests: hematologyDifferentialTests },
   { title: 'Biochemistry', category: 'Biochemistry', tests: biochemistryTests },
-  { title: 'Urinalysis · Chemical', category: 'Urinalysis', tests: urinalysisChemicalTests },
-  { title: 'Urinalysis · Microscopy', category: 'Urinalysis', tests: urinalysisMicroscopyTests },
+  { title: 'Chemical', category: 'Urinalysis', tests: urinalysisChemicalTests },
+  { title: 'Microscopy', category: 'Urinalysis', tests: urinalysisMicroscopyTests },
   { title: 'Serology', category: 'Serology', tests: serologyTests },
   { title: 'Microbiology', category: 'Microbiology', tests: microbiologyTests },
   { title: 'Parasitology', category: 'Parasitology', tests: parasitologyTests },
@@ -157,9 +157,13 @@ export const LAB_PANELS: Record<string, StandardLabTest[]> = LAB_FORM_SECTIONS.r
   return panels;
 }, {});
 
-export function findStandardLabTest(testName: string): StandardLabTest | undefined {
+export function findStandardLabTest(testName: string, category?: string): StandardLabTest | undefined {
   const normalized = testName.trim().toLowerCase();
-  for (const list of Object.values(LAB_PANELS)) {
+  const lists = [
+    ...(category && LAB_PANELS[category] ? [LAB_PANELS[category]] : []),
+    ...Object.entries(LAB_PANELS).filter(([name]) => name !== category).map(([, tests]) => tests),
+  ];
+  for (const list of lists) {
     const match = list.find(test =>
       test.testName.toLowerCase() === normalized || test.testName.toLowerCase().includes(normalized),
     );
