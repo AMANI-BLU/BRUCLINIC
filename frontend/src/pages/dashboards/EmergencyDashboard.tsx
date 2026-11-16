@@ -10,6 +10,8 @@ import { patientCodeFor, patientFullName, patientNameFor } from '../../utils/pat
 import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingButton from '../../components/LoadingButton';
+import LaboratoryPaperForm, { type LabRequestLine } from '../../components/LaboratoryPaperForm';
+import type { StandardLabTest } from '../../utils/labPresets';
 import './EmergencyDashboard.css';
 import { normalizeDoctorName } from '../../utils/doctorName';
 import {
@@ -31,23 +33,21 @@ const DEFAULT_ER_BAYS: EmergencyBay[] = [
 interface EmergencyMedicineLine {
   name: string;
   medicineId?: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  quantity: number;
+  unit?: string;
+  stockAvailable?: number;
   instructions: string;
   isExternal?: boolean;
 }
 
 function emptyMedicineLine(): EmergencyMedicineLine {
-  return { name: '', medicineId: undefined, dosage: '', frequency: '', duration: '', quantity: 1, instructions: '' };
+  return { name: '', medicineId: undefined, instructions: '' };
 }
 
 export default function EmergencyDashboard() {
   const { t } = useLanguage();
   const {
     erCases, emergencyBays, patients, medicines,
-    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, addPharmacyOrder,
+    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, sendEmergencyToLabRequest, addPharmacyOrder,
   } = useClinic();
   const { currentUser } = useAuth();
 
@@ -75,7 +75,14 @@ export default function EmergencyDashboard() {
   const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
   const [filterAcuity, setFilterAcuity] = useState<string>('All');
   const [bayForm, setBayForm] = useState({ name: '', type: 'Observation', oxygenPort: false });
-  const [labForm, setLabForm] = useState({ testName: '', category: 'Hematology', specimenType: 'Blood', priority: 'High' as Priority, notes: '' });
+  const [labTestName, setLabTestName] = useState('');
+  const [labSpecimenType, setLabSpecimenType] = useState('');
+  const [labCustomUnit, setLabCustomUnit] = useState('');
+  const [labCustomReferenceRange, setLabCustomReferenceRange] = useState('');
+  const [labTechInstructions, setLabTechInstructions] = useState('');
+  const [labClinicalNotes, setLabClinicalNotes] = useState('');
+  const [labPriority, setLabPriority] = useState<Priority>('High');
+  const [labTests, setLabTests] = useState<LabRequestLine[]>([]);
   const [medicineLines, setMedicineLines] = useState<EmergencyMedicineLine[]>([emptyMedicineLine()]);
   const [pharmacyNotes, setPharmacyNotes] = useState('');
 
@@ -268,9 +275,31 @@ export default function EmergencyDashboard() {
     }
   };
 
+  const toggleLabPreset = (preset: StandardLabTest) => {
+    setLabTests(previous => {
+      const isSelected = previous.some(test => test.testName === preset.testName && test.category === preset.category && test.specimenType === preset.specimenType);
+      if (isSelected) return previous.filter(test => !(test.testName === preset.testName && test.category === preset.category && test.specimenType === preset.specimenType));
+      return [...previous, {
+        testName: preset.testName,
+        category: preset.category,
+        specimenType: preset.specimenType,
+        unit: preset.defaultUnit,
+        referenceRange: preset.defaultRefRange,
+        technologistInstructions: '',
+      }];
+    });
+  };
+
   const openLabOrder = (caseItem: ERCase) => {
     setLabOrderCase(caseItem);
-    setLabForm({ testName: '', category: 'Hematology', specimenType: 'Blood', priority: caseItem.acuity === 'Red' ? 'Critical' : 'High', notes: '' });
+    setLabTests([]);
+    setLabTestName('');
+    setLabSpecimenType('');
+    setLabCustomUnit('');
+    setLabCustomReferenceRange('');
+    setLabTechInstructions('');
+    setLabPriority(caseItem.acuity === 'Red' ? 'Critical' : caseItem.acuity === 'Yellow' ? 'High' : 'Medium');
+    setLabClinicalNotes([caseItem.diagnosis, caseItem.chiefComplaint, caseItem.criticalNotes].filter(Boolean).join('\n'));
     setOrderError(null);
   };
 
@@ -278,31 +307,34 @@ export default function EmergencyDashboard() {
     e.preventDefault();
     if (!labOrderCase) return;
     if (savingLab) return;
-    const error = firstError(...Object.values(validateRequired(labForm, {
-      testName: 'Investigation', category: 'Category', specimenType: 'Specimen type',
-    })));
-    if (error) {
-      setOrderError(error);
+    const tests: LabRequestLine[] = [
+      ...labTests,
+      ...(labTestName.trim() ? [{
+        testName: labTestName.trim(),
+        category: 'Others',
+        specimenType: labSpecimenType.trim() || 'Clinical Sample',
+        unit: labCustomUnit.trim(),
+        referenceRange: labCustomReferenceRange.trim() || 'Not specified on form',
+        technologistInstructions: labTechInstructions.trim(),
+      }] : []),
+    ];
+    if (tests.length === 0) {
+      setOrderError('Select at least one investigation or add a custom test.');
       return;
     }
     try {
       setSavingLab(true);
-      await addLabOrder({
-        patientId: labOrderCase.patientId,
-        patientName: labOrderCase.patientName,
-        doctorId: undefined,
-        doctorName: currentUser?.name || 'Emergency clinician',
-        priority: labForm.priority,
-        testName: labForm.testName.trim(),
-        category: labForm.category,
-        specimenType: labForm.specimenType,
-        status: 'Requested',
-        notes: labForm.notes.trim(),
+      await sendEmergencyToLabRequest(labOrderCase.id, {
+        tests,
+        priority: labPriority,
+        doctorName: normalizeDoctorName(currentUser?.name || labOrderCase.attendingDoctor) || 'Emergency clinician',
+        doctorDiagnosis: labOrderCase.diagnosis || '',
+        notes: [`Emergency case ${labOrderCase.id}`, labClinicalNotes.trim()].filter(Boolean).join('\n'),
       });
       setLabOrderCase(null);
       setOrderError(null);
     } catch (cause) {
-      setOrderError(cause instanceof Error ? cause.message : 'Could not send the laboratory order.');
+      setOrderError(cause instanceof Error ? cause.message : 'Could not send the laboratory request.');
     } finally {
       setSavingLab(false);
     }
@@ -319,9 +351,9 @@ export default function EmergencyDashboard() {
     e.preventDefault();
     if (!pharmacyOrderCase) return;
     if (savingPharmacy) return;
-    const invalidLine = medicineLines.findIndex(line => !line.name.trim() || !line.dosage.trim() || !line.frequency.trim() || !line.duration.trim() || line.quantity < 1);
+    const invalidLine = medicineLines.findIndex(line => !line.name.trim());
     if (invalidLine >= 0) {
-      setOrderError(`Complete medicine ${invalidLine + 1}: name, dosage, frequency, duration, and quantity are required.`);
+      setOrderError(`Select a medicine for prescription item ${invalidLine + 1}.`);
       return;
     }
     try {
@@ -330,19 +362,24 @@ export default function EmergencyDashboard() {
         patientId: pharmacyOrderCase.patientId,
         patientName: pharmacyOrderCase.patientName,
         doctorId: undefined,
-        doctorName: currentUser?.name || 'Emergency clinician',
+        doctorName: normalizeDoctorName(currentUser?.name) || 'Emergency clinician',
         medicines: medicineLines.map(line => ({
-          medicineId: line.medicineId,
+          medicineId: line.isExternal ? undefined : line.medicineId,
           name: line.name.trim(),
-          dosage: line.dosage.trim(),
-          frequency: line.frequency.trim(),
-          duration: line.duration.trim(),
-          quantity: Number(line.quantity),
+          dosage: '',
+          frequency: '',
+          duration: '',
+          quantity: 0,
           instructions: line.instructions.trim(),
-          isExternal: line.isExternal,
+          isExternal: Boolean(line.isExternal),
         })),
         status: 'Pending',
-        notes: pharmacyNotes.trim(),
+        notes: [
+          pharmacyNotes.trim(),
+          pharmacyOrderCase.diagnosis ? `Diagnosis: ${pharmacyOrderCase.diagnosis}` : '',
+          pharmacyOrderCase.chiefComplaint ? `Emergency complaint: ${pharmacyOrderCase.chiefComplaint}` : '',
+          pharmacyOrderCase.criticalNotes ? `Clinical notes: ${pharmacyOrderCase.criticalNotes}` : '',
+        ].filter(Boolean).join('\n'),
       });
       setPharmacyOrderCase(null);
       setOrderError(null);
@@ -957,57 +994,43 @@ export default function EmergencyDashboard() {
       {labOrderCase && (
         <ModalPortal>
           <div className="modal-overlay" onClick={() => !savingLab && setLabOrderCase(null)}>
-            <div className="modal emergency-workflow-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal emergency-workflow-modal emergency-laboratory-modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title"><FlaskConical size={17} className="text-primary" /> Order Laboratory Test</h2>
                 <button type="button" className="modal-close-btn" onClick={() => setLabOrderCase(null)} disabled={savingLab} aria-label="Close dialog"><X size={16} /></button>
               </div>
-              <div className="emergency-workflow-patient">
-                <div><span>Patient</span><strong>{labOrderCase.patientName}</strong></div>
-                <div><span>Case</span><strong>{labOrderCase.id}</strong></div>
-                <div><span>Triage</span><strong>{labOrderCase.acuity}</strong></div>
-              </div>
-              <form onSubmit={handleLabOrder} noValidate>
-                {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
-                <section className="emergency-workflow-section">
-                  <div className="emergency-workflow-section-header">
-                    <div>
-                      <h3>Laboratory requisition</h3>
-                      <p>Select the investigation, specimen, and urgency for the laboratory.</p>
-                    </div>
-                  </div>
-                  <div className="form-grid emergency-workflow-form-grid">
-                    <div className="form-group">
-                      <label className="form-label">Investigation *</label>
-                      <input value={labForm.testName} onChange={e => setLabForm({ ...labForm, testName: e.target.value })} placeholder="e.g. Complete Blood Count" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Category *</label>
-                      <select value={labForm.category} onChange={e => setLabForm({ ...labForm, category: e.target.value })}>
-                        <option>Hematology</option><option>Biochemistry</option><option>Microbiology</option><option>Parasitology</option><option>Urinalysis</option><option>Other</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Specimen type *</label>
-                      <input value={labForm.specimenType} onChange={e => setLabForm({ ...labForm, specimenType: e.target.value })} placeholder="Blood, urine, swab..." />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Priority</label>
-                      <select value={labForm.priority} onChange={e => setLabForm({ ...labForm, priority: e.target.value as Priority })}>
-                        <option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Instructions</label>
-                    <textarea rows={2} value={labForm.notes} onChange={e => setLabForm({ ...labForm, notes: e.target.value })} placeholder="Collection or clinical notes" />
-                  </div>
-                </section>
-                <div className="modal-footer emergency-workflow-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setLabOrderCase(null)} disabled={savingLab}>Cancel</button>
-                  <LoadingButton type="submit" className="btn btn-primary" loading={savingLab} loadingLabel="Sending…"><FlaskConical size={15} /> Send to Laboratory</LoadingButton>
-                </div>
-              </form>
+              {orderError && <div className="alert alert-danger py-2 px-3" role="alert">{orderError}</div>}
+              <LaboratoryPaperForm
+                selectedPatient={patients.find(patient => patient.id === labOrderCase.patientId)}
+                patientName={labOrderCase.patientName}
+                patientAge={labOrderCase.age}
+                patientCode={patientCodeFor(patients, labOrderCase.patientId)}
+                referringUnit="Emergency (ER)"
+                currentUser={currentUser}
+                consultation={{ diagnosis: labOrderCase.diagnosis || '', clinicalNotes: labClinicalNotes }}
+                labTests={labTests}
+                onTogglePreset={toggleLabPreset}
+                onAddCustomTest={line => setLabTests(previous => [...previous, line])}
+                onUpdateInstruction={(index, value) => setLabTests(previous => previous.map((line, lineIndex) => lineIndex === index ? { ...line, technologistInstructions: value } : line))}
+                onRemoveTest={index => setLabTests(previous => previous.filter((_, lineIndex) => lineIndex !== index))}
+                labTestName={labTestName}
+                setLabTestName={setLabTestName}
+                labSpecimenType={labSpecimenType}
+                setLabSpecimenType={setLabSpecimenType}
+                labCustomUnit={labCustomUnit}
+                setLabCustomUnit={setLabCustomUnit}
+                labCustomReferenceRange={labCustomReferenceRange}
+                setLabCustomReferenceRange={setLabCustomReferenceRange}
+                labTechInstructions={labTechInstructions}
+                setLabTechInstructions={setLabTechInstructions}
+                labPriority={labPriority}
+                setLabPriority={setLabPriority}
+                labClinicalNotes={labClinicalNotes}
+                setLabClinicalNotes={setLabClinicalNotes}
+                onSubmit={handleLabOrder}
+                onBack={() => !savingLab && setLabOrderCase(null)}
+                actionLoading={savingLab ? 'lab' : null}
+              />
             </div>
           </div>
         </ModalPortal>
@@ -1032,47 +1055,93 @@ export default function EmergencyDashboard() {
                 <section className="emergency-workflow-section">
                   <div className="emergency-workflow-section-header">
                     <div>
-                      <h3>Prescription</h3>
-                      <p>Add medicines for direct fulfillment by the pharmacy.</p>
+                      <h3>Electronic Prescription (Rx)</h3>
+                      <p>Select medicines from the clinic formulary and choose whether the pharmacy should dispense from stock or arrange an outside purchase.</p>
                     </div>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add medicine</button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add Medicine Line</button>
                   </div>
                   <div className="emergency-prescription-lines">
                     {medicineLines.map((line, index) => (
                       <div className="emergency-prescription-line" key={index}>
                         <div className="emergency-prescription-line-header">
-                          <span className="badge badge-blue">Medicine #{index + 1}</span>
-                          <button type="button" className="btn btn-secondary btn-sm btn-icon emergency-remove-line" disabled={medicineLines.length === 1} onClick={() => setMedicineLines(previous => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label="Remove medicine">
+                          <div className="emergency-prescription-item-meta">
+                            <span className="badge badge-blue">Item #{index + 1}</span>
+                            {line.unit && <span className="text-muted small">Form: <strong>{line.unit}</strong></span>}
+                            {line.stockAvailable !== undefined && (
+                              <span className={`badge ${line.stockAvailable > 0 ? 'badge-green' : 'badge-amber'}`}>
+                                {line.stockAvailable > 0 ? `${line.stockAvailable} in clinic` : line.isExternal ? 'Outside purchase' : 'Out of stock'}
+                              </span>
+                            )}
+                          </div>
+                          <button type="button" className="btn btn-secondary btn-sm btn-icon emergency-remove-line" disabled={medicineLines.length === 1} onClick={() => setMedicineLines(previous => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label="Remove medicine line" title="Remove medicine line">
                             <Trash2 size={14} />
                           </button>
                         </div>
                         <div className="emergency-prescription-grid">
                           <div className="form-group emergency-prescription-medicine">
-                            <label className="form-label">Medicine *</label>
+                            <label className="form-label">Medicine Name (Formulary Search) *</label>
                             <MedicineSearchSelect
                               value={line.name}
                               medicineId={line.medicineId}
                               medicines={medicines}
-                              onChange={result => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, name: result.name, medicineId: result.medicineId, isExternal: result.isCustom } : item))}
-                              placeholder="Search medicine formulary"
+                              onChange={result => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? {
+                                ...item,
+                                name: result.name,
+                                medicineId: result.medicineId,
+                                unit: result.unit,
+                                stockAvailable: result.stock,
+                                isExternal: Boolean(result.isCustom || result.stock === 0),
+                              } : item))}
+                              placeholder="Type to search medicine formulary..."
                               required
                             />
                           </div>
-                          <div className="form-group"><label className="form-label">Dosage *</label><input value={line.dosage} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, dosage: e.target.value } : item))} placeholder="500 mg" /></div>
-                          <div className="form-group"><label className="form-label">Frequency *</label><input value={line.frequency} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, frequency: e.target.value } : item))} placeholder="3 times/day" /></div>
-                          <div className="form-group"><label className="form-label">Duration *</label><input value={line.duration} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, duration: e.target.value } : item))} placeholder="5 days" /></div>
-                          <div className="form-group"><label className="form-label">Quantity *</label><input type="number" min={1} value={line.quantity} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(e.target.value) } : item))} /></div>
-                          <div className="form-group emergency-prescription-instructions"><label className="form-label">Instructions</label><input value={line.instructions} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, instructions: e.target.value } : item))} placeholder="How the patient should take it" /></div>
+                          {line.stockAvailable !== undefined && (
+                            <fieldset className="opd-stock-source" style={{ gridColumn: '1 / -1' }}>
+                              <legend>Supply source</legend>
+                              <label className={`opd-stock-source-option ${!line.isExternal ? 'is-selected' : ''} ${line.stockAvailable === 0 ? 'is-unavailable' : ''}`}>
+                                <input
+                                  type="radio"
+                                  name={`emergency-supply-source-${index}`}
+                                  checked={!line.isExternal}
+                                  disabled={line.stockAvailable === 0}
+                                  onChange={() => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, isExternal: false } : item))}
+                                />
+                                <Building2 size={16} aria-hidden="true" />
+                                <span className="opd-stock-source-copy">
+                                  <strong>Clinic pharmacy</strong>
+                                  <small>{line.stockAvailable} available in stock</small>
+                                </span>
+                              </label>
+                              <label className={`opd-stock-source-option ${line.isExternal ? 'is-selected' : ''}`}>
+                                <input
+                                  type="radio"
+                                  name={`emergency-supply-source-${index}`}
+                                  checked={Boolean(line.isExternal)}
+                                  onChange={() => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, isExternal: true } : item))}
+                                />
+                                <Building2 size={16} aria-hidden="true" />
+                                <span className="opd-stock-source-copy">
+                                  <strong>Outside purchase</strong>
+                                  <small>Prescription for retail dispensary</small>
+                                </span>
+                              </label>
+                            </fieldset>
+                          )}
+                          <div className="form-group emergency-prescription-instructions">
+                            <label className="form-label">Instructions for Patient (optional)</label>
+                            <input value={line.instructions} onChange={e => setMedicineLines(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, instructions: e.target.value } : item))} placeholder="e.g. Take orally after meals, or apply twice daily." />
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <button type="button" className="btn btn-secondary btn-sm emergency-add-line" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add another medicine</button>
-                  <div className="form-group emergency-pharmacy-notes"><label className="form-label">Notes</label><textarea rows={2} value={pharmacyNotes} onChange={e => setPharmacyNotes(e.target.value)} placeholder="Pharmacy instructions" /></div>
+                  <button type="button" className="btn btn-secondary btn-sm emergency-add-line" onClick={() => setMedicineLines(previous => [...previous, emptyMedicineLine()])}><Plus size={14} /> Add Another Prescription Item</button>
+                  <div className="form-group emergency-pharmacy-notes"><label className="form-label">Notes</label><textarea rows={2} value={pharmacyNotes} onChange={e => setPharmacyNotes(e.target.value)} placeholder="Additional clinical or dispensing notes" /></div>
                 </section>
                 <div className="modal-footer emergency-workflow-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setPharmacyOrderCase(null)} disabled={savingPharmacy}>Cancel</button>
-                  <LoadingButton type="submit" className="btn btn-primary" loading={savingPharmacy} loadingLabel="Sending…"><Pill size={15} /> Send to Pharmacy</LoadingButton>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={savingPharmacy} loadingLabel="Sending…"><Pill size={15} /> Dispatch Prescription to Pharmacy</LoadingButton>
                 </div>
               </form>
             </div>

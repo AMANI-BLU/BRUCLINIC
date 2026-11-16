@@ -108,6 +108,7 @@ export default function LaboratoryDashboard() {
   });
 
   const resultPatient = resultModal?.[0] ? patients.find(patient => patient.id === resultModal[0].patientId) : undefined;
+  const resultIsEmergency = Boolean(resultModal?.some(order => /Emergency case\s+\S+/i.test(order.notes || '')));
 
   const handleOpenResultEntry = (orders: LabOrder[]) => {
     const openedAt = new Date().toISOString();
@@ -338,7 +339,7 @@ export default function LaboratoryDashboard() {
                         <div className="empty-state-icon tone-blue"><FlaskConical size={28} /></div>
                         <h5 className="empty-state-title">No laboratory orders found</h5>
                         <p className="empty-state-body">
-                          No diagnostic orders match the current filters. Orders will appear here automatically when OPD doctors request laboratory investigations.
+                            No diagnostic orders match the current filters. Orders will appear here when OPD doctors or Emergency clinicians request laboratory investigations.
                         </p>
                       </div>
                     </td>
@@ -372,7 +373,7 @@ export default function LaboratoryDashboard() {
                             {pending === 0 ? 'Results released' : `${completed.length}/${orders.length} complete`}
                           </span>
                           {orders.some(order => order.star) && <span className="badge badge-red" style={{ marginLeft: 4 }}>STAT</span>}
-                          <small>{pending === 0 ? 'Verified and released to OPD' : 'Awaiting laboratory result'}</small>
+                          <small>{pending === 0 ? 'Results verified' : 'Awaiting laboratory result'}</small>
                         </div>
                       </td>
                       <td>
@@ -450,7 +451,7 @@ export default function LaboratoryDashboard() {
                     <div><b>Address</b><span>{resultPatient?.address || '—'}</span></div>
                     <div><b>Referring clinician</b><span>{formatDoctorName(resultModal[0].doctorName)}</span></div>
                     <div><b>Priority / STAR</b><span>{resultModal.some(order => order.star || order.priority === 'Critical') ? 'STAT / Emergency' : resultModal[0].priority}</span></div>
-                    <div className="lab-result-paper-request-note"><b>Clinical notes / instructions from OPD</b><span>{cleanClinicalText(resultModal[0].notes) || 'No additional instructions provided.'}</span></div>
+                    <div className="lab-result-paper-request-note"><b>Clinical notes / referring unit instructions</b><span>{cleanClinicalText(resultModal[0].notes) || 'No additional instructions provided.'}</span></div>
                   </section>
 
                   <div className="lab-result-paper-section-title">Requested investigations and laboratory report</div>
@@ -463,7 +464,7 @@ export default function LaboratoryDashboard() {
                       return (
                         <article className={`lab-result-entry${draft.isAbnormal ? ' is-abnormal' : ''}${readonly ? ' is-complete' : ''}`} key={order.id}>
                           <header><span className="lab-result-entry-number">{index + 1}</span><div><strong>{order.testName}</strong><small>{order.category} · {order.specimenType}</small></div><span className={`badge ${readonly ? 'badge-green' : 'badge-blue'}`}>{readonly ? 'Verified' : 'Requested'}</span></header>
-                          {order.notes && <p className="lab-result-request-instructions"><b>OPD request:</b> {cleanClinicalText(order.notes)}</p>}
+                          {order.notes && <p className="lab-result-request-instructions"><b>Request instructions:</b> {cleanClinicalText(order.notes)}</p>}
                           <div className="lab-result-reference-guide"><span>Reference range for this test</span><strong>{draft.referenceRange || standardTest?.defaultRefRange || 'No reference range was supplied; enter the laboratory-approved interval.'}</strong></div>
                           <div className="lab-result-entry-fields">
                             <label className="lab-result-entry-value"><span>Result / clinical finding {readonly ? '' : '*'}</span><textarea rows={2} required={!readonly} readOnly={readonly} value={draft.result} onChange={event => updateDraft(order.id, { result: event.target.value })} placeholder="Enter result for this requested test" /></label>
@@ -481,12 +482,12 @@ export default function LaboratoryDashboard() {
                     })}
                   </div>
 
-                  <footer className="lab-result-paper-signoff"><div><b>Approved by</b><span>{normalizeDoctorName(currentUser?.name) || 'Laboratory technologist'}</span><small>Technologist signature / date</small></div><div><b>Requesting clinician</b><span>{formatDoctorName(resultModal[0].doctorName)}</span><small>Digital request from OPD</small></div></footer>
+                  <footer className="lab-result-paper-signoff"><div><b>Approved by</b><span>{normalizeDoctorName(currentUser?.name) || 'Laboratory technologist'}</span><small>Technologist signature / date</small></div><div><b>Requesting clinician</b><span>{formatDoctorName(resultModal[0].doctorName)}</span><small>Digital request from {resultIsEmergency ? 'Emergency' : 'OPD'}</small></div></footer>
                 </div>
 
                 <div className="modal-footer lab-result-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setResultModal(null)} disabled={savingResult}>Cancel</button>
-                  {resultModal.some(order => order.status !== 'Completed') && <LoadingButton type="submit" className="btn btn-primary" loading={savingResult} loadingLabel="Verifying results…"><CheckCircle2 size={16} /> Verify and return all results to OPD</LoadingButton>}
+                  {resultModal.some(order => order.status !== 'Completed') && <LoadingButton type="submit" className="btn btn-primary" loading={savingResult} loadingLabel="Verifying results…"><CheckCircle2 size={16} /> {resultIsEmergency ? 'Verify and save Emergency results' : 'Verify and return all results to OPD'}</LoadingButton>}
                 </div>
               </form>
             </div>

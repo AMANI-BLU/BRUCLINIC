@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useClinic } from '../context/ClinicContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { Patient, Gender, BloodGroup, PatientType, QueuePriority, QueueStage, MedicalRecord, ClinicQueueItem, LabOrder } from '../types';
 import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
@@ -70,6 +71,7 @@ const EMPTY_REQUEST: RequestDetails = {
 type ModalMode = 'view' | 'add' | 'edit' | null;
 
 export default function Patients() {
+  const { t } = useLanguage();
   const {
     patients, doctors, records, queue, labOrders,
     addPatient, updatePatient, deletePatient, sendCardToOpdRequest
@@ -160,7 +162,7 @@ export default function Patients() {
       requestDetails.reason ? validateTextLength(requestDetails.reason, 'Reason', { max: 500 }) : undefined,
     );
     if (error) {
-      setFormError(error);
+      setFormError(t(error));
       return;
     }
 
@@ -216,7 +218,7 @@ export default function Patients() {
       }
       close();
     } catch (cause) {
-      setFormError(cause instanceof Error ? cause.message : 'Could not save this patient record.');
+      setFormError(cause instanceof Error ? t(cause.message) : t('Could not save this patient record.'));
     } finally {
       setSaving(false);
     }
@@ -230,12 +232,12 @@ export default function Patients() {
     <div className="patients-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Patients</h1>
-          <p className="page-subtitle">{patients.length} registered patients</p>
+          <h1 className="page-title">{t('Patients')}</h1>
+          <p className="page-subtitle">{patients.length} {t('registered patients')}</p>
         </div>
         {canManagePatients && (
           <button type="button" className="btn btn-primary" id="add-patient-btn" onClick={openAdd}>
-            <UserPlus size={16} /> New patient
+            <UserPlus size={16} /> {t('New patient')}
           </button>
         )}
       </div>
@@ -246,20 +248,20 @@ export default function Patients() {
           <Search size={16} className="icon" />
           <input
             id="patient-search"
-            placeholder="Search by name, ID or department…"
+            placeholder={t('Search by name, ID or department…')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="pill-tabs">
-          {(['All', 'Student', 'Staff', 'External'] as const).map(t => (
+          {(['All', 'Student', 'Staff', 'External'] as const).map(type => (
             <button
-              key={t}
+              key={type}
               type="button"
-              className={`pill-tab ${filterType === t ? 'active' : ''}`}
-              onClick={() => setFilterType(t)}
+              className={`pill-tab ${filterType === type ? 'active' : ''}`}
+              onClick={() => setFilterType(type)}
             >
-              {t}
+              {t(type)}
             </button>
           ))}
         </div>
@@ -270,14 +272,14 @@ export default function Patients() {
         <table>
           <thead>
             <tr>
-              <th>Patient</th>
-              <th>Card ID</th>
-              <th>Type</th>
-              <th>Department</th>
-              <th>Contact</th>
-              <th>Blood</th>
-              <th>Registered</th>
-              <th>Actions</th>
+              <th>{t('Patient')}</th>
+              <th>{t('Card ID')}</th>
+              <th>{t('Type')}</th>
+              <th>{t('Department')}</th>
+              <th>{t('Contact')}</th>
+              <th>{t('Blood')}</th>
+              <th>{t('Registered')}</th>
+              <th>{t('Actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -286,8 +288,8 @@ export default function Patients() {
                 <td colSpan={8}>
                   <div className="empty-state">
                     <div className="empty-state-icon tone-blue"><Users size={28} /></div>
-                    <h5 className="empty-state-title">No patients found</h5>
-                    <p className="empty-state-body">No patient matches this search or filter.</p>
+                    <h5 className="empty-state-title">{t('No patients found')}</h5>
+                    <p className="empty-state-body">{t('No patient matches this search or filter.')}</p>
                   </div>
                 </td>
               </tr>
@@ -302,19 +304,19 @@ export default function Patients() {
                     </div>
                   </div>
                 </td>
-                <td><code className="id-code" title="Patient card number">{patientCode(p)}</code></td>
-                <td><span className={`badge ${patientTypeClass(p.patientType)}`}>{p.patientType}</span></td>
+                <td><code className="id-code" title={t('Patient card number')}>{patientCode(p)}</code></td>
+                <td><span className={`badge ${patientTypeClass(p.patientType)}`}>{t(p.patientType)}</span></td>
                 <td>{p.department ?? '—'}</td>
                 <td>{p.phone}</td>
                 <td><span className="badge badge-blue">{p.bloodGroup ?? '?'}</span></td>
                 <td>{p.registeredAt}</td>
                 <td>
                   <div className="action-btns">
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="View Patient Card & History" onClick={() => openView(p)}><Eye size={15} /></button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title={t('View Patient Card & History')} onClick={() => openView(p)}><Eye size={15} /></button>
                     {canManagePatients && (
                       <>
-                        <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Edit Patient Details" onClick={() => openEdit(p)}><Edit2 size={15} /></button>
-                        <button type="button" className="btn btn-danger btn-sm btn-icon" title="Delete Patient" onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
+                        <button type="button" className="btn btn-secondary btn-sm btn-icon" title={t('Edit Patient Details')} onClick={() => openEdit(p)}><Edit2 size={15} /></button>
+                        <button type="button" className="btn btn-danger btn-sm btn-icon" title={t('Delete Patient')} onClick={() => handleDelete(p.id)}><Trash2 size={15} /></button>
                       </>
                     )}
                   </div>
@@ -336,11 +338,11 @@ export default function Patients() {
           >
             <div className="modal-header">
               <h2 className="modal-title">
-                {modal.mode === 'add' ? <><UserPlus size={18} className="text-primary" /> Register New Patient</> :
-                 modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> Edit Patient</> :
-                 <>Patient Card</>}
+                {modal.mode === 'add' ? <><UserPlus size={18} className="text-primary" /> {t('Register New Patient')}</> :
+                 modal.mode === 'edit' ? <><Edit2 size={18} className="text-primary" /> {t('Edit Patient')}</> :
+                 <>{t('Patient Card')}</>}
               </h2>
-              <button type="button" className="modal-close-btn" onClick={close} disabled={saving} aria-label="Close dialog"><X size={16} /></button>
+              <button type="button" className="modal-close-btn" onClick={close} disabled={saving} aria-label={t('Close dialog')}><X size={16} /></button>
             </div>
 
             {modal.mode === 'view' && modal.patient ? (
@@ -354,54 +356,54 @@ export default function Patients() {
                   />
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={close}>Close</button>
+                  <button type="button" className="btn btn-secondary" onClick={close}>{t('Close')}</button>
                 </div>
               </>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="patient-register-form">
-                {formError && <div className="alert alert-danger py-2 px-3 mb-2" role="alert">{formError}</div>}
+                {formError && <div className="alert alert-danger py-2 px-3 mb-2" role="alert">{t(formError)}</div>}
 
                 <div className="alert alert-info py-2 px-3 mb-3" role="status">
-                  <strong>Patient card ID:</strong>{' '}
-                  {modal.patient ? <code>{patientCode(modal.patient)}</code> : 'Assigned automatically when this registration is saved.'}
+                  <strong>{t('Patient card ID:')}</strong>{' '}
+                  {modal.patient ? <code>{patientCode(modal.patient)}</code> : t('Assigned automatically when this registration is saved.')}
                 </div>
 
                 {/* Section 1: Demographics & Personal Info */}
                 <div className="patient-register-section">
                   <div className="patient-register-section-title">
-                    <Users size={15} className="text-primary" /> Personal Demographics
+                    <Users size={15} className="text-primary" /> {t('Personal Demographics')}
                   </div>
                   <div className="form-grid">
                     <div className="form-group">
-                      <label className="form-label">First name *</label>
+                      <label className="form-label">{t('First name')} *</label>
                       <input
                         required
                         value={form.firstName}
                         onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                        placeholder="First name"
+                        placeholder={t('First name')}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Last name *</label>
+                      <label className="form-label">{t('Last name')} *</label>
                       <input
                         required
                         value={form.lastName}
                         onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                        placeholder="Last name"
+                        placeholder={t('Last name')}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Gender *</label>
+                      <label className="form-label">{t('Gender')} *</label>
                       <select
                         value={form.gender}
                         onChange={e => setForm(f => ({ ...f, gender: e.target.value as Gender }))}
                       >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
+                        <option value="Male">{t('Male')}</option>
+                        <option value="Female">{t('Female')}</option>
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Age *</label>
+                      <label className="form-label">{t('Age')} *</label>
                       <input
                         required
                         type="number"
@@ -410,11 +412,11 @@ export default function Patients() {
                         step="1"
                         value={form.age}
                         onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
-                        placeholder="Age in years"
+                        placeholder={t('Age in years')}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Phone *</label>
+                      <label className="form-label">{t('Phone')} *</label>
                       <input
                         required
                         value={form.phone}
@@ -423,7 +425,7 @@ export default function Patients() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Email</label>
+                      <label className="form-label">{t('Email')}</label>
                       <input
                         type="email"
                         value={form.email}
@@ -432,11 +434,11 @@ export default function Patients() {
                       />
                     </div>
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label className="form-label">Residential Address</label>
+                      <label className="form-label">{t('Residential Address')}</label>
                       <input
                         value={form.address}
                         onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                        placeholder="Campus Dormitory / Residence Zone, Town"
+                        placeholder={t('Campus Dormitory / Residence Zone, Town')}
                       />
                     </div>
                   </div>
@@ -445,35 +447,35 @@ export default function Patients() {
                 {/* Section 2: Clinical & Institutional Profile */}
                 <div className="patient-register-section">
                   <div className="patient-register-section-title">
-                    <Activity size={15} className="text-primary" /> Institutional Affiliation &amp; Medical Background
+                    <Activity size={15} className="text-primary" /> {t('Institutional Affiliation & Medical Background')}
                   </div>
                   <div className="form-grid">
                     <div className="form-group">
-                      <label className="form-label">Patient Type</label>
+                      <label className="form-label">{t('Patient Type')}</label>
                       <select
                         value={form.patientType}
                         onChange={e => setForm(f => ({ ...f, patientType: e.target.value as PatientType }))}
                       >
-                        <option value="Student">Student</option>
-                        <option value="Staff">Staff</option>
-                        <option value="External">External</option>
+                        <option value="Student">{t('Student')}</option>
+                        <option value="Staff">{t('Staff')}</option>
+                        <option value="External">{t('External')}</option>
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Department / Faculty</label>
+                      <label className="form-label">{t('Department / Faculty')}</label>
                       <input
                         value={form.department}
                         onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                        placeholder="e.g. Computer Science, Medicine, Law"
+                        placeholder={t('e.g. Computer Science, Medicine, Law')}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Blood Group</label>
+                      <label className="form-label">{t('Blood Group')}</label>
                       <select
                         value={form.bloodGroup}
                         onChange={e => setForm(f => ({ ...f, bloodGroup: e.target.value as BloodGroup | '' }))}
                       >
-                        <option value="">Not recorded</option>
+                        <option value="">{t('Not recorded')}</option>
                         <option value="O+">O+</option>
                         <option value="O-">O-</option>
                         <option value="A+">A+</option>
@@ -485,19 +487,19 @@ export default function Patients() {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Known Drug Allergies</label>
+                      <label className="form-label">{t('Known Drug Allergies')}</label>
                       <input
                         value={form.allergies}
                         onChange={e => setForm(f => ({ ...f, allergies: e.target.value }))}
-                        placeholder="e.g. Penicillin, Sulfa (comma separated)"
+                        placeholder={t('e.g. Penicillin, Sulfa (comma separated)')}
                       />
                     </div>
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label className="form-label">Chronic Conditions / Health History</label>
+                      <label className="form-label">{t('Chronic Conditions / Health History')}</label>
                       <input
                         value={form.chronicConditions}
                         onChange={e => setForm(f => ({ ...f, chronicConditions: e.target.value }))}
-                        placeholder="e.g. Hypertension, Asthma, Diabetes (comma separated)"
+                        placeholder={t('e.g. Hypertension, Asthma, Diabetes (comma separated)')}
                       />
                     </div>
                   </div>
@@ -506,19 +508,19 @@ export default function Patients() {
                 {/* Section 3: Emergency Contact */}
                 <div className="patient-register-section">
                   <div className="patient-register-section-title">
-                    <HeartPulse size={15} className="text-danger" /> Emergency Contact
+                    <HeartPulse size={15} className="text-danger" /> {t('Emergency Contact')}
                   </div>
                   <div className="form-grid">
                     <div className="form-group">
-                      <label className="form-label">Emergency Contact Name</label>
+                      <label className="form-label">{t('Emergency Contact Name')}</label>
                       <input
                         value={form.emergencyContactName}
                         onChange={e => setForm(f => ({ ...f, emergencyContactName: e.target.value }))}
-                        placeholder="Guardian / Family contact full name"
+                        placeholder={t('Guardian / Family contact full name')}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Emergency Contact Phone</label>
+                      <label className="form-label">{t('Emergency Contact Phone')}</label>
                       <input
                         value={form.emergencyContactPhone}
                         onChange={e => setForm(f => ({ ...f, emergencyContactPhone: e.target.value }))}
@@ -532,7 +534,7 @@ export default function Patients() {
                 {modal.mode === 'add' && canDispatch && (
                   <div className="patient-register-section">
                     <div className="patient-register-section-title">
-                      <Send size={15} className="text-primary" /> First Visit Request
+                    <Send size={15} className="text-primary" /> {t('First Visit Request')}
                     </div>
                     <label className={`patient-register-dispatch-toggle ${requestDetails.forwardToOpd ? 'selected' : ''}`}>
                         <input
@@ -541,8 +543,8 @@ export default function Patients() {
                           onChange={e => setRequestDetails(d => ({ ...d, forwardToOpd: e.target.checked }))}
                         />
                         <span>
-                          <strong>Create a visit request after registration</strong>
-                          <small>Route the patient to the selected clinic destination.</small>
+                          <strong>{t('Create a visit request after registration')}</strong>
+                          <small>{t('Route the patient to the selected clinic destination.')}</small>
                         </span>
                     </label>
 
@@ -550,13 +552,13 @@ export default function Patients() {
                       <>
                         <div className="form-grid">
                           <div className="form-group">
-                            <label className="form-label">Assigned Doctor</label>
+                            <label className="form-label">{t('Assigned Doctor')}</label>
                             <select
                               value={requestDetails.doctorId || doctors[0]?.id || ''}
                               onChange={e => setRequestDetails(d => ({ ...d, doctorId: e.target.value }))}
                             >
                               {doctors.length === 0 ? (
-                                <option value="">General OPD Duty Clinician</option>
+                                <option value="">{t('General OPD Duty Clinician')}</option>
                               ) : (
                                 doctors.map(d => (
                                   <option key={d.id} value={d.id}>
@@ -568,36 +570,36 @@ export default function Patients() {
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">Destination</label>
+                            <label className="form-label">{t('Destination')}</label>
                             <select
                               value={requestDetails.destination}
                               onChange={e => setRequestDetails(d => ({ ...d, destination: e.target.value as QueueStage }))}
                             >
-                              <option value="Doctor Consultation">OPD Doctor Consultation</option>
-                              <option value="Emergency">Emergency (ER)</option>
+                              <option value="Doctor Consultation">{t('OPD Doctor Consultation')}</option>
+                              <option value="Emergency">{t('Emergency (ER)')}</option>
                             </select>
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">Priority</label>
+                            <label className="form-label">{t('Priority')}</label>
                             <select
                               value={requestDetails.priority}
                               onChange={e => setRequestDetails(d => ({ ...d, priority: e.target.value as QueuePriority }))}
                             >
-                              <option value="Normal">Normal</option>
-                              <option value="Urgent">Urgent</option>
-                              <option value="Emergency">Emergency</option>
+                              <option value="Normal">{t('Normal')}</option>
+                              <option value="Urgent">{t('Urgent')}</option>
+                              <option value="Emergency">{t('Emergency')}</option>
                             </select>
                           </div>
                         </div>
 
                         <div className="form-group">
-                          <label className="form-label">Reason (Optional)</label>
+                          <label className="form-label">{t('Reason (Optional)')}</label>
                           <textarea
                             rows={2}
                             value={requestDetails.reason}
                             onChange={e => setRequestDetails(d => ({ ...d, reason: e.target.value }))}
-                            placeholder="Reason for visit or chief complaint (optional)"
+                            placeholder={t('Reason for visit or chief complaint (optional)')}
                           />
                         </div>
                       </>
@@ -606,11 +608,11 @@ export default function Patients() {
                 )}
 
                 <div className="modal-footer" style={{ marginTop: '0.75rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={close} disabled={saving}>Cancel</button>
-                  <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel={modal.mode === 'edit' ? 'Saving…' : 'Registering…'}>
+                  <button type="button" className="btn btn-secondary" onClick={close} disabled={saving}>{t('Cancel')}</button>
+                  <LoadingButton type="submit" className="btn btn-primary" loading={saving} loadingLabel={t(modal.mode === 'edit' ? 'Saving…' : 'Registering…')}>
                     {modal.mode === 'add'
-                      ? (canDispatch && requestDetails.forwardToOpd ? <><Send size={16} /> Register &amp; Send to OPD</> : 'Register Patient')
-                      : 'Save Changes'}
+                      ? (canDispatch && requestDetails.forwardToOpd ? <><Send size={16} /> {t('Register & Send to OPD')}</> : t('Register Patient'))
+                      : t('Save Changes')}
                   </LoadingButton>
                 </div>
               </form>
@@ -623,9 +625,10 @@ export default function Patients() {
       {/* Delete Patient Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(deleteTargetId)}
-        title="Delete Patient Record"
-        message="Are you sure you want to delete this patient record? This action will permanently remove the patient profile and cannot be undone."
-        confirmText="Delete Record"
+        title={t('Delete Patient Record')}
+        message={t('Are you sure you want to delete this patient record? This action will permanently remove the patient profile and cannot be undone.')}
+        confirmText={t('Delete Record')}
+        cancelText={t('Cancel')}
         variant="danger"
         icon="trash"
         onClose={() => setDeleteTargetId(null)}
@@ -648,6 +651,7 @@ interface PatientViewProps {
 }
 
 function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'profile' | 'records' | 'labs' | 'visits'>('records');
 
   return (
@@ -656,39 +660,39 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
         <div className="view-summary-avatar">{patientInitials(p)}</div>
         <div className="view-summary-copy">
           <h3>{patientFullName(p)}</h3>
-          <p>Card {patientCode(p)}</p>
+          <p>{t('Card')} {patientCode(p)}</p>
           <div className="view-summary-badges">
-            <span className="badge badge-blue">{p.patientType}</span>
-            <span className="badge badge-violet">{p.gender}</span>
+            <span className="badge badge-blue">{t(p.patientType)}</span>
+            <span className="badge badge-violet">{t(p.gender)}</span>
             {p.bloodGroup && <span className="badge badge-red">{p.bloodGroup}</span>}
             {p.department && <span className="badge badge-gray">{p.department}</span>}
           </div>
         </div>
         <div className="view-summary-stats">
-          <div><strong>{records.length}</strong><span>Encounters</span></div>
-          <div><strong>{labOrders.length}</strong><span>Lab tests</span></div>
+          <div><strong>{records.length}</strong><span>{t('Encounters')}</span></div>
+          <div><strong>{labOrders.length}</strong><span>{t('Lab tests')}</span></div>
         </div>
       </div>
 
       <div className="pill-tabs view-tabs">
         <button type="button" className={`pill-tab ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setActiveTab('records')}>
-          Records ({records.length})
+          {t('Records')} ({records.length})
         </button>
         <button type="button" className={`pill-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-          Profile
+          {t('Profile')}
         </button>
         <button type="button" className={`pill-tab ${activeTab === 'labs' ? 'active' : ''}`} onClick={() => setActiveTab('labs')}>
-          Lab ({labOrders.length})
+          {t('Lab')} ({labOrders.length})
         </button>
         <button type="button" className={`pill-tab ${activeTab === 'visits' ? 'active' : ''}`} onClick={() => setActiveTab('visits')}>
-          Visits ({queue.length})
+          {t('Visits')} ({queue.length})
         </button>
       </div>
 
       {activeTab === 'records' && (
         <div className="view-list">
           {records.length === 0 ? (
-            <div className="view-empty">No medical records for this patient yet.</div>
+            <div className="view-empty">{t('No medical records for this patient yet.')}</div>
           ) : (
             records.map(rec => (
               <article className="view-card" key={rec.id}>
@@ -702,18 +706,18 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
 
                 {rec.symptoms && rec.symptoms.length > 0 && (
                   <div className="view-card-row">
-                    <span>Symptoms</span>
+                    <span>{t('Symptoms')}</span>
                     <p>{Array.isArray(rec.symptoms) ? rec.symptoms.join(', ') : rec.symptoms}</p>
                   </div>
                 )}
 
                 {rec.prescription && rec.prescription.length > 0 && (
                   <div className="view-card-subsection">
-                    <div className="view-subsection-title">Prescription</div>
+                    <div className="view-subsection-title">{t('Prescription')}</div>
                     <ul>
                       {rec.prescription.map((rx, idx) => (
                         <li key={idx}>
-                          <strong>{rx.medication}</strong> — {rx.dosage || rx.frequency} ({rx.duration || '7 days'})
+                          <strong>{rx.medication}</strong> — {rx.dosage || rx.frequency} ({rx.duration || t('7 days')})
                           {rx.instructions && <span> · {rx.instructions}</span>}
                         </li>
                       ))}
@@ -721,7 +725,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                   </div>
                 )}
 
-                {rec.notes && <p className="view-card-note">Notes: {rec.notes}</p>}
+                {rec.notes && <p className="view-card-note">{t('Notes:')} {rec.notes}</p>}
               </article>
             ))
           )}
@@ -730,38 +734,38 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
 
       {activeTab === 'profile' && (
         <div className="view-info-grid">
-          <PVItem label="Card ID" value={patientCode(p)} />
-          <PVItem label="Age" value={calculatePatientAge(p.dateOfBirth) !== undefined ? `${calculatePatientAge(p.dateOfBirth)} years` : '—'} />
-          <PVItem label="Phone" value={p.phone} />
-          <PVItem label="Email" value={p.email || '—'} />
-          <PVItem label="Department / Program" value={p.department ?? '—'} />
-          <PVItem label="Address" value={p.address || '—'} />
-          <PVItem label="Registered Date" value={p.registeredAt} />
-          <PVItem label="Known Drug Allergies" value={Array.isArray(p.allergies) ? (p.allergies.join(', ') || 'None reported') : (p.allergies ? String(p.allergies) : 'None reported')} />
-          <PVItem label="Chronic Conditions" value={Array.isArray(p.chronicConditions) ? (p.chronicConditions.join(', ') || 'None reported') : (p.chronicConditions ? String(p.chronicConditions) : 'None reported')} />
-          <PVItem label="Emergency Contact" value={p.emergencyContactName ? `${p.emergencyContactName} (${p.emergencyContactPhone || 'No phone'})` : 'None provided'} />
+          <PVItem label={t('Card ID')} value={patientCode(p)} />
+          <PVItem label={t('Age')} value={calculatePatientAge(p.dateOfBirth) !== undefined ? `${calculatePatientAge(p.dateOfBirth)} ${t('years')}` : '—'} />
+          <PVItem label={t('Phone')} value={p.phone} />
+          <PVItem label={t('Email')} value={p.email || '—'} />
+          <PVItem label={t('Department / Program')} value={p.department ?? '—'} />
+          <PVItem label={t('Address')} value={p.address || '—'} />
+          <PVItem label={t('Registered Date')} value={p.registeredAt} />
+          <PVItem label={t('Known Drug Allergies')} value={Array.isArray(p.allergies) ? (p.allergies.join(', ') || t('None reported')) : (p.allergies ? String(p.allergies) : t('None reported'))} />
+          <PVItem label={t('Chronic Conditions')} value={Array.isArray(p.chronicConditions) ? (p.chronicConditions.join(', ') || t('None reported')) : (p.chronicConditions ? String(p.chronicConditions) : t('None reported'))} />
+          <PVItem label={t('Emergency Contact')} value={p.emergencyContactName ? `${p.emergencyContactName} (${p.emergencyContactPhone || t('No phone')})` : t('None provided')} />
         </div>
       )}
 
       {activeTab === 'labs' && (
         <div className="view-list">
           {labOrders.length === 0 ? (
-            <div className="view-empty">No laboratory investigations for this patient.</div>
+            <div className="view-empty">{t('No laboratory investigations for this patient.')}</div>
           ) : (
             labOrders.map(lo => (
               <article className="view-card" key={lo.id}>
                 <div className="view-card-head">
                   <h4>{lo.testName} <span className="view-card-meta">({lo.category})</span></h4>
-                  <span className={`badge ${lo.status === 'Completed' ? 'badge-green' : 'badge-blue'}`}>{lo.status}</span>
+                  <span className={`badge ${lo.status === 'Completed' ? 'badge-green' : 'badge-blue'}`}>{t(lo.status)}</span>
                 </div>
                 <div className="view-card-row">
-                  <span>Ordered by</span>
+                  <span>{t('Ordered by')}</span>
                   <p>{normalizeDoctorName(lo.doctorName)} · {formatDateTime12(lo.orderedAt)}</p>
                 </div>
                 {lo.status === 'Completed' && (
                   <div className="view-result">
-                    <strong>Result:</strong> {lo.result} {lo.unit} <span>(Ref: {lo.referenceRange || 'Standard'})</span>
-                    {lo.isAbnormal && <span className="badge badge-red">Abnormal</span>}
+                    <strong>{t('Result:')}</strong> {lo.result} {lo.unit} <span>({t('Ref:')} {lo.referenceRange || t('Standard')})</span>
+                    {lo.isAbnormal && <span className="badge badge-red">{t('Abnormal')}</span>}
                   </div>
                 )}
               </article>
@@ -773,17 +777,17 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
       {activeTab === 'visits' && (
         <div className="view-list">
           {queue.length === 0 ? (
-            <div className="view-empty">No queue visits recorded.</div>
+            <div className="view-empty">{t('No queue visits recorded.')}</div>
           ) : (
             queue.map(q => (
               <div className="view-row" key={q.id}>
                 <div className="view-row-main">
                   <strong className="view-mono">{q.tokenNumber}</strong>
-                  <span className="badge badge-blue">{q.stage}</span>
+                  <span className="badge badge-blue">{t(q.stage)}</span>
                   <div className="view-row-sub">{q.chiefComplaint}</div>
                 </div>
                 <div className="view-row-meta">
-                  {formatTime12(q.registeredTime)}<br />{normalizeDoctorName(q.assignedDoctorName) || 'General OPD'}
+                  {formatTime12(q.registeredTime)}<br />{normalizeDoctorName(q.assignedDoctorName) || t('General OPD')}
                 </div>
               </div>
             ))

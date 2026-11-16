@@ -1,6 +1,6 @@
 import {
   completeEmergencyCase, completeOpdConsultation, createCardToOpdRequest, dispensePharmacyOrder,
-  completeLabRequest, referOutside, saveOpdAssessment, sendOpdToLabRequest, sendOpdToPharmacyRequest,
+  completeLabRequest, referOutside, saveOpdAssessment, sendEmergencyToLabRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest,
   referEmergencyCase, transferToEmergency,
 } from '../services/clinicWorkflows.js';
 import { sendError, sendJson } from '../utils/http.js';
@@ -13,6 +13,7 @@ const handlers = {
   'card-to-opd': { roles: ['admin', 'receptionist'], run: request => createCardToOpdRequest(request.body) },
   'transfer-to-emergency': { roles: ['admin', 'receptionist', 'opd'], run: request => transferToEmergency(request.body.queueItemId, request.body, request.user) },
   'opd-to-lab': { roles: ['admin', 'opd'], run: request => sendOpdToLabRequest(request.body.queueItemId, request.body) },
+  'emergency-to-lab': { roles: ['admin', 'emergency'], run: request => sendEmergencyToLabRequest(request.body.emergencyCaseId, request.body) },
   'lab-to-opd': { roles: ['admin', 'laboratory'], run: request => completeLabRequest(request.body.queueItemId, request.body.results) },
   'opd-to-pharmacy': { roles: ['admin', 'opd'], run: request => sendOpdToPharmacyRequest(request.body.queueItemId, request.body) },
   'complete-consultation': { roles: ['admin', 'opd'], run: request => completeOpdConsultation(request.body.queueItemId, { ...request.body.recordData, doctorId: request.user?.role === 'opd' ? request.user.id : request.body.recordData.doctorId }) },
@@ -45,11 +46,31 @@ export async function workflowHandler(request, response, segments) {
       validateText(test.category, 'Category', { required: true, max: 80 });
       validateText(test.specimenType, 'Specimen type', { required: true, max: 100 });
       validateText(test.unit, 'Unit', { required: false, max: 40 });
-      validateText(test.referenceRange, 'Reference range', { required: false, max: 120 });
+      validateText(test.referenceRange, 'Reference range', { required: false, max: 100 });
       validateText(test.technologistInstructions, 'Technologist instructions', { required: false, max: 1000 });
       if (test.star !== undefined && typeof test.star !== 'boolean') return sendError(response, 422, 'STAR status must be true or false');
     }
     validateText(request.body.doctorDiagnosis, 'Working diagnosis', { required: false, max: 1000 });
+  }
+  if (action === 'emergency-to-lab') {
+    validateText(request.body.emergencyCaseId, 'Emergency case', { required: true, max: 80 });
+    validateEnum(request.body.priority, 'Priority', ['Low', 'Medium', 'High', 'Critical'], { required: true });
+    if (!Array.isArray(request.body.tests) || request.body.tests.length === 0 || request.body.tests.length > 100) {
+      return sendError(response, 422, 'Select between 1 and 100 laboratory investigations');
+    }
+    for (const test of request.body.tests) {
+      assertPlainObject(test);
+      validateText(test.testName, 'Test name', { required: true, max: 150 });
+      validateText(test.category, 'Category', { required: true, max: 80 });
+      validateText(test.specimenType, 'Specimen type', { required: true, max: 100 });
+      validateText(test.unit, 'Unit', { required: false, max: 40 });
+      validateText(test.referenceRange, 'Reference range', { required: false, max: 100 });
+      validateText(test.technologistInstructions, 'Technologist instructions', { required: false, max: 1000 });
+      if (test.star !== undefined && typeof test.star !== 'boolean') return sendError(response, 422, 'STAR status must be true or false');
+    }
+    validateText(request.body.doctorName, 'Requesting clinician', { required: false, max: 150 });
+    validateText(request.body.doctorDiagnosis, 'Working diagnosis', { required: false, max: 1000 });
+    validateText(request.body.notes, 'Clinical notes', { required: false, max: 5000 });
   }
   if (action === 'lab-to-opd') {
     validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });

@@ -55,11 +55,66 @@ function parsePage(url) {
   return { limit, offset, search, severity, action, eventType, userId, from, to };
 }
 
+function validateLoginBackgroundImage(value) {
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match || value.length > 600000) {
+    const error = new Error('Choose a JPEG, PNG, or WebP image smaller than 450 KB.');
+    error.statusCode = 422;
+    throw error;
+  }
+
+  const bytes = Buffer.from(match[2], 'base64');
+  const validBase64 = bytes.toString('base64') === match[2];
+  const hasValidSignature = match[1] === 'jpeg'
+    ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    : match[1] === 'png'
+      ? bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      : bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+  if (!validBase64 || !bytes.length || bytes.length > 450000 || !hasValidSignature) {
+    const error = new Error('The login background must be a valid image smaller than 450 KB.');
+    error.statusCode = 422;
+    throw error;
+  }
+}
+
 export async function adminHandler(request, response, segments, url) {
   if (!requireAdmin(request, response)) return;
   if (!checkAdminRateLimit(request, response)) return;
 
   const section = segments[2]; // audit-logs | security-events | config | stats | backup
+
+  if (section === 'login-background') {
+    if (request.method === 'GET') {
+      const result = await query("SELECT value FROM system_config WHERE key = 'login_background_image' LIMIT 1");
+      return sendJson(response, 200, { data: { image: result.rows[0]?.value || null } });
+    }
+    if (request.method === 'PATCH') {
+      assertPlainObject(request.body);
+      const image = request.body.image === null ? '' : request.body.image;
+      if (typeof image !== 'string') {
+        const error = new Error('Login background image must be an uploaded image or null.');
+        error.statusCode = 422;
+        throw error;
+      }
+      if (image) validateLoginBackgroundImage(image);
+      await query(
+        `INSERT INTO system_config (key, value, description, updated_by)
+         VALUES ('login_background_image', $1, 'Administrator-selected image shown behind the login screen', $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+        [image, request.user.username],
+      );
+      writeAuditLog({
+        requestId: request.requestId, userId: request.user.id, username: request.user.username,
+        userRole: request.user.role, action: AUDIT_ACTION.CONFIG, resource: 'system_config',
+        resourceId: 'login_background_image',
+        summary: image ? 'Administrator changed the login page background image' : 'Administrator restored the default login page background',
+        ipAddress: getClientIp(request),
+      });
+      invalidateSystemConfig();
+      return sendJson(response, 200, { message: image ? 'Login background updated' : 'Default login background restored', data: { image: image || null } });
+    }
+    return sendError(response, 405, 'Method not allowed');
+  }
 
   if (section === 'default-password') {
     if (request.method === 'GET') {
@@ -292,7 +347,7 @@ export async function adminHandler(request, response, segments, url) {
   // GET /api/admin/config
   // ---------------------------------------------------------------
   if (request.method === 'GET' && section === 'config') {
-    const rows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key <> 'default_user_password_hash' ORDER BY key ASC");
+    const rows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key NOT IN ('default_user_password_hash', 'login_background_image') ORDER BY key ASC");
     return sendJson(response, 200, { data: rows.rows });
   }
 
@@ -355,7 +410,7 @@ export async function adminHandler(request, response, segments, url) {
     // Runtime consumers (session, lockout, maintenance) reload immediately.
     invalidateSystemConfig();
 
-    const updatedRows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key <> 'default_user_password_hash' ORDER BY key ASC");
+    const updatedRows = await query("SELECT key, value, description, updated_by, updated_at FROM system_config WHERE key NOT IN ('default_user_password_hash', 'login_background_image') ORDER BY key ASC");
     return sendJson(response, 200, { message: 'Configuration updated', data: updatedRows.rows });
   }
 

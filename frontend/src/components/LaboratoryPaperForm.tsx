@@ -19,11 +19,12 @@ export interface LabRequestLine {
 }
 
 interface LaboratoryPaperFormProps {
-  selectedQueueItem: ClinicQueueItem;
+  selectedQueueItem?: ClinicQueueItem;
   selectedPatient?: Patient;
   patientName: string;
   patientAge?: number;
   patientCode: string;
+  referringUnit?: string;
   currentUser: UserProfile | null;
   consultation: { diagnosis: string; clinicalNotes: string };
   labTests: LabRequestLine[];
@@ -153,6 +154,7 @@ export default function LaboratoryPaperForm({
   patientName,
   patientAge,
   patientCode,
+  referringUnit,
   currentUser,
   consultation,
   labTests,
@@ -244,9 +246,9 @@ export default function LaboratoryPaperForm({
                 </div>
                 <div className="lab-paper-field"><b>*Address</b><span>{selectedPatient?.address || '—'}</span></div>
                 <div className="lab-paper-field"><b>Sex</b><span>{selectedPatient?.gender || '—'}</span></div>
-                <div className="lab-paper-field"><b>*Ref unit</b><span>OPD</span></div>
+                <div className="lab-paper-field"><b>*Ref unit</b><span>{referringUnit || 'OPD'}</span></div>
                 <div className="lab-paper-field"><b>Date</b><span>{new Date().toLocaleDateString()}</span></div>
-                <div className="lab-paper-field lab-paper-notes"><b>Clinical notes</b><span>{consultation.clinicalNotes || selectedQueueItem.chiefComplaint || '—'}</span></div>
+                <div className="lab-paper-field lab-paper-notes"><b>Clinical notes</b><span>{consultation.clinicalNotes || selectedQueueItem?.chiefComplaint || '—'}</span></div>
               </div>
             </section>
 
@@ -270,7 +272,7 @@ export default function LaboratoryPaperForm({
                   <label>Test name<input value={labTestName} onChange={event => setLabTestName(event.target.value)} placeholder="Specify investigation" /></label>
                   <label>Specimen<input value={labSpecimenType} onChange={event => setLabSpecimenType(event.target.value)} placeholder="Serum, stool, swab…" /></label>
                   <label>Unit<input value={labCustomUnit} onChange={event => setLabCustomUnit(event.target.value)} placeholder="Unit" /></label>
-                  <label>Reference range<input value={labCustomReferenceRange} onChange={event => setLabCustomReferenceRange(event.target.value)} placeholder="Optional" /></label>
+                  <label>Reference range<input maxLength={100} value={labCustomReferenceRange} onChange={event => setLabCustomReferenceRange(event.target.value)} placeholder="Optional" /></label>
                   <label>Technologist notes<input value={labTechInstructions} onChange={event => setLabTechInstructions(event.target.value)} placeholder="Notes / initials" /></label>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomTest}><Plus size={14} /> Add</button>
                 </div>
@@ -296,7 +298,7 @@ export default function LaboratoryPaperForm({
             </section>
 
             <div className="lab-paper-signatures">
-              <div><b>Requesting Clinician</b><span>Name: {normalizeDoctorName(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician'}</span><span>Sign: {normalizeDoctorName(currentUser?.name) || 'Digital signature'}</span></div>
+              <div><b>Requesting Clinician</b><span>Name: {normalizeDoctorName(currentUser?.name || selectedQueueItem?.assignedDoctorName) || (referringUnit === 'Emergency (ER)' ? 'Emergency clinician' : 'OPD clinician')}</span><span>Sign: {normalizeDoctorName(currentUser?.name) || 'Digital signature'}</span></div>
               <div><b>Tech’s Comment</b><span>____________________________________________________________</span><span>____________________________________________________________</span></div>
               <div><b>Approved by</b><span>Laboratory technologist: ___________________________</span><span>Sign: ____________________ · Date: ______________</span></div>
               <div><b>Laboratory use</b><span>Tech initials: __________________ · Cost: __________</span><span>Log in: ______________ · Log out: ______________</span></div>

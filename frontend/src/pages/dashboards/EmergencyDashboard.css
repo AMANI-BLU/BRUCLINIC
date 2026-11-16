@@ -112,6 +112,13 @@
   max-width: 760px !important;
 }
 
+.emergency-laboratory-modal {
+  width: min(98vw, 1400px) !important;
+  max-width: 1400px !important;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
 .emergency-workflow-patient {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 0.8fr));
@@ -210,6 +217,14 @@
   border-bottom: 1px solid var(--clr-border);
 }
 
+.emergency-prescription-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .emergency-remove-line {
   padding: 0.2rem 0.4rem;
   color: var(--clr-rose-400);
@@ -217,7 +232,7 @@
 
 .emergency-prescription-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.7rem;
 }
 

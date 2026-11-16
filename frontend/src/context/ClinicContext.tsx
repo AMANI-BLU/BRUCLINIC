@@ -27,6 +27,7 @@ interface ClinicContextType {
   removeFromQueue: (id: string) => Promise<void>;
   sendCardToOpdRequest: (data: { patient: Patient; hasExistingCard: boolean; chiefComplaint: string; priority: QueuePriority; stage: QueueStage; assignedDoctorId?: string; assignedDoctorName?: string; assignedOpdRoom?: string; vitals?: Vitals }) => Promise<ClinicQueueItem>;
   sendOpdToLabRequest: (queueItemId: string, data: { testName?: string; category?: LabOrder['category']; priority: Priority; specimenType?: string; unit?: string; referenceRange?: string; star?: boolean; technologistInstructions?: string; notes?: string; doctorId?: string; doctorName?: string; doctorDiagnosis?: string; consultationNotes?: string; tests?: Array<{ testName: string; category: string; specimenType: string; unit?: string; referenceRange?: string; star?: boolean; technologistInstructions?: string }> }) => Promise<void>;
+  sendEmergencyToLabRequest: (emergencyCaseId: string, data: { tests: Array<{ testName: string; category: string; specimenType: string; unit?: string; referenceRange?: string; star?: boolean; technologistInstructions?: string }>; priority: Priority; doctorName?: string; doctorDiagnosis?: string; notes?: string }) => Promise<void>;
   sendOpdToPharmacyRequest: (queueItemId: string, data: { medicines: Array<{ medicineId?: string; name: string; quantity?: number; instructions?: string; isExternal?: boolean; dosage?: string; frequency?: string; duration?: string }>; doctorId?: string; doctorName?: string; notes?: string; doctorDiagnosis?: string }) => Promise<void>;
   completeOpdConsultation: (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => Promise<void>;
   saveOpdAssessment: (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => Promise<void>;
@@ -246,6 +247,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       ? `Laboratory request sent. Already-pending tests skipped: ${duplicates.join(', ')}`
       : 'Laboratory request sent');
   }, [refresh, token]);
+  const sendEmergencyToLabRequest = useCallback(async (emergencyCaseId: string, data: Parameters<ClinicContextType['sendEmergencyToLabRequest']>[1]) => {
+    await apiPost('/workflows/emergency-to-lab', { emergencyCaseId, ...data }, token);
+    await refresh({ silent: true });
+    notifyActionSuccess('Emergency laboratory request sent');
+  }, [refresh, token]);
   const sendOpdToPharmacyRequest = useCallback(async (queueItemId: string, data: Parameters<ClinicContextType['sendOpdToPharmacyRequest']>[1]) => { await apiPost('/workflows/opd-to-pharmacy', { queueItemId, ...data }, token); await refresh(); notifyActionSuccess('Prescription sent to Pharmacy'); }, [refresh, token]);
   const completeOpdConsultation = useCallback(async (queueItemId: string, record: Omit<MedicalRecord, 'id' | 'prescription'> & { prescription?: MedicalRecord['prescription'] }) => { await apiPost('/workflows/complete-consultation', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Consultation completed'); }, [refresh, token]);
   const saveOpdAssessment = useCallback(async (queueItemId: string, record: Partial<Omit<MedicalRecord, 'id' | 'patientId' | 'patientName'>>) => { await apiPost('/workflows/save-assessment', { queueItemId, recordData: record }, token); await refresh(); notifyActionSuccess('Assessment saved without completing the visit'); }, [refresh, token]);
@@ -296,9 +302,10 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(id)}`, changes, token);
     setLabOrders(previous => previous.map(item => item.id === id ? response.data : item));
     if (changes.status === 'Completed') {
+      const isEmergencyRequest = /Emergency case\s+\S+/i.test(response.data.notes || '');
       const target = queue.find(item => item.labOrderId === id)
         || (response.data.queueItemId ? queue.find(item => item.id === response.data.queueItemId) : undefined)
-        || queue.find(item => item.stage === 'Laboratory' && item.patientId === response.data.patientId);
+        || (!isEmergencyRequest ? queue.find(item => item.stage === 'Laboratory' && item.patientId === response.data.patientId) : undefined);
       if (target) {
         const relatedOrders = labOrders
           .map(item => item.id === id ? response.data : item)
@@ -335,9 +342,10 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const updateLabOrderGroup = useCallback((updates: Array<{ id: string; changes: Partial<LabOrder> }>) => mutate(async () => {
     if (updates.length === 0) return;
     const firstOrder = labOrders.find(order => order.id === updates[0].id);
+    const isEmergencyRequest = Boolean(firstOrder && /Emergency case\s+\S+/i.test(firstOrder.notes || ''));
     const target = firstOrder && (queue.find(item => item.id === firstOrder.queueItemId)
       || queue.find(item => item.labOrderId === firstOrder.id)
-      || queue.find(item => item.stage === 'Laboratory' && item.patientId === firstOrder.patientId));
+      || (!isEmergencyRequest ? queue.find(item => item.stage === 'Laboratory' && item.patientId === firstOrder.patientId) : undefined));
 
     if (target && firstOrder) {
       try {
@@ -413,7 +421,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   return <ClinicContext.Provider value={{
     patients, doctors, appointments, records, medicines, queue, erCases, emergencyBays, labOrders, pharmacyOrders, loading, error, refresh,
     addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, addMedicine, updateMedicineStock, updateMedicine,
-    addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency,
+    addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendEmergencyToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency,
     addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, updateLabOrder, updateLabOrderGroup, addPharmacyOrder, dispensePharmacyOrder,
   }}>{children}</ClinicContext.Provider>;
 }

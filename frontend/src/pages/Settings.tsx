@@ -2,7 +2,8 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
-import { apiGet, apiPost } from '../api/client';
+import { apiGet, apiPatch, apiPost } from '../api/client';
+import defaultLoginBackground from '../assets/bg.jpg';
 import PasswordChangeForm from '../components/PasswordChangeForm';
 import PasswordField from '../components/PasswordField';
 import LoadingButton from '../components/LoadingButton';
@@ -147,6 +148,54 @@ function resizeProfileImage(file: File): Promise<string> {
   });
 }
 
+function resizeLoginBackground(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      reject(new Error('Choose a JPEG, PNG, or WebP image.'));
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      reject(new Error('Choose an image smaller than 20 MB.'));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      if (!image.naturalWidth || !image.naturalHeight) {
+        reject(new Error('That image has invalid dimensions.'));
+        return;
+      }
+      const contextCanvas = document.createElement('canvas');
+      const context = contextCanvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Could not prepare that image.'));
+        return;
+      }
+
+      for (const maxEdge of [1600, 1400, 1200, 1000, 800, 640]) {
+        const scale = Math.min(maxEdge / Math.max(image.naturalWidth, image.naturalHeight), 1);
+        contextCanvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        contextCanvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        context.fillStyle = '#0b1b2e';
+        context.fillRect(0, 0, contextCanvas.width, contextCanvas.height);
+        context.drawImage(image, 0, 0, contextCanvas.width, contextCanvas.height);
+        for (const quality of [0.82, 0.72, 0.62, 0.52]) {
+          const dataUrl = contextCanvas.toDataURL('image/jpeg', quality);
+          if (dataUrl.length <= 580000) {
+            resolve(dataUrl);
+            return;
+          }
+        }
+      }
+      reject(new Error('That image could not be compressed enough. Choose a simpler image.'));
+    };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('That image could not be read.')); };
+    image.src = objectUrl;
+  });
+}
+
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
@@ -163,6 +212,10 @@ export default function Settings() {
   const [savingProfilePicture, setSavingProfilePicture] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+  const [loginBackground, setLoginBackground] = useState<string | null>(null);
+  const [savingLoginBackground, setSavingLoginBackground] = useState(false);
+  const [loginBackgroundMessage, setLoginBackgroundMessage] = useState('');
+  const [loginBackgroundError, setLoginBackgroundError] = useState('');
 
   useEffect(() => {
     if (role !== 'admin') return;
@@ -172,6 +225,13 @@ export default function Settings() {
         setDefaultPasswordValue(result.password ?? null);
       })
       .catch(error => setDefaultPasswordError(error instanceof Error ? error.message : 'Could not load default password status.'));
+  }, [role, token]);
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+    apiGet<{ data?: { image?: string | null } }>('/admin/login-background', token)
+      .then(result => setLoginBackground(result.data?.image || null))
+      .catch(error => setLoginBackgroundError(error instanceof Error ? error.message : 'Could not load the login background.'));
   }, [role, token]);
 
   const saveDefaultPassword = async (event: FormEvent) => {
@@ -230,6 +290,40 @@ export default function Settings() {
       setProfileError(error instanceof Error ? error.message : 'Could not remove your profile picture.');
     } finally {
       setSavingProfilePicture(false);
+    }
+  };
+
+  const handleLoginBackground = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setLoginBackgroundMessage('');
+    setLoginBackgroundError('');
+    setSavingLoginBackground(true);
+    try {
+      const image = await resizeLoginBackground(file);
+      const result = await apiPatch<{ data?: { image?: string | null } }>('/admin/login-background', { image }, token);
+      setLoginBackground(result.data?.image || null);
+      setLoginBackgroundMessage('Login background updated.');
+    } catch (error) {
+      setLoginBackgroundError(error instanceof Error ? error.message : 'Could not update the login background.');
+    } finally {
+      setSavingLoginBackground(false);
+    }
+  };
+
+  const restoreLoginBackground = async () => {
+    setLoginBackgroundMessage('');
+    setLoginBackgroundError('');
+    setSavingLoginBackground(true);
+    try {
+      const result = await apiPatch<{ data?: { image?: string | null } }>('/admin/login-background', { image: null }, token);
+      setLoginBackground(result.data?.image || null);
+      setLoginBackgroundMessage('Default login background restored.');
+    } catch (error) {
+      setLoginBackgroundError(error instanceof Error ? error.message : 'Could not restore the default login background.');
+    } finally {
+      setSavingLoginBackground(false);
     }
   };
 
@@ -338,6 +432,39 @@ export default function Settings() {
         </section>
 
         <PasswordChangeForm />
+
+        {role === 'admin' && (
+          <section className="card card-outline card-primary settings-card settings-login-background-card">
+            <div className="settings-card-heading">
+              <div className="settings-icon settings-icon-blue"><Camera size={18} /></div>
+              <div>
+                <h2>{t('Login page background')}</h2>
+                <p>{t('Choose the image shown behind the sign-in form for everyone.')}</p>
+              </div>
+            </div>
+            <div
+              className="settings-login-background-preview"
+              style={{ backgroundImage: `linear-gradient(90deg, rgba(4, 18, 35, 0.42), rgba(4, 18, 35, 0.08)), url("${loginBackground || defaultLoginBackground}")` }}
+            >
+              <strong>{t(loginBackground ? 'Current custom background' : 'Built-in background')}</strong>
+              <span>{t('Preview')}</span>
+            </div>
+            <div className="settings-login-background-actions">
+              <label className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: savingLoginBackground ? 'wait' : 'pointer' }}>
+                <Camera size={14} /> {savingLoginBackground ? t('Saving…') : t('Upload background image')}
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleLoginBackground} disabled={savingLoginBackground} hidden />
+              </label>
+              {loginBackground && (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={restoreLoginBackground} disabled={savingLoginBackground}>
+                  <Trash2 size={13} /> {t('Restore built-in background')}
+                </button>
+              )}
+            </div>
+            <small className="settings-note">{t('JPEG, PNG, or WebP. The image is resized before saving.')}</small>
+            {loginBackgroundError && <div className="alert alert-danger py-1 px-2 mt-2 mb-0" role="alert">{t(loginBackgroundError)}</div>}
+            {loginBackgroundMessage && <div className="alert alert-success py-1 px-2 mt-2 mb-0" role="status">{t(loginBackgroundMessage)}</div>}
+          </section>
+        )}
 
         {role === 'admin' && (
           <section className="card card-outline card-warning settings-card">

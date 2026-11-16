@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, ArrowRight, KeyRound, Sun, Moon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { apiGet } from '../api/client';
 import LanguageSelect from '../components/LanguageSelect';
 import type { UserRole } from '../types';
 import { validateRequired, validateTextLength } from '../utils/validation';
@@ -21,6 +22,19 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginBackground, setLoginBackground] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiGet<{ data?: { image?: string | null } }>('/auth/login-background')
+      .then(result => { if (active) setLoginBackground(result.data?.image || null); })
+      .catch(() => { if (active) setLoginBackground(null); });
+    return () => { active = false; };
+  }, []);
+
+  const loginBackgroundStyle: CSSProperties & { '--login-background-image'?: string } = loginBackground
+    ? { '--login-background-image': `url("${loginBackground}")` }
+    : {};
 
   const getValidationErrors = () => {
     const requiredErrors = validateRequired(
@@ -80,7 +94,7 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page-container">
+    <div className="login-page-container" style={loginBackgroundStyle}>
       <div className="login-utility-controls">
         <LanguageSelect className="language-select--login" />
         <button

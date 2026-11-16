@@ -264,6 +264,59 @@ export async function sendOpdToLabRequest(queueItemId, data) {
   });
 }
 
+export async function sendEmergencyToLabRequest(emergencyCaseId, data) {
+  requireValue(emergencyCaseId, 'emergencyCaseId');
+  const requests = Array.isArray(data?.tests) ? data.tests : [];
+  if (!requests.length || requests.length > 100) throw workflowError('Select between 1 and 100 laboratory investigations');
+  requireValue(data?.priority, 'priority');
+
+  return withTransaction(async client => {
+    const caseResult = await client.query('SELECT * FROM emergency_cases WHERE id = $1 FOR UPDATE', [emergencyCaseId]);
+    const emergencyCase = caseResult.rows[0];
+    if (!emergencyCase) throw workflowError('Emergency case not found', 404);
+    if (['Discharged', 'Transferred'].includes(emergencyCase.status)) {
+      throw workflowError('This emergency case is closed and cannot receive new laboratory orders.', 409);
+    }
+
+    const seen = new Set();
+    const uniqueRequests = requests.filter(test => {
+      const key = [test.testName, test.category, test.specimenType].map(value => String(value || '').trim().toLowerCase()).join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!uniqueRequests.length) throw workflowError('Select at least one unique laboratory investigation');
+    for (const test of uniqueRequests) {
+      requireValue(test?.testName, 'testName');
+      requireValue(test?.category, 'category');
+      requireValue(test?.specimenType, 'specimenType');
+    }
+
+    const requestGroupId = workflowId('LABREQ');
+    const doctorName = data.doctorName || emergencyCase.attending_doctor || 'Emergency clinician';
+    const clinicalNotes = [
+      data.doctorDiagnosis ? `Diagnosis: ${String(data.doctorDiagnosis).trim()}` : '',
+      data.notes ? String(data.notes).trim() : '',
+    ].filter(Boolean).join('\n');
+    const labOrderIds = [];
+
+    for (const test of uniqueRequests) {
+      const id = workflowId('LAB');
+      const notes = [test.technologistInstructions || test.notes, clinicalNotes].filter(Boolean).join('\n');
+      await client.query(
+        `INSERT INTO lab_orders (id, patient_id, patient_name, doctor_id, doctor_name, ordered_at, priority, test_name, category, specimen_type, status, unit, reference_range, star, notes, request_group_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Requested', $11, $12, $13, $14, $15)`,
+        // Emergency assignees are user IDs, while lab_orders.doctor_id references doctors.id.
+        // Keep the clinician's display name and leave this relation unset until there is a doctor record.
+        [id, emergencyCase.patient_id, emergencyCase.patient_name, null, doctorName, nowTime(), data.priority, test.testName, test.category, test.specimenType, test.unit || null, test.referenceRange || null, Boolean(test.star ?? data.priority === 'Critical'), notes || `Emergency laboratory request for case ${emergencyCaseId}`, requestGroupId],
+      );
+      labOrderIds.push(id);
+    }
+
+    return { requestGroupId, labOrderIds };
+  });
+}
+
 export async function completeLabRequest(queueItemId, results) {
   requireValue(queueItemId, 'queueItemId');
   if (!Array.isArray(results) || results.length === 0 || results.length > 100) {

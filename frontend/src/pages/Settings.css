@@ -296,6 +296,35 @@
 
 .settings-quick-links svg { flex: 0 0 auto; color: var(--clr-primary-400); }
 
+.settings-login-background-card { grid-column: 1 / -1; }
+
+.settings-login-background-preview {
+  display: flex;
+  min-height: 190px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.35rem;
+  background-color: #0b1b2e;
+  background-position: center;
+  background-size: cover;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+}
+
+.settings-login-background-preview strong { font-size: 0.9rem; }
+.settings-login-background-preview span { font-size: 0.72rem; }
+
+.settings-login-background-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
 @media (max-width: 900px) {
   .settings-layout { grid-template-columns: 1fr; }
 }

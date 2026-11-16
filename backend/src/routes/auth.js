@@ -114,6 +114,13 @@ export async function authHandler(request, response, segments) {
   const subAction = segments[4];
   const ip = getClientIp(request);
 
+  // The selected background is deliberately public so the login page can
+  // display it before a user has authenticated.
+  if (request.method === 'GET' && action === 'login-background') {
+    const result = await query("SELECT value FROM system_config WHERE key = 'login_background_image' LIMIT 1");
+    return sendJson(response, 200, { data: { image: result.rows[0]?.value || null } });
+  }
+
   // ── POST /api/auth/login ──────────────────────────────────────
   if (request.method === 'POST' && action === 'login') {
     assertPlainObject(request.body);
