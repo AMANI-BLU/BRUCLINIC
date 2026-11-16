@@ -116,6 +116,7 @@ export function validateResourcePayload(resource, payload, allowedFields, requir
     chiefComplaint: 1000, criticalNotes: 2000, testName: 150, category: 120,
     specimenType: 100, result: 2000, unit: 40, referenceRange: 120, supplier: 150, address: 255,
     email: 254, phone: 30, emergencyContactName: 150, emergencyContactPhone: 30, addedBy: 180,
+    treatment: 5000, mealType: 300, physicianName: 180, profession: 120,
   };
   for (const [field, max] of Object.entries(stringRules)) {
     if (field in body) validateText(body[field], field, { max });
@@ -149,6 +150,23 @@ export function validateResourcePayload(resource, payload, allowedFields, requir
     validateText(body.diagnosis, 'Diagnosis', { required: !partial, max: 1000 });
     validateDate(body.visitDate, 'Visit date', { allowFuture: false });
     validateDate(body.followUpDate, 'Follow-up date');
+  }
+  if (resource === 'clinicDocuments') {
+    validateEnum(body.documentType, 'Document type', ['sick-leave', 'special-meal'], { required: !partial });
+    validateText(body.patientId, 'Patient', { required: !partial, max: 64 });
+    validateText(body.queueItemId, 'OPD encounter', { max: 64 });
+    validateText(body.diagnosis, 'Diagnosis', { required: !partial, max: 1000 });
+    validateText(body.treatment, 'Treatment given', { required: !partial, max: 5000 });
+    validateText(body.physicianName, 'Physician name', { required: !partial, max: 180 });
+    validateText(body.profession, 'Profession', { max: 120 });
+    validateText(body.mealType, 'Meal type', { required: !partial && body.documentType === 'special-meal', max: 300 });
+    validateDate(body.documentDate, 'Document date', { required: !partial, allowFuture: false });
+    validateDate(body.treatmentDate, 'Treatment date', { required: !partial });
+    validateDate(body.dateFrom, 'Start date', { required: !partial });
+    validateDate(body.dateTo, 'End date', { required: !partial });
+    if (body.dateFrom && body.dateTo && body.dateFrom > body.dateTo) {
+      throw validationError('End date must be on or after the start date');
+    }
   }
   if (resource === 'medicines') {
     validateNumber(body.stock, 'Stock', { min: 0 });

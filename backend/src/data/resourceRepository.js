@@ -42,6 +42,23 @@ const common = {
     arrays: ['symptoms'], json: ['vitals', 'prescription', 'labTests'], dates: ['visitDate', 'followUpDate'],
     search: ['patient_name', 'doctor_name', 'diagnosis', 'id'], order: 'visit_date DESC, created_at DESC',
   },
+  clinicDocuments: {
+    table: 'clinic_documents', prefix: 'DOC', required: [
+      'documentType', 'patientId', 'documentDate', 'treatmentDate', 'diagnosis', 'treatment',
+      'dateFrom', 'dateTo', 'physicianName',
+    ],
+    fields: {
+      id: 'id', documentType: 'document_type', patientId: 'patient_id', patientName: 'patient_name',
+      patientCode: 'patient_code', patientAge: 'patient_age', patientGender: 'patient_gender', queueItemId: 'queue_item_id',
+      documentDate: 'document_date', treatmentDate: 'treatment_date', diagnosis: 'diagnosis', treatment: 'treatment',
+      dateFrom: 'date_from', dateTo: 'date_to', mealType: 'meal_type', physicianName: 'physician_name', profession: 'profession',
+      createdBy: 'created_by', createdByName: 'created_by_name', issuedAt: 'issued_at', createdAt: 'created_at',
+    },
+    dates: ['documentDate', 'treatmentDate', 'dateFrom', 'dateTo'],
+    numbers: ['patientAge'],
+    search: ['patient_id', 'patient_name', 'physician_name'],
+    order: 'issued_at DESC',
+  },
   medicines: {
     table: 'medicines', prefix: 'MED', required: ['name', 'expiryDate'],
     fields: {
@@ -197,6 +214,15 @@ export async function listResource(resource, { search = '', limit = 100, offset 
   return { data: result.rows.map(row => deserializeRow(definition, row)), total, limit: boundedLimit, offset: boundedOffset };
 }
 
+export async function listClinicDocumentsForPatient(patientId) {
+  const definition = ensureResource('clinicDocuments');
+  const result = await query(
+    `SELECT ${selectColumns(definition)} FROM ${definition.table} WHERE patient_id = $1 ORDER BY issued_at DESC`,
+    [patientId],
+  );
+  return result.rows.map(row => deserializeRow(definition, row));
+}
+
 export async function findResource(resource, id) {
   const definition = ensureResource(resource);
   const result = await query(`SELECT ${selectColumns(definition)} FROM ${definition.table} WHERE id = $1`, [id]);
@@ -248,6 +274,7 @@ export async function deleteResource(resource, id) {
       await txQuery('DELETE FROM lab_orders WHERE patient_id = $1', [id]);
       await txQuery('DELETE FROM pharmacy_orders WHERE patient_id = $1', [id]);
       await txQuery('DELETE FROM appointments WHERE patient_id = $1', [id]);
+      await txQuery('DELETE FROM clinic_documents WHERE patient_id = $1', [id]);
       await txQuery('DELETE FROM medical_records WHERE patient_id = $1', [id]);
       const res = await txQuery(`DELETE FROM ${definition.table} WHERE id = $1`, [id]);
       return res.affectedRows ? { id } : null;

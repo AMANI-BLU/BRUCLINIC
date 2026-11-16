@@ -15,6 +15,14 @@
 .opd-doc-patient span { color: var(--clr-text-muted); font-size: 0.72rem; }
 .opd-doc-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
 .opd-doc-fields > .btn { align-self: flex-start; margin-top: 0.25rem; }
+.opd-doc-history { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.4rem; padding-top: 0.8rem; border-top: 1px solid var(--clr-border); }
+.opd-doc-history h3 { display: flex; align-items: center; gap: 0.4rem; margin: 0; color: var(--clr-text-primary); font-size: 0.8rem; }
+.opd-doc-history > p { margin: 0; color: var(--clr-text-muted); font-size: 0.74rem; }
+.opd-doc-history-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem; border: 1px solid var(--clr-border); border-radius: 0.55rem; background: var(--clr-bg-surface); }
+.opd-doc-history-item > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.opd-doc-history-item b { color: var(--clr-text-primary); font-size: 0.74rem; }
+.opd-doc-history-item span { overflow: hidden; color: var(--clr-text-muted); font-size: 0.66rem; text-overflow: ellipsis; white-space: nowrap; }
+.opd-doc-history-item .btn { flex: 0 0 auto; }
 .opd-doc-preview { align-self: start; min-height: 640px; padding: 1.25rem 1.35rem; border: 1px solid #cbd5e1; background: #fff; box-shadow: 0 5px 18px rgba(15, 23, 42, 0.09); color: #151515; font: 13px/1.5 'Times New Roman', serif; }
 .opd-doc-preview > header { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.2rem 0 1.1rem; border-bottom: 1px solid #555; text-align: center; }
 .opd-doc-preview > header img { width: 56px; height: 56px; object-fit: contain; }

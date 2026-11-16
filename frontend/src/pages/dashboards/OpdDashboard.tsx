@@ -1428,6 +1428,8 @@ export default function OpdDashboard() {
         <OpdClinicDocumentModal
           key={`${clinicDocumentType}-${selectedQueueItem.id}`}
           type={clinicDocumentType}
+          patientId={selectedQueueItem.patientId}
+          queueItemId={selectedQueueItem.id}
           patientName={patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName)}
           patientCode={patientCodeFor(patients, selectedQueueItem.patientId)}
           patientAge={calculateAge(selectedPatient?.dateOfBirth)}

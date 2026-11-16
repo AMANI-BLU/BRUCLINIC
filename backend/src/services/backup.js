@@ -35,6 +35,7 @@ const TABLE_CATALOG = Object.freeze([
   { table: 'appointments', label: 'Appointments', primaryKey: 'id', optional: false },
   { table: 'medical_records', label: 'Medical records', primaryKey: 'id', optional: false },
   { table: 'queue_items', label: 'Queue items', primaryKey: 'id', optional: false },
+  { table: 'clinic_documents', label: 'Issued clinic forms', primaryKey: 'id', optional: false },
   { table: 'emergency_cases', label: 'Emergency cases', primaryKey: 'id', optional: false },
   { table: 'lab_orders', label: 'Laboratory orders', primaryKey: 'id', optional: false },
   { table: 'pharmacy_orders', label: 'Pharmacy orders', primaryKey: 'id', optional: false },

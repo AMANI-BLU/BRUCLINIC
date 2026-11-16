@@ -87,7 +87,7 @@ try {
 
   // ── Table Row Counts ─────────────────────────────────────────
   print('  Table row counts:', C.bold);
-  const tables = ['users', 'patients', 'doctors', 'appointments', 'medical_records', 'medicines', 'queue_items', 'emergency_cases', 'lab_orders', 'pharmacy_orders', 'audit_logs', 'security_events'];
+  const tables = ['users', 'patients', 'doctors', 'appointments', 'medical_records', 'medicines', 'queue_items', 'clinic_documents', 'emergency_cases', 'lab_orders', 'pharmacy_orders', 'audit_logs', 'security_events'];
   for (const table of tables) {
     try {
       const result = await pool.query(`SELECT COUNT(*) AS cnt FROM "${table}"`);

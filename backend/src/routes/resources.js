@@ -11,10 +11,10 @@
 
 import { randomUUID } from 'node:crypto';
 import {
-  deleteResource, findResource, insertResource, listResource, resourceDefinitions, updateResource,
+  deleteResource, findResource, insertResource, listClinicDocumentsForPatient, listResource, resourceDefinitions, updateResource,
 } from '../data/resourceRepository.js';
 import { sendError, sendJson, sendNoContent } from '../utils/http.js';
-import { parsePagination, validateResourcePayload } from '../utils/validation.js';
+import { parsePagination, validateResourcePayload, validateText } from '../utils/validation.js';
 import { query } from '../db/pool.js';
 import { RESOURCE_ACCESS } from '../constants/roles.js';
 import { auditResourceMutation } from '../middleware/auditLogger.js';
@@ -30,6 +30,17 @@ function requireResourceAccess(resource, method, request, response) {
 
 let emergencyBaysReady;
 let emergencyAssessmentReady;
+
+function ageOnDate(dateOfBirth, onDate) {
+  const birth = new Date(`${String(dateOfBirth).slice(0, 10)}T00:00:00Z`);
+  const reference = new Date(`${String(onDate).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(reference.getTime())) return null;
+  let age = reference.getUTCFullYear() - birth.getUTCFullYear();
+  const beforeBirthday = reference.getUTCMonth() < birth.getUTCMonth()
+    || (reference.getUTCMonth() === birth.getUTCMonth() && reference.getUTCDate() < birth.getUTCDate());
+  if (beforeBirthday) age--;
+  return age >= 0 && age <= 130 ? age : null;
+}
 
 /**
  * Keep older deployments usable when the ER-bays migration was not applied.
@@ -361,6 +372,12 @@ export function createResourceHandler(resource) {
 
     // ── GET (list) ───────────────────────────────────────────
     if (request.method === 'GET' && !id) {
+      if (resource === 'clinicDocuments') {
+        const patientId = url.searchParams.get('patientId');
+        validateText(patientId, 'Patient', { required: true, max: 80 });
+        const data = await listClinicDocumentsForPatient(patientId);
+        return sendJson(response, 200, { data, total: data.length, limit: data.length, offset: 0 });
+      }
       if (resource === 'queue') await reconcileLabQueueVisits();
       if (resource === 'doctors') {
         // Auto-sync OPD staff into the doctors table
@@ -416,9 +433,39 @@ export function createResourceHandler(resource) {
       const payload = resource === 'emergency' && !request.body?.arrivalTime
         ? { ...request.body, arrivalTime: new Date().toISOString() }
         : request.body;
-      const body = validateResourcePayload(resource, payload, allowedFields, definition.required);
+      const serverManagedDocumentFields = new Set([
+        'id', 'patientName', 'patientCode', 'patientAge', 'patientGender', 'createdBy', 'createdByName', 'issuedAt', 'createdAt',
+      ]);
+      const acceptedFields = resource === 'clinicDocuments'
+        ? allowedFields.filter(field => !serverManagedDocumentFields.has(field))
+        : allowedFields;
+      const body = validateResourcePayload(resource, payload, acceptedFields, definition.required);
       try {
         await assertNoDuplicateResource(resource, body);
+        if (resource === 'clinicDocuments') {
+          const patientResult = await query(
+            `SELECT id, student_id, staff_id, first_name, last_name, date_of_birth, gender
+             FROM patients WHERE id = $1`,
+            [body.patientId],
+          );
+          const patient = patientResult.rows[0];
+          if (!patient) return sendError(response, 404, 'Patient not found');
+          if (body.queueItemId) {
+            const queueResult = await query('SELECT patient_id FROM queue_items WHERE id = $1', [body.queueItemId]);
+            if (!queueResult.rows.length) return sendError(response, 404, 'OPD encounter not found');
+            if (queueResult.rows[0].patient_id !== patient.id) {
+              return sendError(response, 409, 'The encounter does not belong to this patient');
+            }
+          }
+          Object.assign(body, {
+            patientName: `${patient.first_name} ${patient.last_name}`.trim().slice(0, 180),
+            patientCode: patient.student_id?.trim() || patient.staff_id?.trim() || patient.id,
+            patientAge: ageOnDate(patient.date_of_birth, body.treatmentDate),
+            patientGender: patient.gender,
+            createdBy: request.user?.id || null,
+            createdByName: String(request.user?.name || 'Clinic staff').slice(0, 180),
+          });
+        }
         if (resource === 'records' && body.doctorId) {
           const docCheck = await query('SELECT id FROM doctors WHERE id = $1', [body.doctorId]);
           if (!docCheck.rows.length) body.doctorId = null;

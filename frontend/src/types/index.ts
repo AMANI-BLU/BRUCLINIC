@@ -82,6 +82,37 @@ export interface MedicalRecord {
   };
 }
 
+export type ClinicDocumentType = 'sick-leave' | 'special-meal';
+
+export interface ClinicDocument {
+  id: string;
+  documentType: ClinicDocumentType;
+  patientId: string;
+  patientName: string;
+  patientCode?: string;
+  patientAge?: number;
+  patientGender?: Gender;
+  queueItemId?: string;
+  documentDate: string;
+  treatmentDate: string;
+  diagnosis: string;
+  treatment: string;
+  dateFrom: string;
+  dateTo: string;
+  mealType?: string;
+  physicianName: string;
+  profession?: string;
+  createdBy?: string;
+  createdByName: string;
+  issuedAt: string;
+  createdAt: string;
+}
+
+export type NewClinicDocument = Omit<
+  ClinicDocument,
+  'id' | 'patientName' | 'patientCode' | 'patientAge' | 'patientGender' | 'createdBy' | 'createdByName' | 'issuedAt' | 'createdAt'
+>;
+
 export interface Prescription {
   medication: string;
   dosage: string;

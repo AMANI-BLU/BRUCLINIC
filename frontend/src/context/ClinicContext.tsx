@@ -4,8 +4,8 @@ import { useAuth } from './AuthContext';
 import { useMaintenance } from './MaintenanceContext';
 import { useNetwork } from './NetworkContext';
 import type {
-  Appointment, ClinicQueueItem, Doctor, ERCase, EmergencyBay, LabOrder, MedicalRecord, MedicineItem, Patient, PharmacyOrder,
-  Priority, QueuePriority, QueueStage, Vitals,
+  Appointment, ClinicDocument, ClinicQueueItem, Doctor, ERCase, EmergencyBay, LabOrder, MedicalRecord, MedicineItem,
+  NewClinicDocument, Patient, PharmacyOrder, Priority, QueuePriority, QueueStage, Vitals,
 } from '../types';
 
 interface ClinicContextType {
@@ -19,6 +19,8 @@ interface ClinicContextType {
   updateAppointment: (id: string, changes: Partial<Appointment>) => Promise<void>;
   deleteAppointment: (id: string) => Promise<void>;
   addRecord: (record: Omit<MedicalRecord, 'id'>) => Promise<MedicalRecord>;
+  listClinicDocuments: (patientId: string) => Promise<ClinicDocument[]>;
+  issueClinicDocument: (document: NewClinicDocument) => Promise<ClinicDocument>;
   addMedicine: (medicine: Omit<MedicineItem, 'id'>) => Promise<MedicineItem>;
   updateMedicineStock: (id: string, delta: number) => Promise<void>;
   updateMedicine: (id: string, changes: Partial<MedicineItem>) => Promise<void>;
@@ -221,6 +223,14 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const deleteAppointment = useCallback((id: string) => mutate(async () => { await apiDelete(`/appointments/${encodeURIComponent(id)}`, token); setAppointments(previous => previous.filter(item => item.id !== id)); }, 'Appointment deleted'), [mutate, token]);
 
   const addRecord = useCallback(async (record: Omit<MedicalRecord, 'id'>) => { const response = await apiPost<{ data: MedicalRecord }>('/records', record, token); setRecords(previous => [response.data, ...previous]); notifyActionSuccess('Medical record saved'); return response.data; }, [token]);
+  const listClinicDocuments = useCallback(async (patientId: string) => {
+    const response = await apiList<ClinicDocument>('clinic-documents', token, { patientId, limit: 500 });
+    return response.data || [];
+  }, [token]);
+  const issueClinicDocument = useCallback(async (document: NewClinicDocument) => {
+    const response = await apiPost<{ data: ClinicDocument }>('/clinic-documents', document, token);
+    return response.data;
+  }, [token]);
   const addMedicine = useCallback(async (medicine: Omit<MedicineItem, 'id'>) => { const response = await apiPost<{ data: MedicineItem }>('/medicines', medicine, token); setMedicines(previous => [...previous, response.data]); notifyActionSuccess('Medicine added to inventory'); return response.data; }, [token]);
   const updateMedicineStock = useCallback((id: string, delta: number) => mutate(async () => { const medicine = medicines.find(item => item.id === id); if (!medicine) throw new Error('Medicine was not found.'); const response = await apiPatch<{ data: MedicineItem }>(`/medicines/${encodeURIComponent(id)}`, { stock: Math.max(0, medicine.stock + delta) }, token); setMedicines(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Inventory stock updated'), [medicines, mutate, token]);
   const updateMedicine = useCallback((id: string, changes: Partial<MedicineItem>) => mutate(async () => { const response = await apiPatch<{ data: MedicineItem }>(`/medicines/${encodeURIComponent(id)}`, changes, token); setMedicines(previous => previous.map(item => item.id === id ? response.data : item)); }, 'Medicine details updated'), [mutate, token]);
@@ -420,7 +430,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
   return <ClinicContext.Provider value={{
     patients, doctors, appointments, records, medicines, queue, erCases, emergencyBays, labOrders, pharmacyOrders, loading, error, refresh,
-    addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, addMedicine, updateMedicineStock, updateMedicine,
+    addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, listClinicDocuments, issueClinicDocument, addMedicine, updateMedicineStock, updateMedicine,
     addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendEmergencyToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency,
     addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, updateLabOrder, updateLabOrderGroup, addPharmacyOrder, dispensePharmacyOrder,
   }}>{children}</ClinicContext.Provider>;

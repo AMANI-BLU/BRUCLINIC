@@ -119,4 +119,8 @@ export const RESOURCE_ACCESS = Object.freeze({
     PATCH: [ROLES.ADMIN, ROLES.PHARMACY],
     DELETE: [ROLES.ADMIN],
   },
+  clinicDocuments: {
+    GET: [ROLES.ADMIN, ROLES.OPD],
+    POST: [ROLES.ADMIN, ROLES.OPD],
+  },
 });
