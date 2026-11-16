@@ -6,5 +6,3 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users (last_seen_at DESC);
-
-INSERT INTO schema_migrations (version) VALUES ('014_user_profile_presence.sql') ON CONFLICT DO NOTHING;

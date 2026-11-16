@@ -5,5 +5,3 @@ ALTER TABLE emergency_cases
 
 CREATE INDEX IF NOT EXISTS idx_emergency_cases_assignee
   ON emergency_cases (attending_doctor_id, created_at DESC);
-
-INSERT INTO schema_migrations (version) VALUES ('015_emergency_assignee.sql') ON CONFLICT DO NOTHING;
