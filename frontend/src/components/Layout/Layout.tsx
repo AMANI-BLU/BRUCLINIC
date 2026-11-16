@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CalendarDays,
   Pill, Stethoscope, BarChart2, Menu, Bell, Settings,
-  ChevronRight, LogOut, HeartPulse, ClipboardList, Sun, Moon,
+  ChevronRight, LogOut, ClipboardList, Sun, Moon,
   ShieldCheck, ShieldAlert, Database, Wrench, AlertTriangle, MessageSquare,
   CheckCircle2, ArrowRight, Trash2
 } from 'lucide-react';
@@ -21,6 +21,7 @@ import { apiGet } from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
 import { validateRequired } from '../../utils/validation';
 import LanguageSelect from '../LanguageSelect';
+import { normalizeDoctorName } from '../../utils/doctorName';
 
 interface NavItemDef {
   to: string;
@@ -293,7 +294,7 @@ export default function Layout({ children }: LayoutProps) {
             </button>
           </li>
           <li className="nav-item d-none d-sm-inline-block">
-            <span className="nav-link app-current-page"><HeartPulse size={15} /> {t(currentPage?.label || 'Clinic workspace')}</span>
+            <span className="nav-link app-current-page">{t(currentPage?.label || 'Clinic workspace')}</span>
           </li>
         </ul>
         <ul className="navbar-nav ms-auto app-header-actions">
@@ -426,7 +427,7 @@ export default function Layout({ children }: LayoutProps) {
           <li className="nav-item app-header-user">
             <span className="nav-link">
               <span className="app-header-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</span>
-              <span className="app-header-user-copy d-none d-md-inline-flex"><strong>{currentUser?.name || 'Staff User'}</strong></span>
+              <span className="app-header-user-copy d-none d-md-inline-flex"><strong>{normalizeDoctorName(currentUser?.name) || 'Staff User'}</strong></span>
             </span>
           </li>
           <li className="nav-item"><button type="button" className="nav-link app-header-btn app-logout" onClick={handleLogout} title={t('Sign out')} aria-label={t('Sign out')}><LogOut size={17} /></button></li>
@@ -442,8 +443,8 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         <div className="sidebar-wrapper">
           <div className="user-panel mt-2 pb-2 mb-2 d-flex app-user-panel">
-            <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={currentUser?.name || 'Staff User'}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</div></div>
-            {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{t(currentUser?.roleTitle || role)}</small></div>}
+            <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={normalizeDoctorName(currentUser?.name) || 'Staff User'}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</div></div>
+            {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{normalizeDoctorName(currentUser?.name) || 'Staff User'}</span><small>{t(currentUser?.roleTitle || role)}</small></div>}
           </div>
           <nav className="mt-1" aria-label="Main navigation">
             {isAsideExpanded && <p className="app-nav-heading">{t('Main Menu')}</p>}
@@ -524,7 +525,7 @@ export default function Layout({ children }: LayoutProps) {
                 {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (currentUser?.avatarInitials || 'ST')}
               </div>
               <h2 id="session-lock-title" style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>{t('Session Locked')}</h2>
-              <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)', fontSize: '0.94rem' }}>{currentUser?.name || 'Staff User'}</div>
+              <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)', fontSize: '0.94rem' }}>{normalizeDoctorName(currentUser?.name) || 'Staff User'}</div>
               <div style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>{t(currentUser?.roleTitle || role)}</div>
             </div>
             <p style={{ margin: '0 0 16px', color: 'var(--clr-text-muted, #5f6c87)', fontSize: '.84rem', textAlign: 'center', lineHeight: 1.45 }}>

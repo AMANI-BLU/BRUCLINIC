@@ -10,6 +10,7 @@ import {
   ArrowRight, ShieldAlert, Send, AlertTriangle, Building2, Phone
 } from 'lucide-react';
 import './ReceptionDashboard.css';
+import { normalizeDoctorName } from '../../utils/doctorName';
 import ModalPortal from '../../components/ModalPortal';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import LoadingButton from '../../components/LoadingButton';
@@ -477,7 +478,7 @@ export default function ReceptionDashboard() {
                     </td>
                     <td>
                       <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>
-                        {item.assignedDoctorName || 'Unassigned'}
+                        {normalizeDoctorName(item.assignedDoctorName) || 'Unassigned'}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
                         {item.assignedOpdRoom || 'OPD Room 1'}

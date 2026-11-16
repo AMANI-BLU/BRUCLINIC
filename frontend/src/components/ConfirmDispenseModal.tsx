@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pill, CheckCircle2, AlertTriangle, X, Package, AlertCircle, ShoppingBag, Printer } from 'lucide-react';
 import type { PharmacyOrder, MedicineItem } from '../types';
 import { formatDateTime12 } from '../utils/date';
+import { normalizeDoctorName } from '../utils/doctorName';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 import ModalPortal from './ModalPortal';
 import LoadingButton from './LoadingButton';
@@ -150,7 +151,7 @@ export default function ConfirmDispenseModal({
                 Confirm Dispense &amp; Deduct Stock
               </h2>
               <span style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)' }}>
-                Order #{order.id.slice(0, 8)} · Prescribed by {order.doctorName}
+                Order #{order.id.slice(0, 8)} · Prescribed by {normalizeDoctorName(order.doctorName)}
               </span>
             </div>
           </div>

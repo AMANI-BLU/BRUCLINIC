@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import './PharmacyDashboard.css';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
+import { normalizeDoctorName } from '../../utils/doctorName';
 
 export default function PharmacyDashboard() {
   const {
@@ -218,7 +219,7 @@ export default function PharmacyDashboard() {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-muted)', marginTop: 2 }}>
-                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {order.doctorName} · {formatDateTime12(order.prescribedAt, order.createdAt)}
+                        {patientCodeFor(patients, order.patientId)} · Prescribed by: {normalizeDoctorName(order.doctorName)} · {formatDateTime12(order.prescribedAt, order.createdAt)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>

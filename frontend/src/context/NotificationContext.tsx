@@ -5,6 +5,8 @@ import {
 import { useClinic } from './ClinicContext';
 import { useAuth } from './AuthContext';
 import { formatTime12 } from '../utils/date';
+import type { LabOrder } from '../types';
+import { normalizeDoctorName } from '../utils/doctorName';
 
 export interface ClinicAlert {
   id: string;
@@ -51,6 +53,22 @@ function saveReadAlertIds(storageKey: string, ids: string[]) {
   try {
     localStorage.setItem(storageKey, JSON.stringify(ids));
   } catch {}
+}
+
+function groupLabOrders(orders: LabOrder[]) {
+  const groups = new Map<string, LabOrder[]>();
+  orders.forEach(order => {
+    const key = order.requestGroupId || order.queueItemId || order.id;
+    const group = groups.get(key) || [];
+    group.push(order);
+    groups.set(key, group);
+  });
+  return [...groups.entries()].map(([key, groupOrders]) => ({
+    key,
+    orders: groupOrders,
+    patientName: groupOrders[0]?.patientName || 'Patient',
+    doctorName: normalizeDoctorName(groupOrders[0]?.doctorName) || 'Clinician',
+  }));
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -175,50 +193,53 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // 3. Laboratory: Abnormal results and pending orders
-    if (['admin', 'laboratory', 'opd'].includes(role)) {
-      labOrders.filter(l => l.status === 'Completed' && l.isAbnormal && labOrderBelongsToUser(l)).forEach(l => {
+    // 3. Laboratory: keep notifications at the request-form level, even when
+    // a form contains many individual investigations.
+    const labGroups = groupLabOrders(labOrders.filter(labOrderBelongsToUser));
+
+    if (['admin', 'laboratory'].includes(role)) {
+      labGroups.forEach(group => {
+        const pending = group.orders.filter(order => order.status !== 'Completed');
+        const abnormal = group.orders.filter(order => order.status === 'Completed' && order.isAbnormal);
+        if (!pending.length && !abnormal.length) return;
+        const completedCount = group.orders.length - pending.length;
+        const statusSummary = [
+          pending.length ? `Pending: ${pending.map(order => order.testName).join(', ')}` : '',
+          abnormal.length ? `Abnormal: ${abnormal.map(order => `${order.testName} (${order.result || 'flagged'})`).join(', ')}` : '',
+          pending.length && completedCount ? `${completedCount}/${group.orders.length} tests reported` : '',
+          `From ${group.doctorName}`,
+        ].filter(Boolean).join(' · ');
         alerts.push({
-          id: `lab-abnormal-${l.id}`,
+          id: `lab-form-${group.key}`,
           category: 'lab',
           categoryLabel: 'Laboratory',
-          priority: 'critical',
-          title: `Abnormal Lab: ${l.patientName}`,
-          message: `${l.testName}: ${l.result || 'Flagged clinically abnormal'}`,
-          time: formatTime12(l.completedAt || 'Recently'),
-          link: role === 'opd' ? '/opd' : '/laboratory',
+          priority: abnormal.length ? 'critical' : 'urgent',
+          title: pending.length
+            ? `Lab form: ${group.patientName} (${pending.length} pending)`
+            : `Abnormal lab results: ${group.patientName} (${abnormal.length})`,
+          message: statusSummary,
+          time: formatTime12(abnormal[0]?.completedAt || group.orders[0]?.orderedAt || 'Recently'),
+          link: '/laboratory',
           icon: FlaskConical,
         });
       });
     }
 
     if (role === 'opd') {
-      labOrders.filter(l => l.status === 'Completed' && !l.isAbnormal && labOrderBelongsToUser(l)).forEach(l => {
+      labGroups.forEach(group => {
+        const completed = group.orders.filter(order => order.status === 'Completed');
+        if (!completed.length) return;
+        const abnormal = completed.some(order => order.isAbnormal);
+        const pendingCount = group.orders.length - completed.length;
         alerts.push({
-          id: `lab-ready-${l.id}`,
+          id: `lab-results-${group.key}`,
           category: 'lab',
           categoryLabel: 'Laboratory',
-          priority: 'normal',
-          title: `Lab Ready: ${l.patientName} (${l.testName})`,
-          message: `Result: ${l.result ? `${l.result}${l.unit ? ' ' + l.unit : ''}` : 'Completed'} · Ordered by ${l.doctorName || 'Clinician'}`,
-          time: formatTime12(l.completedAt || 'Recently'),
+          priority: abnormal ? 'critical' : 'normal',
+          title: `${abnormal ? 'Abnormal lab results' : 'Lab results ready'}: ${group.patientName}`,
+          message: `${completed.map(order => `${order.testName}: ${order.result || 'Completed'}${order.unit ? ` ${order.unit}` : ''}`).join(' · ')}${pendingCount ? ` · ${pendingCount} test${pendingCount === 1 ? '' : 's'} still pending` : ''}`,
+          time: formatTime12(completed[0]?.completedAt || 'Recently'),
           link: '/opd',
-          icon: FlaskConical,
-        });
-      });
-    }
-
-    if (['laboratory', 'admin'].includes(role)) {
-      labOrders.filter(l => l.status !== 'Completed').forEach(l => {
-        alerts.push({
-          id: `lab-pending-${l.id}`,
-          category: 'lab',
-          categoryLabel: 'Laboratory',
-          priority: 'urgent',
-          title: `Order to Process: ${l.testName}`,
-          message: `Patient: ${l.patientName} · Prescribed by: ${l.doctorName || 'Clinician'}`,
-          time: 'Pending test',
-          link: '/laboratory',
           icon: FlaskConical,
         });
       });

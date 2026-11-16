@@ -9,6 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import LoadingButton from '../components/LoadingButton';
 import { formatTime12 } from '../utils/date';
+import { normalizeDoctorName, stripDoctorTitle } from '../utils/doctorName';
 
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -53,7 +54,7 @@ export default function Appointments() {
 
   const handleDoctorChange = (id: string) => {
     const d = doctors.find(x => x.id === id);
-    setForm(f => ({ ...f, doctorId: id, doctorName: d ? `${d.firstName} ${d.lastName}` : '' }));
+    setForm(f => ({ ...f, doctorId: id, doctorName: d ? stripDoctorTitle(`${d.firstName} ${d.lastName}`) : '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,7 +173,7 @@ export default function Appointments() {
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{patientNameFor(patients, a.patientId, a.patientName)}</div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>{patientCodeFor(patients, a.patientId)} · {a.reason}</div>
                 </td>
-                <td style={{ fontSize: '0.875rem' }}>{a.doctorName}</td>
+                <td style={{ fontSize: '0.875rem' }}>{normalizeDoctorName(a.doctorName)}</td>
                 <td>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{a.date}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)' }}>

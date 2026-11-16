@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { ClinicQueueItem, Patient, Priority, UserProfile } from '../types';
 import { LAB_FORM_SECTIONS, type LabFormSection, type StandardLabTest } from '../utils/labPresets';
+import { normalizeDoctorName } from '../utils/doctorName';
 import LoadingButton from './LoadingButton';
 import './LaboratoryPaperForm.css';
 
@@ -295,7 +296,7 @@ export default function LaboratoryPaperForm({
             </section>
 
             <div className="lab-paper-signatures">
-              <div><b>Requesting Clinician</b><span>Name: {currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician'}</span><span>Sign: {currentUser?.name || 'Digital signature'}</span></div>
+              <div><b>Requesting Clinician</b><span>Name: {normalizeDoctorName(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician'}</span><span>Sign: {normalizeDoctorName(currentUser?.name) || 'Digital signature'}</span></div>
               <div><b>Tech’s Comment</b><span>____________________________________________________________</span><span>____________________________________________________________</span></div>
               <div><b>Approved by</b><span>Laboratory technologist: ___________________________</span><span>Sign: ____________________ · Date: ______________</span></div>
               <div><b>Laboratory use</b><span>Tech initials: __________________ · Cost: __________</span><span>Log in: ______________ · Log out: ______________</span></div>

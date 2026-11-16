@@ -15,6 +15,7 @@ import ModalPortal from '../components/ModalPortal';
 import LoadingButton from '../components/LoadingButton';
 import './Patients.css';
 import { formatDateTime12, formatTime12 } from '../utils/date';
+import { normalizeDoctorName } from '../utils/doctorName';
 
 interface PatientFormData {
   firstName: string;
@@ -696,7 +697,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                     <span className="view-card-eyebrow">{rec.visitDate}</span>
                     <h4>{diagnosisLabel(rec.diagnosis, Boolean(rec.externalReferral))}</h4>
                   </div>
-                  <span className="badge badge-gray">{rec.doctorName}</span>
+                  <span className="badge badge-gray">{normalizeDoctorName(rec.doctorName)}</span>
                 </div>
 
                 {rec.symptoms && rec.symptoms.length > 0 && (
@@ -755,7 +756,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                 </div>
                 <div className="view-card-row">
                   <span>Ordered by</span>
-                  <p>{lo.doctorName} · {formatDateTime12(lo.orderedAt)}</p>
+                  <p>{normalizeDoctorName(lo.doctorName)} · {formatDateTime12(lo.orderedAt)}</p>
                 </div>
                 {lo.status === 'Completed' && (
                   <div className="view-result">
@@ -782,7 +783,7 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
                   <div className="view-row-sub">{q.chiefComplaint}</div>
                 </div>
                 <div className="view-row-meta">
-                  {formatTime12(q.registeredTime)}<br />{q.assignedDoctorName || 'General OPD'}
+                  {formatTime12(q.registeredTime)}<br />{normalizeDoctorName(q.assignedDoctorName) || 'General OPD'}
                 </div>
               </div>
             ))

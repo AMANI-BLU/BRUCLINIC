@@ -3,6 +3,7 @@ import { Printer, X, Building2, HeartPulse, AlertCircle } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 import type { Vitals } from '../types';
 import { cleanClinicalText, clinicalTextHtml } from '../utils/clinicalText';
+import { formatDoctorName } from '../utils/doctorName';
 
 export interface ReferralPrintModalProps {
   isOpen: boolean;
@@ -68,6 +69,7 @@ export default function ReferralPrintModal({
 
   const displaySymptoms = symptoms.map(cleanClinicalText).filter(Boolean);
   const displayNotes = cleanClinicalText(notes);
+  const formattedDoctorName = formatDoctorName(doctorName);
 
   if (!isOpen) return null;
 
@@ -175,7 +177,7 @@ export default function ReferralPrintModal({
     <div><span class="label">Sex</span>${patientGender || '—'}</div>
     <div><span class="label">Occupation</span>${occupation || '—'}</div>
     <div><span class="label">Category &amp; Department</span>${patientType || 'Patient'}${patientDepartment ? ` · ${patientDepartment}` : ''}</div>
-    <div><span class="label">Referring Clinician</span><strong>Dr. ${doctorName}</strong></div>
+    <div><span class="label">Referring Clinician</span><strong>${clinicalTextHtml(formattedDoctorName)}</strong></div>
     <div><span class="label">Referring Department</span>Outpatient Consultation (OPD)</div>
   </div>
 
@@ -221,7 +223,7 @@ export default function ReferralPrintModal({
     <div class="doc-meta">Document Issued: ${date}<br/>${CLINIC_NAME} Health Records</div>
     <div class="sig-block">
       <div class="sig-line"></div>
-      <div class="sig-name">Dr. ${doctorName}</div>
+      <div class="sig-name">${clinicalTextHtml(formattedDoctorName)}</div>
       <div class="sig-sub">Referring Clinician Signature &amp; Stamp</div>
       <div class="sig-clinic">${CLINIC_NAME}</div>
     </div>
@@ -414,7 +416,7 @@ export default function ReferralPrintModal({
               </div>
               <div>
                 <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Referring Clinician</span>
-                <span style={{ color: '#0f172a', fontWeight: 700 }}>Dr. {doctorName}</span>
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>{formattedDoctorName}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', fontSize: '0.72rem', display: 'block' }}>Referring Department</span>
@@ -612,7 +614,7 @@ export default function ReferralPrintModal({
               <div style={{ textAlign: 'center', width: 240 }}>
                 <div style={{ borderBottom: '1px dashed #64748b', marginBottom: 4, height: 35 }}></div>
                 <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>
-                  Dr. {doctorName}
+                  {formattedDoctorName}
                 </div>
                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
                   Referring Clinician Signature &amp; Stamp

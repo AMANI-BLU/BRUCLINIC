@@ -7,6 +7,7 @@ import { findPatient, patientCode, patientFullName, patientInitials, patientOpti
 import { diagnosisLabel, hasDiagnosis, normalizeDiagnosis } from '../utils/diagnosis';
 import { firstError, validateDate, validateRequired } from '../utils/validation';
 import { cleanClinicalText } from '../utils/clinicalText';
+import { formatDoctorName, normalizeDoctorName, stripDoctorTitle } from '../utils/doctorName';
 import {
   Activity, Calendar, Clock, FileText,
   FlaskConical, Pill, Plus, Search, Stethoscope, X, Building2,
@@ -20,7 +21,7 @@ import ReferralPrintModal from '../components/ReferralPrintModal';
 import LoadingButton from '../components/LoadingButton';
 
 function getInitials(name: string) {
-  const parts = name.replace(/^Dr\.\s*/i, '').trim().split(/\s+/);
+  const parts = stripDoctorTitle(name).split(/\s+/);
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return (parts[0] ? parts[0].slice(0, 2) : 'PT').toUpperCase();
 }
@@ -170,7 +171,7 @@ export default function MedicalRecords() {
         patientId: patient.id,
         patientName: `${patient.firstName} ${patient.lastName}`,
         doctorId: doctor.id,
-        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        doctorName: stripDoctorTitle(`${doctor.firstName} ${doctor.lastName}`),
         visitDate: form.visitDate,
         diagnosis: form.diagnosis,
         symptoms: form.symptoms.split(',').map(item => item.trim()).filter(Boolean),
@@ -438,7 +439,7 @@ function RecordRow({ record, patient, links, onView }: {
       </td>
       <td>
         <div style={{ fontSize: '0.84rem', color: 'var(--clr-text-primary)' }}>
-          {record.doctorName}
+          {normalizeDoctorName(record.doctorName)}
         </div>
       </td>
       <td>
@@ -639,7 +640,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
                 <span className="view-card-eyebrow">Primary diagnosis</span>
                 <h4 className="record-diagnosis-value">{diagnosisLabel(record.diagnosis, Boolean(externalRef))}</h4>
               </div>
-              <span className="badge badge-gray">Dr. {record.doctorName}</span>
+              <span className="badge badge-gray">{formatDoctorName(record.doctorName)}</span>
             </div>
 
             {displaySymptoms.length > 0 && (
@@ -727,7 +728,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
                   <strong>OPD Consultation</strong>
                   <StepStatus label={hasDiagnosis(record.diagnosis) ? 'Completed' : externalRef ? 'Referred' : 'N/A'} tone={hasDiagnosis(record.diagnosis) ? 'green' : externalRef ? 'amber' : 'gray'} />
                 </div>
-                <div className="record-step-body">Doctor: <strong>Dr. {record.doctorName}</strong></div>
+                <div className="record-step-body">Doctor: <strong>{formatDoctorName(record.doctorName)}</strong></div>
                 <div className="record-step-note">Dx: <strong>{diagnosisLabel(record.diagnosis, Boolean(externalRef))}</strong></div>
               </div>
 

@@ -15,12 +15,54 @@
 }
 
 .opd-queue-panel { min-width: 0; padding: 0; overflow: hidden; }
-.opd-queue-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 0.9rem 1rem; border-bottom: 1px solid var(--clr-border); }
+.opd-queue-header { display: grid; gap: 0.8rem; padding: 1rem 1.05rem 0.8rem; border-bottom: 1px solid var(--clr-border); background: linear-gradient(135deg, var(--clr-bg-surface), var(--clr-bg-card) 72%); }
 .opd-queue-heading { min-width: 0; }
-.opd-queue-heading h3 { display: flex; align-items: center; gap: 0.45rem; margin: 0; color: var(--clr-text-primary); font-size: 0.94rem; font-weight: 700; }
-.opd-queue-subtitle { display: block; margin-top: 0.2rem; color: var(--clr-text-muted); font-size: 0.72rem; }
-.opd-queue-filters { flex-wrap: wrap; font-size: 0.72rem; }
+.opd-queue-heading-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.opd-queue-title-wrap { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.opd-queue-title-icon { display: grid; width: 2.45rem; height: 2.45rem; flex: 0 0 auto; place-items: center; border: 1px solid rgba(37, 99, 235, 0.18); border-radius: 0.7rem; background: rgba(37, 99, 235, 0.09); color: var(--clr-primary-500); }
+.opd-queue-heading h3 { margin: 0; color: var(--clr-text-primary); font-size: 0.98rem; font-weight: 800; letter-spacing: -0.015em; }
+.opd-queue-subtitle { display: block; margin-top: 0.2rem; color: var(--clr-text-muted); font-size: 0.7rem; }
+.opd-queue-scope { flex-wrap: nowrap; gap: 0.15rem; padding: 0.18rem; border: 1px solid var(--clr-border); border-radius: 0.65rem; background: var(--clr-bg-hover); }
+.opd-queue-scope .pill-tab { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2rem; padding: 0.38rem 0.6rem; border-radius: 0.45rem; color: var(--clr-text-secondary); font-size: 0.69rem; font-weight: 700; white-space: nowrap; }
+.opd-queue-scope .pill-tab.active { background: var(--clr-bg-card); color: var(--clr-primary-500); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1); }
+.opd-queue-scope .pill-tab span { display: grid; min-width: 1.2rem; height: 1.2rem; place-items: center; padding: 0 0.22rem; border-radius: 1rem; background: var(--clr-bg-hover); font-size: 0.62rem; }
+.opd-queue-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.7rem; }
+.opd-queue-filters .pill-tab { min-height: 1.9rem; padding: 0.35rem 0.65rem; border: 1px solid transparent; border-radius: 99px; color: var(--clr-text-secondary); font-size: inherit; font-weight: 700; transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease; }
+.opd-queue-filters .pill-tab:hover { border-color: var(--clr-border); background: var(--clr-bg-hover); }
+.opd-queue-filters .pill-tab.active { border-color: rgba(37, 99, 235, 0.24); background: rgba(37, 99, 235, 0.1); color: var(--clr-primary-500); }
 .opd-queue-panel > div:last-child { padding: 0.85rem 1rem 1rem; }
+.opd-queue-list { display: grid; gap: 0.65rem; }
+.opd-queue-item { min-width: 0; padding: 0.85rem; border: 1px solid var(--clr-border); border-radius: 0.75rem; background: var(--clr-bg-card); color: var(--clr-text-primary); text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035); transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+.opd-queue-item:hover { border-color: var(--clr-primary-400); box-shadow: 0 5px 16px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
+.opd-queue-item:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }
+.opd-queue-item.is-selected { border-color: var(--clr-primary-500); background: rgba(37, 99, 235, 0.055); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.09); }
+.opd-queue-item.has-results { border-left: 3px solid var(--clr-primary-400); }
+.opd-queue-item.is-emergency { border-left: 3px solid var(--clr-rose-500); }
+.opd-queue-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; }
+.opd-queue-patient { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.opd-queue-token { display: grid; min-width: 2.5rem; height: 2rem; place-items: center; padding: 0 0.35rem; border: 1px solid rgba(37, 99, 235, 0.18); border-radius: 0.45rem; background: rgba(37, 99, 235, 0.08); color: var(--clr-primary-500); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.68rem; font-weight: 800; }
+.opd-queue-patient-copy { display: grid; gap: 0.14rem; min-width: 0; }
+.opd-queue-patient-copy strong { overflow: hidden; color: var(--clr-text-primary); font-size: 0.84rem; text-overflow: ellipsis; white-space: nowrap; }
+.opd-queue-patient-copy span { color: var(--clr-text-muted); font-size: 0.64rem; }
+.opd-queue-priority { flex: 0 0 auto; padding: 0.25rem 0.48rem; border: 1px solid var(--clr-border); border-radius: 99px; background: var(--clr-bg-surface); color: var(--clr-text-secondary); font-size: 0.62rem; font-weight: 800; }
+.opd-queue-priority.is-urgent { border-color: rgba(217, 119, 6, 0.25); background: rgba(217, 119, 6, 0.09); color: var(--clr-warning-600, #b45309); }
+.opd-queue-priority.is-emergency { border-color: rgba(220, 53, 69, 0.25); background: rgba(220, 53, 69, 0.09); color: var(--clr-rose-500); }
+.opd-queue-complaint { margin: 0.65rem 0; }
+.opd-queue-complaint > span { color: var(--clr-text-muted); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
+.opd-queue-complaint p { margin: 0.15rem 0 0; color: var(--clr-text-secondary); font-size: 0.76rem; line-height: 1.4; overflow-wrap: anywhere; }
+.opd-queue-lab-ready { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.6rem; padding: 0.5rem 0.6rem; border: 1px solid rgba(37, 99, 235, 0.18); border-radius: 0.5rem; background: rgba(37, 99, 235, 0.07); color: var(--clr-primary-500); }
+.opd-queue-lab-ready svg { flex: 0 0 auto; margin-top: 0.1rem; }
+.opd-queue-lab-ready span { display: grid; gap: 0.12rem; min-width: 0; }
+.opd-queue-lab-ready strong { font-size: 0.68rem; }
+.opd-queue-lab-ready small { color: var(--clr-text-secondary); font-size: 0.64rem; overflow-wrap: anywhere; }
+.opd-queue-vitals { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.5rem; border: 1px solid var(--clr-border); border-radius: 0.5rem; background: var(--clr-bg-surface); }
+.opd-queue-vitals span { padding: 0.2rem 0.35rem; border-radius: 0.3rem; color: var(--clr-text-muted); font-size: 0.62rem; }
+.opd-queue-vitals strong { color: var(--clr-text-primary); font-weight: 700; }
+.opd-queue-allergy { display: flex; align-items: flex-start; gap: 0.35rem; margin-top: 0.5rem; color: var(--clr-rose-500); font-size: 0.66rem; font-weight: 700; overflow-wrap: anywhere; }
+.opd-queue-allergy svg { flex: 0 0 auto; }
+.opd-queue-item-footer { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid var(--clr-border); }
+.opd-queue-item-footer > span:first-child { color: var(--clr-text-muted); font-size: 0.62rem; }
+.opd-queue-item-footer > span:last-child { display: inline-flex; align-items: center; gap: 0.2rem; color: var(--clr-primary-500); font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
 
 .opd-lab-return-card { margin-bottom: 1rem; overflow: hidden; border: 1px solid var(--clr-border); border-left: 4px solid var(--clr-primary-400); border-radius: 0.65rem; background: var(--clr-bg-surface); }
 .opd-lab-return-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--clr-border); background: var(--clr-bg-hover); }
@@ -226,6 +268,11 @@
 @media (max-width: 480px) {
   .opd-queue-header { align-items: stretch; }
   .opd-queue-filters { width: 100%; }
+  .opd-queue-heading-top { align-items: flex-start; flex-direction: column; }
+  .opd-queue-scope { width: 100%; }
+  .opd-queue-scope .pill-tab { flex: 1; justify-content: center; }
+  .opd-queue-item { padding: 0.7rem; }
+  .opd-queue-item-footer { align-items: flex-start; flex-direction: column; }
 
   .opd-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
 

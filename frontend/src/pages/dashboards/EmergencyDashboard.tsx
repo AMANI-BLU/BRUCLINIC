@@ -10,6 +10,7 @@ import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import ConfirmModal from '../../components/ConfirmModal';
 import LoadingButton from '../../components/LoadingButton';
 import './EmergencyDashboard.css';
+import { normalizeDoctorName } from '../../utils/doctorName';
 import {
   AlertTriangle, Activity, Bed, CheckCircle2, ShieldAlert, X,
   Plus, FlaskConical, Pill, Trash2, Building2
@@ -574,7 +575,7 @@ export default function EmergencyDashboard() {
                         BP {c.vitals.bloodPressure} · HR {c.vitals.heartRate} · SpO2 {c.vitals.spo2}%
                       </div>
                     </td>
-                    <td>{c.attendingDoctor}</td>
+                    <td>{normalizeDoctorName(c.attendingDoctor)}</td>
                     <td>
                       <span className="badge badge-green">{c.status}</span>
                     </td>

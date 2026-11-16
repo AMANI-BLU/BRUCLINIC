@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,7 @@ import LoadingButton from '../../components/LoadingButton';
 import LaboratoryPaperForm, { type LabRequestLine } from '../../components/LaboratoryPaperForm';
 import type { StandardLabTest } from '../../utils/labPresets';
 import { cleanClinicalText } from '../../utils/clinicalText';
+import { formatDoctorName, stripDoctorTitle } from '../../utils/doctorName';
 import './OpdDashboard.css';
 import { formatTime12 } from '../../utils/date';
 
@@ -53,6 +54,20 @@ export default function OpdDashboard() {
   const [selectedQueueItem, setSelectedQueueItem] = useState<ClinicQueueItem | null>(null);
   const [opdTabFilter, setOpdTabFilter] = useState<'all' | 'card_requests' | 'lab_returned' | 'completed'>('all');
   const [doctorQueueScope, setDoctorQueueScope] = useState<'my' | 'all'>('my');
+
+  useEffect(() => {
+    if (!selectedQueueItem) return;
+    const refreshedItem = queue.find(item => item.id === selectedQueueItem.id);
+    if (refreshedItem && (
+      refreshedItem.stage !== selectedQueueItem.stage
+      || refreshedItem.labStatus !== selectedQueueItem.labStatus
+      || refreshedItem.labResult !== selectedQueueItem.labResult
+      || refreshedItem.labTestName !== selectedQueueItem.labTestName
+      || refreshedItem.labReferenceRange !== selectedQueueItem.labReferenceRange
+    )) {
+      setSelectedQueueItem(refreshedItem);
+    }
+  }, [queue, selectedQueueItem]);
 
   // Consultation modal / action tab
   const [activeConsultationTab, setActiveConsultationTab] = useState<'overview' | 'lab' | 'pharmacy' | 'vitals'>('overview');
@@ -173,8 +188,8 @@ export default function OpdDashboard() {
 
     // Check doctor match by name (case-insensitive substring/equality without Dr. prefix)
     if (q.assignedDoctorName && currentUser?.name) {
-      const cleanDoc = q.assignedDoctorName.replace(/^(dr\.?|doctor)\s+/i, '').trim().toLowerCase();
-      const cleanUser = currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '').trim().toLowerCase();
+      const cleanDoc = stripDoctorTitle(q.assignedDoctorName).toLowerCase();
+      const cleanUser = stripDoctorTitle(currentUser.name).toLowerCase();
       if (cleanDoc === cleanUser || cleanDoc.includes(cleanUser) || cleanUser.includes(cleanDoc)) {
         return true;
       }
@@ -318,7 +333,7 @@ export default function OpdDashboard() {
         }),
         notes: labClinicalNotes || `OPD referral for ${selectedQueueItem.chiefComplaint}`,
         doctorId: currentUser?.id || selectedQueueItem.assignedDoctorId || '',
-        doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
+        doctorName: stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician',
         doctorDiagnosis: consultation.diagnosis.trim(),
         consultationNotes: consultation.clinicalNotes.trim(),
       });
@@ -386,7 +401,7 @@ export default function OpdDashboard() {
       await sendOpdToPharmacyRequest(selectedQueueItem.id, {
         medicines: formattedMedicines,
         doctorId: selectedQueueItem.assignedDoctorId,
-        doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
+        doctorName: stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician',
         doctorDiagnosis: primaryDiagnosis,
         notes: consultation.clinicalNotes,
       });
@@ -413,7 +428,7 @@ export default function OpdDashboard() {
         patientId: selectedQueueItem.patientId,
         patientName: selectedQueueItem.patientName,
         doctorId: currentUser?.id || selectedQueueItem.assignedDoctorId || '',
-        doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
+        doctorName: stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician',
         visitDate: new Date().toISOString().split('T')[0],
         diagnosis: consultation.diagnosis,
         symptoms: consultation.symptoms ? consultation.symptoms.split(',').map(s => s.trim()) : [selectedQueueItem.chiefComplaint],
@@ -436,7 +451,7 @@ export default function OpdDashboard() {
       setActionLoading('assessment');
       await saveOpdAssessment(selectedQueueItem.id, {
         doctorId: selectedQueueItem.assignedDoctorId || '',
-        doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
+        doctorName: stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician',
         visitDate: new Date().toISOString().slice(0, 10),
         diagnosis: consultation.diagnosis,
         symptoms: consultation.symptoms.split(',').map(value => value.trim()).filter(Boolean),
@@ -482,7 +497,7 @@ export default function OpdDashboard() {
         patientGender: patient?.gender,
         patientType: patient?.patientType,
         patientDepartment: patient?.department,
-        doctorName: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+        doctorName: stripDoctorTitle(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician',
         destination: referralDestination.trim(),
         reason: referralReason.trim(),
         diagnosis: consultation.diagnosis,
@@ -500,10 +515,10 @@ export default function OpdDashboard() {
       await referOutside(selectedQueueItem.id, {
         destination: referralDestination.trim(),
         reason: referralReason.trim(),
-        doctorName: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+        doctorName: stripDoctorTitle(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician',
         recordData: {
           doctorId: selectedQueueItem.assignedDoctorId || '',
-          doctorName: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+          doctorName: stripDoctorTitle(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician',
           diagnosis: consultation.diagnosis,
           symptoms: consultation.symptoms.split(',').map(value => value.trim()).filter(Boolean),
           vitals: vitalsForm,
@@ -549,7 +564,7 @@ export default function OpdDashboard() {
         chiefComplaint: `OPD Emergency Referral: ${selectedQueueItem.chiefComplaint}. ${consultation.clinicalNotes}`,
         bedNumber: 'Bay 02 (Acute)',
         vitals: vitalsForm,
-        attendingDoctor: currentUser?.name || selectedQueueItem.assignedDoctorName || 'OPD clinician',
+        attendingDoctor: stripDoctorTitle(currentUser?.name || selectedQueueItem.assignedDoctorName) || 'OPD clinician',
         diagnosis: consultation.diagnosis.trim() || selectedQueueItem.doctorDiagnosis || '',
         criticalNotes: 'Referred urgently from OPD Consultation.',
         requestSource: 'OPD Consultation',
@@ -624,19 +639,27 @@ export default function OpdDashboard() {
         <div className="card opd-queue-panel">
           <div className="opd-queue-header">
             <div className="opd-queue-heading">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, width: '100%' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Stethoscope size={18} className="text-primary" /> OPD Doctor Consultation Queue
-                </h3>
+              <div className="opd-queue-heading-top">
+                <div className="opd-queue-title-wrap">
+                  <span className="opd-queue-title-icon"><Stethoscope size={19} /></span>
+                  <div>
+                    <h3>OPD Doctor Consultation Queue</h3>
+                    <span className="opd-queue-subtitle">
+                      {doctorQueueScope === 'my'
+                        ? `Patients assigned to ${currentUser?.name ? formatDoctorName(currentUser.name) : 'your station'}`
+                        : 'Card Room arrivals and patients returning from the laboratory'}
+                    </span>
+                  </div>
+                </div>
 
-                <div className="pill-tabs" style={{ background: 'var(--clr-bg-hover)', padding: '2px 4px', borderRadius: 8, border: '1px solid var(--clr-border)' }}>
+                <div className="pill-tabs opd-queue-scope">
                   <button
                     type="button"
                     className={`pill-tab ${doctorQueueScope === 'my' ? 'active' : ''}`}
                     onClick={() => setDoctorQueueScope('my')}
                     title="Only patients assigned to you by Receptionist"
                   >
-                    Assigned to Me ({totalAssignedToMe})
+                    Assigned to me <span>{totalAssignedToMe}</span>
                   </button>
                   <button
                     type="button"
@@ -644,41 +667,36 @@ export default function OpdDashboard() {
                     onClick={() => setDoctorQueueScope('all')}
                     title="All patients in OPD consultation queue"
                   >
-                    All Doctors ({totalOpdDoctorQueue})
+                    All doctors <span>{totalOpdDoctorQueue}</span>
                   </button>
                 </div>
               </div>
-              <span className="opd-queue-subtitle">
-                {doctorQueueScope === 'my'
-                  ? `Patients specifically assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'} by receptionist`
-                  : 'All Card Room requests and patients returning from Laboratory across all OPD clinicians'}
-              </span>
             </div>
 
             <div className="pill-tabs opd-queue-filters">
               <button
+                type="button"
                 className={`pill-tab ${opdTabFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setOpdTabFilter('all')}
               >
                 All ({waitingForDoctor.length})
               </button>
               <button
+                type="button"
                 className={`pill-tab ${opdTabFilter === 'card_requests' ? 'active' : ''}`}
                 onClick={() => setOpdTabFilter('card_requests')}
               >
-                From Card Room
+                Card Room
               </button>
               <button
+                type="button"
                 className={`pill-tab ${opdTabFilter === 'lab_returned' ? 'active' : ''}`}
                 onClick={() => setOpdTabFilter('lab_returned')}
-                style={{
-                  color: waitingForDoctor.filter(q => q.labStatus === 'Completed').length > 0 ? 'var(--clr-primary-400)' : undefined,
-                  fontWeight: 700
-                }}
               >
-                Lab Ready ({waitingForDoctor.filter(q => q.labStatus === 'Completed').length})
+                Lab ready ({waitingForDoctor.filter(q => q.labStatus === 'Completed').length})
               </button>
               <button
+                type="button"
                 className={`pill-tab ${opdTabFilter === 'completed' ? 'active' : ''}`}
                 onClick={() => setOpdTabFilter('completed')}
               >
@@ -687,7 +705,7 @@ export default function OpdDashboard() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="opd-queue-list">
             {doctorStationQueue.length === 0 ? (
               <div className="empty-state">
                 <div className={`empty-state-icon ${opdTabFilter === 'completed' ? 'tone-green' : 'tone-blue'}`}>
@@ -707,7 +725,7 @@ export default function OpdDashboard() {
                     : opdTabFilter === 'card_requests'
                     ? 'Patient requests from the Card Room will appear here when receptionist dispatches to this OPD station.'
                     : doctorQueueScope === 'my'
-                    ? `There are currently no patients assigned to ${currentUser?.name ? 'Dr. ' + currentUser.name.replace(/^(dr\.?|doctor)\s+/i, '') : 'your station'}. New patients will appear automatically when receptionist routes them here.`
+                    ? `There are currently no patients assigned to ${currentUser?.name ? formatDoctorName(currentUser.name) : 'your station'}. New patients will appear automatically when receptionist routes them here.`
                     : 'The OPD consultation queue is currently empty. New patient requests will appear here automatically when dispatched from the Card Room.'}
                 </p>
               </div>
@@ -721,59 +739,45 @@ export default function OpdDashboard() {
                   <div
                     key={item.id}
                     onClick={() => handleSelectPatient(item)}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: 10,
-                      border: isSelected ? '2px solid var(--clr-primary-500)' : hasLabResults ? '1px solid var(--clr-primary-400)' : '1px solid var(--clr-border)',
-                      background: isSelected ? 'rgba(37, 99, 235, 0.08)' : hasLabResults ? 'rgba(37, 99, 235, 0.04)' : 'var(--clr-bg-card)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleSelectPatient(item);
+                      }
                     }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    className={`opd-queue-item${isSelected ? ' is-selected' : ''}${hasLabResults ? ' has-results' : ''}${item.priority === 'Emergency' ? ' is-emergency' : ''}`}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span className="badge badge-blue" style={{ fontFamily: 'monospace', fontWeight: 800 }}>
-                          {item.tokenNumber}
-                        </span>
-                        <span style={{ fontWeight: 800, color: 'var(--clr-text-primary)', fontSize: '0.92rem' }}>
-                          {patientNameFor(patients, item.patientId, item.patientName)}
-                        </span>
-                        <span className="badge badge-gray" style={{ fontSize: '0.68rem' }}>
-                          {item.cardStatus || 'Existing Card'}
-                        </span>
+                    <div className="opd-queue-item-head">
+                      <div className="opd-queue-patient">
+                        <span className="opd-queue-token">{item.tokenNumber}</span>
+                        <div className="opd-queue-patient-copy">
+                          <strong>{patientNameFor(patients, item.patientId, item.patientName)}</strong>
+                          <span>{item.cardStatus || 'Existing Card'} · {item.patientType}</span>
+                        </div>
                       </div>
-
-                      <span className={`badge ${
-                        item.priority === 'Emergency' ? 'badge-red' : 'badge-gray'
-                      }`} style={{ fontSize: '0.7rem' }}>
+                      <span className={`opd-queue-priority${item.priority === 'Emergency' ? ' is-emergency' : item.priority === 'Urgent' ? ' is-urgent' : ''}`}>
                         {item.priority}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '0.8rem', color: 'var(--clr-text-secondary)', marginBottom: '0.5rem' }}>
-                      <strong>Complaint:</strong> {item.chiefComplaint}
+                    <div className="opd-queue-complaint">
+                      <span>Chief concern</span>
+                      <p>{item.chiefComplaint}</p>
                     </div>
 
-                    {/* Prominent Lab Results Ready Badge */}
                     {hasLabResults && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        background: 'rgba(37, 99, 235, 0.08)', border: '1px solid var(--clr-primary-400)',
-                        color: 'var(--clr-primary-400)', padding: '0.35rem 0.65rem', borderRadius: 6,
-                        fontSize: '0.74rem', fontWeight: 700, marginBottom: '0.5rem'
-                      }}>
-                        <FlaskConical size={14} /> {linkedLabResults.length > 0 ? `${linkedLabResults.length} lab result${linkedLabResults.length === 1 ? '' : 's'} returned` : 'Lab results ready'}: {item.labTestName}
+                      <div className="opd-queue-lab-ready">
+                        <FlaskConical size={15} />
+                        <span><strong>{linkedLabResults.length || 'Lab'} result{linkedLabResults.length === 1 ? '' : 's'} returned</strong><small>{item.labTestName || 'Ready for clinician review'}</small></span>
                       </div>
                     )}
 
-                    {/* Vitals Summary Pill */}
                     {item.vitals && (
-                      <div style={{
-                        display: 'flex', gap: '0.75rem', fontSize: '0.72rem',
-                        color: 'var(--clr-text-muted)', background: 'var(--clr-bg-hover)',
-                        padding: '0.3rem 0.6rem', borderRadius: 6, flexWrap: 'wrap'
-                      }}>
-                        <span>BP: <strong style={{ color: 'var(--clr-text-primary)' }}>{item.vitals.bloodPressure || '—'}</strong></span>
+                      <div className="opd-queue-vitals">
+                        <span>BP <strong>{item.vitals.bloodPressure || '—'}</strong></span>
                         <span>HR: <strong>{item.vitals.heartRate ? `${item.vitals.heartRate} bpm` : '—'}</strong></span>
                         <span>Temp: <strong style={{ color: (item.vitals.temperature || 0) > 37.5 ? '#f87171' : undefined }}>{item.vitals.temperature ? `${item.vitals.temperature}°C` : '—'}</strong></span>
                         <span>SpO2: <strong>{item.vitals.spo2 ? `${item.vitals.spo2}%` : '—'}</strong></span>
@@ -782,18 +786,14 @@ export default function OpdDashboard() {
 
                     {/* Allergy warning indicator */}
                     {item.allergies && (Array.isArray(item.allergies) ? item.allergies.length > 0 : Boolean(item.allergies)) && (
-                      <div style={{ fontSize: '0.7rem', color: '#f87171', fontWeight: 700, marginTop: 4 }}>
-                        Allergy Alert: {Array.isArray(item.allergies) ? item.allergies.join(', ') : String(item.allergies)}
+                      <div className="opd-queue-allergy">
+                        <ShieldAlert size={14} /> Allergy alert: {Array.isArray(item.allergies) ? item.allergies.join(', ') : String(item.allergies)}
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
-                        Registered: {formatTime12(item.registeredTime)} · {item.assignedOpdRoom || 'OPD 1'}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--clr-primary-400)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                        {opdTabFilter === 'completed' ? 'Review Visit' : 'Start Consultation'} <ChevronRight size={14} />
-                      </span>
+                    <div className="opd-queue-item-footer">
+                      <span>Registered {formatTime12(item.registeredTime)} · {item.assignedOpdRoom || 'OPD 1'}</span>
+                      <span>{opdTabFilter === 'completed' ? 'Review visit' : hasLabResults ? 'Review results' : 'Open patient'} <ChevronRight size={15} /></span>
                     </div>
                   </div>
                 );
@@ -843,7 +843,7 @@ export default function OpdDashboard() {
                         patientGender: patient?.gender,
                         patientType: patient?.patientType,
                         patientDepartment: patient?.department,
-                        doctorName: selectedQueueItem.externalReferral?.referredBy || currentUser?.name || 'OPD clinician',
+                        doctorName: stripDoctorTitle(selectedQueueItem.externalReferral?.referredBy || currentUser?.name) || 'OPD clinician',
                         destination: selectedQueueItem.externalReferral?.destination || 'Hospital',
                         reason: selectedQueueItem.externalReferral?.reason || '',
                         diagnosis: consultation.diagnosis,
@@ -1414,7 +1414,7 @@ export default function OpdDashboard() {
                     </div>
 
                     <div style={{ fontSize: '0.76rem', color: 'var(--clr-text-muted)', marginBottom: '0.5rem' }}>
-                      Physician: {rec.doctorName}
+                      Physician: {formatDoctorName(rec.doctorName)}
                     </div>
 
                     <div style={{ fontSize: '0.82rem', color: 'var(--clr-text-secondary)', marginBottom: '0.5rem' }}>

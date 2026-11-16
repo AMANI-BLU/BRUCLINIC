@@ -41,6 +41,17 @@ function normalizeQueueRow(row) {
   } : row;
 }
 function normalizeOrderRow(row) { return row ? { ...row, medicines: parseJsonField(row.medicines, []) } : row; }
+function labTestSummary(orders) {
+  const names = orders.map(order => String(order.test_name || '').trim()).filter(Boolean);
+  const joined = names.join(', ');
+  if (joined.length <= 170) return joined;
+  return `${names[0].slice(0, 145)} + ${names.length - 1} more`;
+}
+function labReferenceSummary(orders) {
+  const ranges = orders.filter(order => order.reference_range)
+    .map(order => `${order.test_name}: ${order.reference_range}`).join(' | ');
+  return ranges.length <= 90 ? ranges : 'See individual lab results';
+}
 
 export async function createCardToOpdRequest(data) {
   requireValue(data?.patientId, 'patientId'); requireValue(data?.stage, 'stage');
@@ -236,8 +247,9 @@ export async function sendOpdToLabRequest(queueItemId, data) {
       [queueItemId],
     );
     const testNames = activeOrders.rows.map(order => order.test_name).join(', ');
+    const queueTestSummary = labTestSummary(activeOrders.rows);
     const activeFirstOrder = activeOrders.rows[0] || firstOrder;
-    await client.query(`UPDATE queue_items SET stage = 'Laboratory', lab_order_id = $1, lab_test_name = $2, lab_category = $3, lab_status = 'Requested', lab_notes = $4, doctor_diagnosis = COALESCE(NULLIF($5, ''), doctor_diagnosis), consultation_notes = COALESCE(NULLIF($6, ''), consultation_notes), request_source = 'OPD Consultation', request_destination = 'Laboratory', request_notes = $7, updated_at = NOW() WHERE id = $8`, [activeFirstOrder.id, testNames, activeFirstOrder.category, data.notes || null, data.doctorDiagnosis || '', data.consultationNotes || '', `Diagnostic lab request by ${doctorName}: ${testNames}`, queueItemId]);
+    await client.query(`UPDATE queue_items SET stage = 'Laboratory', lab_order_id = $1, lab_test_name = $2, lab_category = $3, lab_status = 'Requested', lab_notes = $4, doctor_diagnosis = COALESCE(NULLIF($5, ''), doctor_diagnosis), consultation_notes = COALESCE(NULLIF($6, ''), consultation_notes), request_source = 'OPD Consultation', request_destination = 'Laboratory', request_notes = $7, updated_at = NOW() WHERE id = $8`, [activeFirstOrder.id, queueTestSummary, activeFirstOrder.category, data.notes || null, data.doctorDiagnosis || '', data.consultationNotes || '', `Diagnostic lab request by ${doctorName}: ${testNames}`, queueItemId]);
     const updated = await client.query('SELECT * FROM queue_items WHERE id = $1', [queueItemId]);
     return {
       queueItem: normalizeQueueRow(updated.rows[0]),
@@ -249,6 +261,101 @@ export async function sendOpdToLabRequest(queueItemId, data) {
         ...inputDuplicateNames,
       ])],
     };
+  });
+}
+
+export async function completeLabRequest(queueItemId, results) {
+  requireValue(queueItemId, 'queueItemId');
+  if (!Array.isArray(results) || results.length === 0 || results.length > 100) {
+    throw workflowError('Submit between 1 and 100 laboratory results');
+  }
+
+  const resultById = new Map();
+  for (const result of results) {
+    requireValue(result?.id, 'result id');
+    requireValue(result?.result, 'result');
+    if (resultById.has(String(result.id))) throw workflowError('Each laboratory test can only be submitted once');
+    resultById.set(String(result.id), result);
+  }
+
+  return withTransaction(async client => {
+    const queueResult = await client.query('SELECT * FROM queue_items WHERE id = $1 FOR UPDATE', [queueItemId]);
+    const queueItem = queueResult.rows[0];
+    if (!queueItem) throw workflowError('Queue item not found', 404);
+    if (queueItem.stage === 'Completed') throw workflowError('This visit is already completed.', 409);
+
+    const ids = [...resultById.keys()];
+    const orderResult = await client.query(
+      `SELECT * FROM lab_orders
+       WHERE id = ANY($1::varchar[])
+         AND (queue_item_id = $2 OR id = $3)
+       FOR UPDATE`,
+      [ids, queueItemId, queueItem.lab_order_id || null],
+    );
+    if (orderResult.rows.length !== ids.length) {
+      throw workflowError('One or more tests do not belong to this OPD visit', 404);
+    }
+
+    const savedAt = new Date().toISOString();
+    for (const row of orderResult.rows) {
+      const result = resultById.get(row.id);
+      if (!result || row.status === 'Completed') continue;
+      await client.query(
+        `UPDATE lab_orders SET
+           status = 'Completed', result = $2, unit = $3, reference_range = $4,
+           is_abnormal = $5, completed_at = $6, cost = $7, logged_in_at = $8,
+           logged_out_at = $9, star = $10, technician_initials = $11,
+           technician_comment = $12, approved_by = $13, approved_at = $14
+         WHERE id = $1`,
+        [
+          row.id, String(result.result).trim(), result.unit || '', result.referenceRange || '',
+          Boolean(result.isAbnormal), result.completedAt || savedAt,
+          result.cost === undefined ? null : result.cost,
+          result.loggedInAt || savedAt, result.loggedOutAt || savedAt, Boolean(result.star),
+          result.technicianInitials || '', result.technicianComment || '',
+          result.approvedBy || 'Laboratory technologist', result.approvedAt || savedAt,
+        ],
+      );
+    }
+
+    const allOrdersResult = await client.query(
+      `SELECT id, test_name, status, result, unit, reference_range, is_abnormal
+       FROM lab_orders
+       WHERE queue_item_id = $1 OR id = $2
+       ORDER BY created_at ASC`,
+      [queueItemId, queueItem.lab_order_id || ''],
+    );
+    const visitOrders = allOrdersResult.rows;
+    const pendingOrders = visitOrders.filter(order => order.status !== 'Completed');
+    const completedOrders = visitOrders.filter(order => order.status === 'Completed' && order.result);
+    const queueTestNames = labTestSummary(visitOrders);
+    const allResults = completedOrders
+      .map(order => `${order.test_name}: ${order.result}${order.unit ? ` ${order.unit}` : ''}`)
+      .join(' | ');
+    const referenceRanges = labReferenceSummary(completedOrders);
+    const now = new Date().toISOString();
+    const stage = pendingOrders.length ? 'Laboratory' : 'Doctor Consultation';
+    const labStatus = pendingOrders.length ? 'Requested' : 'Completed';
+    const requestNotes = pendingOrders.length
+      ? `${pendingOrders.length} laboratory investigation(s) still pending.`
+      : `Laboratory results ready: ${allResults || 'Analysis complete'}.`;
+    const updatedQueue = await client.query(
+      `UPDATE queue_items SET
+         stage = $2, lab_order_id = COALESCE(lab_order_id, $3), lab_test_name = $4,
+         lab_status = $5, lab_result = $6, lab_unit = '', lab_reference_range = $7,
+         lab_is_abnormal = $8, lab_completed_at = CASE WHEN $9 THEN $10 ELSE lab_completed_at END,
+         request_source = 'Laboratory', request_destination = $11, request_notes = $12,
+         updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [
+        queueItemId, stage, visitOrders[0]?.id || null, queueTestNames, labStatus,
+        allResults, referenceRanges, completedOrders.some(order => order.is_abnormal),
+        pendingOrders.length === 0, now, stage, requestNotes,
+      ],
+    );
+
+    return { queueItem: normalizeQueueRow(updatedQueue.rows[0]), updatedOrderIds: ids };
   });
 }
 

@@ -69,7 +69,7 @@ export const env = Object.freeze({
   })(),
   host: process.env.HOST || (((process.env.NODE_ENV || 'development') === 'production') ? '0.0.0.0' : 'localhost'),
 
-  // Database connection. DATABASE_URL (if set) takes precedence over the
+  // Database connection. DATABASE_U  RL (if set) takes precedence over the
   // individual DB_* values — this is what Render Blueprints provide.
   databaseUrl,
   // When DATABASE_URL is present, use its parsed components for logs and

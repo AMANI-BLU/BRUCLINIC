@@ -1,6 +1,6 @@
 import {
   completeEmergencyCase, completeOpdConsultation, createCardToOpdRequest, dispensePharmacyOrder,
-  referOutside, saveOpdAssessment, sendOpdToLabRequest, sendOpdToPharmacyRequest,
+  completeLabRequest, referOutside, saveOpdAssessment, sendOpdToLabRequest, sendOpdToPharmacyRequest,
   referEmergencyCase, transferToEmergency,
 } from '../services/clinicWorkflows.js';
 import { sendError, sendJson } from '../utils/http.js';
@@ -13,6 +13,7 @@ const handlers = {
   'card-to-opd': { roles: ['admin', 'receptionist'], run: request => createCardToOpdRequest(request.body) },
   'transfer-to-emergency': { roles: ['admin', 'receptionist', 'opd'], run: request => transferToEmergency(request.body.queueItemId, request.body, request.user) },
   'opd-to-lab': { roles: ['admin', 'opd'], run: request => sendOpdToLabRequest(request.body.queueItemId, request.body) },
+  'lab-to-opd': { roles: ['admin', 'laboratory'], run: request => completeLabRequest(request.body.queueItemId, request.body.results) },
   'opd-to-pharmacy': { roles: ['admin', 'opd'], run: request => sendOpdToPharmacyRequest(request.body.queueItemId, request.body) },
   'complete-consultation': { roles: ['admin', 'opd'], run: request => completeOpdConsultation(request.body.queueItemId, { ...request.body.recordData, doctorId: request.user?.role === 'opd' ? request.user.id : request.body.recordData.doctorId }) },
   'complete-emergency': { roles: ['admin', 'emergency'], run: request => completeEmergencyCase(request.body.emergencyCaseId, request.body) },
@@ -49,6 +50,30 @@ export async function workflowHandler(request, response, segments) {
       if (test.star !== undefined && typeof test.star !== 'boolean') return sendError(response, 422, 'STAR status must be true or false');
     }
     validateText(request.body.doctorDiagnosis, 'Working diagnosis', { required: false, max: 1000 });
+  }
+  if (action === 'lab-to-opd') {
+    validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });
+    if (!Array.isArray(request.body.results) || request.body.results.length === 0 || request.body.results.length > 100) {
+      return sendError(response, 422, 'Submit between 1 and 100 laboratory results');
+    }
+    const seenResultIds = new Set();
+    for (const result of request.body.results) {
+      assertPlainObject(result);
+      validateText(result.id, 'Laboratory order', { required: true, max: 80 });
+      validateText(result.result, 'Result', { required: true, max: 5000 });
+      validateText(result.unit, 'Unit', { required: false, max: 40 });
+      validateText(result.referenceRange, 'Reference range', { required: false, max: 2000 });
+      validateText(result.technicianInitials, 'Technologist initials', { required: false, max: 40 });
+      validateText(result.technicianComment, 'Technologist comment', { required: false, max: 2000 });
+      validateText(result.approvedBy, 'Approver', { required: false, max: 180 });
+      if (seenResultIds.has(result.id)) return sendError(response, 422, 'Each laboratory test can only be submitted once');
+      seenResultIds.add(result.id);
+      if (result.isAbnormal !== undefined && typeof result.isAbnormal !== 'boolean') return sendError(response, 422, 'Abnormal status must be true or false');
+      if (result.star !== undefined && typeof result.star !== 'boolean') return sendError(response, 422, 'STAR status must be true or false');
+      if (result.cost !== undefined && result.cost !== null && (typeof result.cost !== 'number' || !Number.isFinite(result.cost) || result.cost < 0)) {
+        return sendError(response, 422, 'Cost must be a non-negative number');
+      }
+    }
   }
   if (action === 'opd-to-pharmacy') {
     validateText(request.body.queueItemId, 'Queue item', { required: true, max: 80 });

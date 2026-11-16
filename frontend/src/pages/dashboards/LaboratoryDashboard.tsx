@@ -13,6 +13,8 @@ import ModalPortal from '../../components/ModalPortal';
 import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
 import { cleanClinicalText, clinicalTextHtml } from '../../utils/clinicalText';
+import { findStandardLabTest } from '../../utils/labPresets';
+import { formatDoctorName, normalizeDoctorName } from '../../utils/doctorName';
 
 interface LabResultDraft {
   result: string;
@@ -108,17 +110,20 @@ export default function LaboratoryDashboard() {
   const handleOpenResultEntry = (orders: LabOrder[]) => {
     const openedAt = new Date().toISOString();
     setResultModal(orders);
-    setResultDrafts(Object.fromEntries(orders.map(order => [order.id, {
-      result: order.result || '',
-      unit: order.unit || '',
-      referenceRange: order.referenceRange || '',
-      isAbnormal: Boolean(order.isAbnormal),
-      cost: order.cost === null || order.cost === undefined ? '' : String(order.cost),
-      loggedInAt: order.loggedInAt || openedAt,
-      star: Boolean(order.star || order.priority === 'Critical'),
-      technicianInitials: order.technicianInitials || nameInitials(currentUser?.name),
-      technicianComment: order.technicianComment || '',
-    }])));
+    setResultDrafts(Object.fromEntries(orders.map(order => {
+      const standardTest = findStandardLabTest(order.testName, order.category);
+      return [order.id, {
+        result: order.result || '',
+        unit: order.unit || standardTest?.defaultUnit || '',
+        referenceRange: order.referenceRange || standardTest?.defaultRefRange || '',
+        isAbnormal: Boolean(order.isAbnormal),
+        cost: order.cost === null || order.cost === undefined ? '' : String(order.cost),
+        loggedInAt: order.loggedInAt || openedAt,
+        star: Boolean(order.star || order.priority === 'Critical'),
+        technicianInitials: order.technicianInitials || nameInitials(currentUser?.name),
+        technicianComment: order.technicianComment || '',
+      }] as const;
+    })));
     setFormError(null);
   };
 
@@ -201,7 +206,7 @@ export default function LaboratoryDashboard() {
         <div class="meta-grid">
           <div><strong>Patient:</strong> ${escapeHtml(order.patientName)}</div>
           <div><strong>Order ID:</strong> ${escapeHtml(order.id)}</div>
-          <div><strong>Requesting Clinician:</strong> ${escapeHtml(order.doctorName)}</div>
+          <div><strong>Requesting Clinician:</strong> ${escapeHtml(formatDoctorName(order.doctorName))}</div>
           <div><strong>Specimen:</strong> ${escapeHtml(order.specimenType)} (${escapeHtml(order.category)})</div>
           <div><strong>Sex:</strong> ${escapeHtml(patient?.gender)}</div>
           <div><strong>Address:</strong> ${escapeHtml(patient?.address)}</div>
@@ -347,7 +352,7 @@ export default function LaboratoryDashboard() {
                       <td>
                         <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>{first.patientName}</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--clr-text-muted)' }}>
-                          MRN: {patientCodeFor(patients, first.patientId)} · Dr. {first.doctorName}
+                          MRN: {patientCodeFor(patients, first.patientId)} · {formatDoctorName(first.doctorName)}
                         </div>
                       </td>
                       <td>
@@ -441,7 +446,7 @@ export default function LaboratoryDashboard() {
                     <div><b>Age / Sex</b><span>{patientAge(resultPatient?.dateOfBirth)} · {resultPatient?.gender || '—'}</span></div>
                     <div><b>MRN</b><span>{patientCodeFor(patients, resultModal[0].patientId)}</span></div>
                     <div><b>Address</b><span>{resultPatient?.address || '—'}</span></div>
-                    <div><b>Referring clinician</b><span>Dr. {resultModal[0].doctorName}</span></div>
+                    <div><b>Referring clinician</b><span>{formatDoctorName(resultModal[0].doctorName)}</span></div>
                     <div><b>Priority / STAR</b><span>{resultModal.some(order => order.star || order.priority === 'Critical') ? 'STAT / Emergency' : resultModal[0].priority}</span></div>
                     <div className="lab-result-paper-request-note"><b>Clinical notes / instructions from OPD</b><span>{cleanClinicalText(resultModal[0].notes) || 'No additional instructions provided.'}</span></div>
                   </section>
@@ -452,10 +457,12 @@ export default function LaboratoryDashboard() {
                       const draft = resultDrafts[order.id];
                       const readonly = order.status === 'Completed';
                       if (!draft) return null;
+                      const standardTest = findStandardLabTest(order.testName, order.category);
                       return (
                         <article className={`lab-result-entry${draft.isAbnormal ? ' is-abnormal' : ''}${readonly ? ' is-complete' : ''}`} key={order.id}>
                           <header><span className="lab-result-entry-number">{index + 1}</span><div><strong>{order.testName}</strong><small>{order.category} · {order.specimenType}</small></div><span className={`badge ${readonly ? 'badge-green' : 'badge-blue'}`}>{readonly ? 'Verified' : 'Requested'}</span></header>
                           {order.notes && <p className="lab-result-request-instructions"><b>OPD request:</b> {cleanClinicalText(order.notes)}</p>}
+                          <div className="lab-result-reference-guide"><span>Reference range for this test</span><strong>{draft.referenceRange || standardTest?.defaultRefRange || 'No reference range was supplied; enter the laboratory-approved interval.'}</strong></div>
                           <div className="lab-result-entry-fields">
                             <label className="lab-result-entry-value"><span>Result / clinical finding {readonly ? '' : '*'}</span><textarea rows={2} required={!readonly} readOnly={readonly} value={draft.result} onChange={event => updateDraft(order.id, { result: event.target.value })} placeholder="Enter result for this requested test" /></label>
                             <label><span>Unit</span><input readOnly={readonly} value={draft.unit} onChange={event => updateDraft(order.id, { unit: event.target.value })} placeholder="e.g. mg/dL" /></label>
@@ -466,13 +473,13 @@ export default function LaboratoryDashboard() {
                             <label className="lab-result-entry-comment"><span>Tech’s comment</span><textarea rows={2} readOnly={readonly} value={draft.technicianComment} onChange={event => updateDraft(order.id, { technicianComment: event.target.value })} placeholder="Observation or interpretation" /></label>
                             <div className="lab-result-entry-log"><span>Log in: {formatDateTime12(draft.loggedInAt)}</span><span>Log out: {readonly && order.loggedOutAt ? formatDateTime12(order.loggedOutAt) : 'Set on verification'}</span></div>
                           </div>
-                          {readonly && order.approvedBy && <div className="lab-result-entry-approval"><CheckCircle2 size={14} /> Verified by {order.approvedBy}{order.approvedAt ? ` · ${formatDateTime12(order.approvedAt)}` : ''}</div>}
+                          {readonly && order.approvedBy && <div className="lab-result-entry-approval"><CheckCircle2 size={14} /> Verified by {normalizeDoctorName(order.approvedBy)}{order.approvedAt ? ` · ${formatDateTime12(order.approvedAt)}` : ''}</div>}
                         </article>
                       );
                     })}
                   </div>
 
-                  <footer className="lab-result-paper-signoff"><div><b>Approved by</b><span>{currentUser?.name || 'Laboratory technologist'}</span><small>Technologist signature / date</small></div><div><b>Requesting clinician</b><span>Dr. {resultModal[0].doctorName}</span><small>Digital request from OPD</small></div></footer>
+                  <footer className="lab-result-paper-signoff"><div><b>Approved by</b><span>{normalizeDoctorName(currentUser?.name) || 'Laboratory technologist'}</span><small>Technologist signature / date</small></div><div><b>Requesting clinician</b><span>{formatDoctorName(resultModal[0].doctorName)}</span><small>Digital request from OPD</small></div></footer>
                 </div>
 
                 <div className="modal-footer lab-result-actions">

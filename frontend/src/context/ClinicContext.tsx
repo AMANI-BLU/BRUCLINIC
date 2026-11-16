@@ -79,6 +79,18 @@ function normalizeQueueItem(item: ClinicQueueItem): ClinicQueueItem {
   };
 }
 
+function labTestQueueSummary(orders: LabOrder[]): string {
+  const names = orders.map(order => order.testName.trim()).filter(Boolean);
+  const joined = names.join(', ');
+  return joined.length <= 170 ? joined : `${names[0].slice(0, 145)} + ${names.length - 1} more`;
+}
+
+function labReferenceQueueSummary(orders: LabOrder[]): string {
+  const ranges = orders.filter(order => order.referenceRange)
+    .map(order => `${order.testName}: ${order.referenceRange}`).join(' | ');
+  return ranges.length <= 90 ? ranges : 'See individual lab results';
+}
+
 function notifyActionSuccess(message: string) {
   window.dispatchEvent(new CustomEvent('bruclinic:action-success', { detail: message }));
 }
@@ -313,56 +325,68 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   }), [labOrders, mutate, queue, token]);
   const updateLabOrderGroup = useCallback((updates: Array<{ id: string; changes: Partial<LabOrder> }>) => mutate(async () => {
     if (updates.length === 0) return;
-    const updatedById = new Map<string, LabOrder>();
-    try {
-      for (const update of updates) {
-        const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(update.id)}`, update.changes, token);
-        updatedById.set(update.id, response.data);
+    const firstOrder = labOrders.find(order => order.id === updates[0].id);
+    const target = firstOrder && (queue.find(item => item.id === firstOrder.queueItemId)
+      || queue.find(item => item.labOrderId === firstOrder.id)
+      || queue.find(item => item.stage === 'Laboratory' && item.patientId === firstOrder.patientId));
+
+    if (target && firstOrder) {
+      try {
+        await apiPost('/workflows/lab-to-opd', {
+          queueItemId: target.id,
+          results: updates.map(({ id, changes }) => ({ id, ...changes })),
+        }, token);
+      } catch (cause) {
+        await refresh({ silent: true });
+        throw cause;
       }
-    } catch (cause) {
-      await refresh({ silent: true });
-      throw cause;
-    }
 
-    setLabOrders(previous => previous.map(order => updatedById.get(order.id) || order));
-    const updatedOrders = labOrders.map(order => updatedById.get(order.id) || order);
-    const firstUpdated = updatedById.values().next().value as LabOrder | undefined;
-    const target = firstUpdated && (queue.find(item => item.id === firstUpdated.queueItemId)
-      || queue.find(item => item.labOrderId === firstUpdated.id)
-      || queue.find(item => item.stage === 'Laboratory' && item.patientId === firstUpdated.patientId));
-
-    if (target && firstUpdated) {
+      const changesById = new Map<string, Partial<LabOrder>>();
+      updates.forEach(update => changesById.set(update.id, update.changes));
+      const updatedOrders = labOrders.map(order => {
+        const changes = changesById.get(order.id);
+        return changes ? { ...order, ...changes } : order;
+      });
       const relatedOrders = updatedOrders.filter(order => order.queueItemId === target.id
-        || (!order.queueItemId && order.patientId === target.patientId));
+        || (!order.queueItemId && (order.id === target.labOrderId
+          || Boolean(firstOrder.requestGroupId && order.requestGroupId === firstOrder.requestGroupId))));
       const pendingOrders = relatedOrders.filter(order => order.status !== 'Completed');
       const completedOrders = relatedOrders.filter(order => order.status === 'Completed' && order.result);
       const allResults = completedOrders.map(order => `${order.testName}: ${order.result}${order.unit ? ` ${order.unit}` : ''}`).join(' | ');
-      const referenceRanges = completedOrders.filter(order => order.referenceRange).map(order => `${order.testName}: ${order.referenceRange}`).join(' | ');
+      const referenceRanges = labReferenceQueueSummary(completedOrders);
+      const completedAt = new Date().toISOString();
       const queueChanges: Partial<ClinicQueueItem> = pendingOrders.length > 0 ? {
-        stage: 'Laboratory',
-        labStatus: 'Requested',
-        labTestName: relatedOrders.map(order => order.testName).join(', '),
-        labResult: allResults,
-        labIsAbnormal: completedOrders.some(order => order.isAbnormal),
-        requestSource: 'Laboratory',
-        requestDestination: 'Laboratory',
+        stage: 'Laboratory', labStatus: 'Requested', labTestName: labTestQueueSummary(relatedOrders),
+        labResult: allResults, labIsAbnormal: completedOrders.some(order => order.isAbnormal),
+        requestSource: 'Laboratory', requestDestination: 'Laboratory',
         requestNotes: `${pendingOrders.length} laboratory investigation(s) still pending.`,
       } : {
-        stage: 'Doctor Consultation',
-        labStatus: 'Completed',
-        labTestName: relatedOrders.map(order => order.testName).join(', '),
-        labResult: allResults || 'Analysis complete',
-        labUnit: '',
-        labReferenceRange: referenceRanges,
-        labIsAbnormal: completedOrders.some(order => order.isAbnormal),
-        labCompletedAt: new Date().toLocaleString(),
-        requestSource: 'Laboratory',
-        requestDestination: 'Doctor Consultation',
+        stage: 'Doctor Consultation', labStatus: 'Completed',
+        labTestName: labTestQueueSummary(relatedOrders), labResult: allResults || 'Analysis complete',
+        labUnit: '', labReferenceRange: referenceRanges,
+        labIsAbnormal: completedOrders.some(order => order.isAbnormal), labCompletedAt: completedAt,
+        requestSource: 'Laboratory', requestDestination: 'Doctor Consultation',
         requestNotes: `Laboratory results ready: ${allResults || 'Analysis complete'}.`,
       };
-      const response = await apiPatch<{ data: ClinicQueueItem }>(`/queue/${encodeURIComponent(target.id)}`, queueChanges, token);
-      const normalized = normalizeQueueItem(response.data);
-      setQueue(previous => previous.map(item => item.id === target.id ? normalized : item));
+      setLabOrders(previous => previous.map(order => {
+        const changes = changesById.get(order.id);
+        return changes ? { ...order, ...changes } : order;
+      }));
+      setQueue(previous => previous.map(item => item.id === target.id ? { ...item, ...queueChanges } : item));
+      void refresh({ silent: true });
+      return;
+    }
+
+    try {
+      const updated = await Promise.all(updates.map(async ({ id, changes }) => {
+        const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(id)}`, changes, token);
+        return response.data;
+      }));
+      const updatedById = new Map(updated.map(order => [order.id, order]));
+      setLabOrders(previous => previous.map(order => updatedById.get(order.id) || order));
+    } catch (cause) {
+      await refresh({ silent: true });
+      throw cause;
     }
   }, 'Laboratory results verified and returned to OPD'), [labOrders, mutate, queue, refresh, token]);
   const addPharmacyOrder = useCallback(async (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => {

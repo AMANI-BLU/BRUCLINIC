@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Printer, X, FileText, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 import { cleanClinicalText, clinicalTextHtml, escapeHtml } from '../utils/clinicalText';
+import { stripDoctorTitle } from '../utils/doctorName';
 import './PrescriptionPrintModal.css';
 
 export interface PrescriptionItemPrint {
@@ -77,6 +78,7 @@ export default function PrescriptionPrintModal({
   const isOutsidePrint = printMode === 'outside';
   const selectedMedicines = isOutsidePrint ? externalMeds : internalMeds;
   const cleanNotes = cleanClinicalText(notes);
+  const prescriberName = stripDoctorTitle(doctorName);
   const totalPrice = useMemo(() => {
     if (selectedMedicines.length === 0 || selectedMedicines.some(medicine => medicine.price === undefined)) return undefined;
     return selectedMedicines.reduce((sum, medicine) => sum + Number(medicine.price || 0) * Number(medicine.quantity || 0), 0);
@@ -153,7 +155,7 @@ export default function PrescriptionPrintModal({
   <table><thead><tr><th>S.N.</th><th>Drug Name, Strength,<br/>Dosage Form</th><th>Dose<br/>Frequency</th><th>Duration</th><th>Quantity</th><th>How to use &amp; Other Information</th><th>Price<br/>(For Dispensers Use Only)</th></tr></thead><tbody>${rows}${blankRows}</tbody></table>
   ${cleanNotes ? `<p class="notes"><b>Clinician notes:</b> ${clinicalTextHtml(cleanNotes)}</p>` : ''}
   <div class="total"><span>Total Price</span><span class="total-box">${totalText}</span></div>
-  <section class="signatures"><div class="sig"><b>Prescriber’s</b><div class="sig-line"></div><div>${escapeHtml(doctorName)}</div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Evaluator</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Counselor</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div></section>
+  <section class="signatures"><div class="sig"><b>Prescriber’s</b><div class="sig-line"></div><div>${escapeHtml(prescriberName)}</div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Evaluator</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Counselor</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div></section>
   <div class="paper-foot">${escapeHtml(CLINIC_NAME)} · Prescription document generated from BruClinic</div>
 </main><script>window.onload=function(){window.print()};<\/script></body></html>`);
     printWindow.document.close();
@@ -197,7 +199,7 @@ export default function PrescriptionPrintModal({
             {cleanNotes && <p className="prescription-paper-notes"><b>Clinician notes:</b> {cleanNotes}</p>}
             <div className="prescription-paper-total"><b>Total Price</b><span>{totalPrice === undefined ? '' : totalPrice.toFixed(2)}</span></div>
             <section className="prescription-paper-signatures">
-              <div><b>Prescriber’s</b><i /> <strong>{doctorName}</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
+              <div><b>Prescriber’s</b><i /> <strong>{prescriberName}</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
               <div><b>Evaluator</b><i /><strong>&nbsp;</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
               <div><b>Counselor</b><i /><strong>&nbsp;</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
             </section>
