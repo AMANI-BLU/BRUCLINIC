@@ -1,7 +1,7 @@
 import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import {
   Activity, ChevronLeft, ChevronRight, ClipboardList, FileText,
-  FlaskConical, Plus, Send, ShieldCheck, Sparkles, Trash2, UserRound,
+  FlaskConical, Plus, Send, Sparkles, Trash2, UserRound,
 } from 'lucide-react';
 import type { ClinicQueueItem, Patient, Priority, UserProfile } from '../types';
 import { LAB_FORM_SECTIONS, type LabFormSection, type StandardLabTest } from '../utils/labPresets';
@@ -217,7 +217,7 @@ export default function LaboratoryPaperForm({
 
       <div className="lab-paper-sheet">
         <header className="lab-paper-header">
-          <div className="lab-paper-logo" aria-label="Borana University clinic emblem"><ShieldCheck size={30} /><small>BU</small></div>
+          <div className="lab-paper-logo" aria-label="Borana University clinic emblem"><img src="/bu-logo.png" alt="Borana University emblem" /></div>
           <div className="lab-paper-title-block">
             <strong>BORANA UNIVERSITY</strong>
             <span>Student Service Clinic</span>

@@ -63,6 +63,22 @@
   color: #f8fafc;
 }
 
+[data-theme="light"] .language-select--login {
+  border-color: rgba(148, 163, 184, 0.55);
+  background: rgba(255, 255, 255, 0.94);
+  color: #334155;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .language-select--login select {
+  color: #1e293b;
+}
+
+[data-theme="light"] .language-select--login option {
+  background: #fff;
+  color: #1e293b;
+}
+
 [data-theme="dark"] .language-select--header {
   color: #b8c2cc;
 }

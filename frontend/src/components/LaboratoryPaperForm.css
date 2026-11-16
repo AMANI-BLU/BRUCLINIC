@@ -52,6 +52,7 @@
 .lab-paper-sheet { overflow: hidden; border: 1px solid #cbd5e1; border-radius: 0.25rem; background: #fff; color: var(--lab-ink); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1); }
 .lab-paper-header { display: grid; grid-template-columns: 4.7rem minmax(13rem, 1fr) minmax(15rem, 1.2fr); min-height: 5.6rem; border-bottom: 2px solid #334155; background: linear-gradient(180deg, #f8fafc, #eef2f7); }
 .lab-paper-logo { display: grid; align-content: center; justify-items: center; gap: 0.1rem; border-right: 1px solid #64748b; color: #1e3a8a; }
+.lab-paper-logo img { width: 3.35rem; height: 3.35rem; object-fit: contain; padding: 0.12rem; }
 .lab-paper-logo svg { box-sizing: content-box; width: 1.9rem; height: 1.9rem; padding: 0.25rem; border: 1px solid #1e3a8a; border-radius: 50%; background: radial-gradient(circle, #fff 0 45%, #dbeafe 46% 61%, #fff 62%); box-shadow: 0 0 0 2px #fff, 0 0 0 3px #64748b; }
 .lab-paper-logo small { font-size: 0.62rem; font-weight: 900; letter-spacing: 0.12em; }
 .lab-paper-title-block { align-items: center; flex-direction: column; justify-content: center; gap: 0.08rem; padding: 0.45rem; text-align: center; border-right: 1px solid #64748b; }

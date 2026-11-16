@@ -1,29 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Printer, X, FileText, CheckCircle2, ShoppingBag } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Printer, X, FileText, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 import { cleanClinicalText, clinicalTextHtml, escapeHtml } from '../utils/clinicalText';
+import './PrescriptionPrintModal.css';
 
 export interface PrescriptionItemPrint {
   name: string;
+  strength?: string;
+  doseForm?: string;
   dosage?: string;
   frequency?: string;
   duration?: string;
   quantity?: number;
+  price?: number;
   instructions?: string;
   isExternal?: boolean;
 }
 
-const CLINIC_NAME = 'Borana University Clinic';
-
-function medicationDirections(medicine: PrescriptionItemPrint): string {
-  const structuredDirections = [medicine.dosage, medicine.frequency, medicine.duration]
-    .map(cleanClinicalText)
-    .filter(Boolean)
-    .join(' · ');
-  const additionalInstructions = cleanClinicalText(medicine.instructions);
-  return [structuredDirections, additionalInstructions].filter(Boolean).join(' — ')
-    || 'As directed by the prescriber';
-}
+const CLINIC_NAME = 'Borana University Medium Clinic';
 
 export interface PrescriptionPrintModalProps {
   isOpen: boolean;
@@ -33,12 +27,27 @@ export interface PrescriptionPrintModalProps {
   patientAge?: number;
   patientGender?: string;
   patientWeight?: number;
+  patientStatus?: 'In patient' | 'Out patient';
+  pregnancyStatus?: 'Pregnant' | 'Non-Pregnant';
+  isRefill?: boolean;
+  region?: string;
+  town?: string;
+  kebele?: string;
   doctorName: string;
   doctorDiagnosis?: string;
   date?: string;
   medicines: PrescriptionItemPrint[];
   notes?: string;
   initialMode?: 'clinic' | 'outside';
+}
+
+function printedDirections(medicine: PrescriptionItemPrint): string {
+  const structured = [medicine.dosage, medicine.frequency].map(cleanClinicalText).filter(Boolean).join(' · ');
+  return [structured, cleanClinicalText(medicine.instructions)].filter(Boolean).join(' — ') || 'As directed by prescriber';
+}
+
+function tick(value: boolean) {
+  return value ? '☑' : '☐';
 }
 
 export default function PrescriptionPrintModal({
@@ -49,6 +58,12 @@ export default function PrescriptionPrintModal({
   patientAge,
   patientGender,
   patientWeight,
+  patientStatus,
+  pregnancyStatus,
+  isRefill = false,
+  region,
+  town,
+  kebele,
   doctorName,
   doctorDiagnosis,
   date = new Date().toLocaleDateString(),
@@ -56,456 +71,140 @@ export default function PrescriptionPrintModal({
   notes,
   initialMode,
 }: PrescriptionPrintModalProps) {
+  const externalMeds = medicines.filter(medicine => medicine.isExternal);
+  const internalMeds = medicines.filter(medicine => !medicine.isExternal);
+  const [printMode, setPrintMode] = useState<'clinic' | 'outside'>(initialMode || (internalMeds.length > 0 ? 'clinic' : 'outside'));
+  const isOutsidePrint = printMode === 'outside';
+  const selectedMedicines = isOutsidePrint ? externalMeds : internalMeds;
+  const cleanNotes = cleanClinicalText(notes);
+  const totalPrice = useMemo(() => {
+    if (selectedMedicines.length === 0 || selectedMedicines.some(medicine => medicine.price === undefined)) return undefined;
+    return selectedMedicines.reduce((sum, medicine) => sum + Number(medicine.price || 0) * Number(medicine.quantity || 0), 0);
+  }, [selectedMedicines]);
+
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const externalMeds = medicines.filter(m => m.isExternal);
-  const internalMeds = medicines.filter(m => !m.isExternal);
-  const [printMode, setPrintMode] = useState<'clinic' | 'outside'>(initialMode || (internalMeds.length > 0 ? 'clinic' : 'outside'));
-  const isOutsidePrint = printMode === 'outside';
-  const cleanNotes = cleanClinicalText(notes);
-
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    const externalRows = externalMeds.map((med, idx) => `
+    const rows = selectedMedicines.map((medicine, index) => `
       <tr>
-        <td>${idx + 1}</td>
-        <td><strong>${escapeHtml(cleanClinicalText(med.name))}</strong></td>
-        <td>${clinicalTextHtml(medicationDirections(med))}</td>
-        <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
+        <td class="serial">${index + 1}</td>
+        <td><strong>${escapeHtml(cleanClinicalText(medicine.name))}</strong>${medicine.strength ? `<small>${escapeHtml(cleanClinicalText(medicine.strength))}</small>` : ''}${medicine.doseForm ? `<small>${escapeHtml(cleanClinicalText(medicine.doseForm))}</small>` : ''}</td>
+        <td>${clinicalTextHtml([medicine.dosage, medicine.frequency].filter(Boolean).join(' · ') || '—')}</td>
+        <td>${escapeHtml(cleanClinicalText(medicine.duration) || '—')}</td>
+        <td class="center">${escapeHtml(medicine.quantity ?? '—')}</td>
+        <td>${clinicalTextHtml(cleanClinicalText(medicine.instructions) || '—')}</td>
+        <td class="price">${medicine.price === undefined ? '' : escapeHtml((Number(medicine.price) * Number(medicine.quantity || 0)).toFixed(2))}</td>
       </tr>`).join('');
-
-    const internalRows = internalMeds.map((med, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td><strong>${escapeHtml(cleanClinicalText(med.name))}</strong></td>
-        <td>${clinicalTextHtml(medicationDirections(med))}</td>
-        <td style="text-align:right"><strong>${med.quantity || '—'}</strong></td>
-      </tr>`).join('');
-
-    const externalSection = isOutsidePrint && externalMeds.length > 0 ? `
-      <div class="section-header ext">🛒 MEDICINES TO PURCHASE FROM OUTSIDE RETAIL PHARMACY</div>
-      <p class="section-note">The following medicine(s) are not currently stocked in the clinic dispensary. Please take this slip to any community pharmacy to purchase.</p>
-      <table>
-        <thead><tr><th>#</th><th>Medication Name</th><th>Instructions</th><th style="text-align:right">Qty</th></tr></thead>
-        <tbody>${externalRows}</tbody>
-      </table>` : '';
-
-    const internalSection = !isOutsidePrint && internalMeds.length > 0 ? `
-      <div class="section-header int">✓ MEDICINES DISPENSED AT CLINIC PHARMACY</div>
-      <table>
-        <thead><tr><th>#</th><th>Medication Name</th><th>Instructions</th><th style="text-align:right">Qty</th></tr></thead>
-        <tbody>${internalRows}</tbody>
-      </table>` : '';
-
-    const notesHtml = cleanNotes ? `<div class="notes"><strong>Clinician Notes:</strong> ${clinicalTextHtml(cleanNotes)}</div>` : '';
-
-    const printWindow = window.open('', '_blank', 'width=860,height=680');
+    const blankRows = Array.from({ length: Math.max(0, 4 - selectedMedicines.length) }, () => '<tr class="blank-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+    const visitStatus = patientStatus ? `${tick(patientStatus === 'In patient')} In patient&nbsp;&nbsp;&nbsp; ${tick(patientStatus === 'Out patient')} Out patient` : `${tick(false)} In patient&nbsp;&nbsp;&nbsp; ${tick(false)} Out patient`;
+    const pregnancy = pregnancyStatus ? `${tick(pregnancyStatus === 'Pregnant')} Pregnant&nbsp;&nbsp;&nbsp; ${tick(pregnancyStatus === 'Non-Pregnant')} Non-Pregnant` : `${tick(false)} Pregnant&nbsp;&nbsp;&nbsp; ${tick(false)} Non-Pregnant`;
+    const totalText = totalPrice === undefined ? '' : totalPrice.toFixed(2);
+    const printWindow = window.open('', '_blank', 'width=900,height=760');
     if (!printWindow) return;
+
     printWindow.document.write(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Prescription – ${patientName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Inter, system-ui, sans-serif; color: #0f172a; background: #fff; font-size: 13px; line-height: 1.5; }
-    @page { size: A4; margin: 18mm 15mm; }
-    .wrap { max-width: 720px; margin: 0 auto; }
-    /* Header */
-    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 14px; }
-    .clinic-name { font-size: 1.25rem; font-weight: 800; color: #0369a1; letter-spacing: -0.02em; }
-    .clinic-sub { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
-    .meta-right { text-align: right; font-size: 0.72rem; color: #475569; }
-    .rx-badge { font-weight: 700; color: #0284c7; font-size: 0.82rem; display: block; }
-    /* Patient meta */
-    .patient-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.78rem; }
-    .patient-meta .span2 { grid-column: span 2; }
-    /* Sections */
-    .section-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.82rem; font-weight: 700; margin-top: 14px; }
-    .section-header.ext { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
-    .section-header.int { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
-    .section-note { font-size: 0.7rem; color: #78350f; margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 14px; }
-    thead tr { border-bottom: 1px solid #e2e8f0; }
-    thead th { padding: 6px 8px; text-align: left; }
-    tbody tr { border-bottom: 1px solid #f1f5f9; }
-    tbody td { padding: 8px; }
-    .notes { margin-top: 10px; font-size: 0.72rem; color: #475569; font-style: italic; }
-    /* Signature */
-    .signature-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 32px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
-    .sig-block { text-align: center; width: 210px; }
-    .sig-line { border-bottom: 1px dashed #64748b; height: 36px; margin-bottom: 4px; }
-    .sig-name { font-size: 0.75rem; font-weight: 700; color: #0f172a; }
-    .sig-sub { font-size: 0.65rem; color: #64748b; }
-    .validity { font-size: 0.68rem; color: #94a3b8; line-height: 1.6; }
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <div class="doc-header">
-    <div>
-      <div class="clinic-name">${CLINIC_NAME}</div>
-      <div class="clinic-sub">Outpatient Department &amp; Clinical Medical Services</div>
-    </div>
-    <div class="meta-right">
-      <span class="rx-badge">${isOutsidePrint ? 'OUTSIDE PURCHASE SLIP' : 'CLINIC PHARMACY DISPENSE SLIP'}</span>
-      <div>Date: ${date}</div>
-      ${patientCode ? `<div>Patient Code: <strong>${patientCode}</strong></div>` : ''}
-    </div>
-  </div>
-
-  <div class="patient-meta">
-    <div><span style="color:#64748b">Patient Name: </span><strong>${patientName}</strong></div>
-    <div><span style="color:#64748b">Age / Sex: </span><strong>${patientAge !== undefined ? `${patientAge} years` : '—'} / ${patientGender || '—'}</strong></div>
-    <div><span style="color:#64748b">Weight: </span><strong>${patientWeight !== undefined ? `${patientWeight} kg` : '—'}</strong></div>
-    <div><span style="color:#64748b">Prescribing Clinician: </span><strong>${doctorName}</strong></div>
-      ${doctorDiagnosis ? `<div class="span2"><span style="color:#64748b">Clinical Diagnosis: </span><strong>${escapeHtml(cleanClinicalText(doctorDiagnosis))}</strong></div>` : ''}
-  </div>
-
-  ${externalSection}
-  ${internalSection}
-  ${notesHtml}
-
-  <div class="signature-row">
-    <div class="validity">Valid for fulfillment within 14 days from issue date.<br/>${CLINIC_NAME} Electronic Health Records System</div>
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <div class="sig-name">${CLINIC_NAME}</div>
-      <div class="sig-sub">Clinic name and authorized clinic stamp</div>
-    </div>
-  </div>
-</div>
-<script>window.onload = function(){ window.print(); };<\/script>
-</body></html>`);
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Prescription - ${escapeHtml(patientName)}</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;color:#111;font:12px/1.35 "Times New Roman",serif;background:#fff}
+  @page{size:A4;margin:12mm 11mm}.sheet{width:100%;max-width:188mm;margin:0 auto;padding:4mm 3mm}
+  .title{text-align:center;font-size:16px;line-height:1.2;font-weight:700;letter-spacing:.025em;margin:1mm 0 4mm}
+  .date{text-align:right;margin-bottom:3mm}.line{display:inline-block;min-width:42mm;border-bottom:1px solid #333;height:1.2em;vertical-align:bottom}
+  .patient-fields{display:grid;grid-template-columns:1.1fr .65fr 1.2fr;gap:0;border-top:1px solid #333;border-left:1px solid #333}
+  .field{min-height:8mm;display:flex;align-items:center;gap:4px;padding:2px 5px;border-right:1px solid #333;border-bottom:1px solid #333}
+  .field b{white-space:nowrap}.field .write{flex:1;min-height:1.2em;border-bottom:1px solid #888;overflow-wrap:anywhere}
+  .field.wide{grid-column:span 2}.field.full{grid-column:1/-1}.checks{font-size:10px;white-space:nowrap}
+  .rx-label{padding:2mm 3mm;border:1px solid #333;border-bottom:0;font-size:18px;font-weight:700}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #333;font-size:10px}
+  th,td{border:1px solid #333;padding:4px 5px;vertical-align:top;text-align:left;overflow-wrap:anywhere}
+  th{height:15mm;text-align:center;vertical-align:middle;font-weight:700}
+  th:nth-child(1){width:6%}th:nth-child(2){width:24%}th:nth-child(3){width:13%}th:nth-child(4){width:10%}th:nth-child(5){width:7%}th:nth-child(6){width:27%}th:nth-child(7){width:13%}
+  td.serial,.center{text-align:center}.price{text-align:right}.blank-row td{height:11mm}.blank-row td:first-child{height:11mm}
+  .selection{padding:2mm 0;font-size:10px}.selection b{margin-right:4px}
+  .rx-meta{margin:2mm 0 0;font-size:10px}.notes{margin-top:2mm;font-size:10px;white-space:pre-wrap}
+  .total{display:flex;justify-content:flex-end;align-items:center;gap:5mm;margin:2mm 0 5mm;font-weight:700}.total-box{display:inline-block;width:25mm;min-height:8mm;border:1px solid #333;padding:1mm;text-align:right}
+  .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;margin-top:5mm;text-align:center}.sig b{display:block;margin-bottom:5mm}.sig-line{height:9mm;border-bottom:1px solid #333;margin-bottom:2mm}.sig small{display:block;min-height:8mm;text-align:left;border-bottom:1px solid #888;margin:2mm 4mm;font-size:9px}
+  .paper-foot{margin-top:5mm;padding-top:2mm;border-top:1px solid #777;text-align:center;font-size:8px;color:#444}
+  @media print{.sheet{padding:0}tr{break-inside:avoid}}
+</style></head><body><main class="sheet">
+  <h1 class="title">BORANA UNIVERSITY MEDIUM CLINIC<br/>PRESCRIPTION PAPER</h1>
+  <div class="date"><b>Date</b> <span class="line">${escapeHtml(date)}</span></div>
+  <section class="patient-fields">
+    <div class="field wide"><b>Patient’s Full Name</b><span class="write">${escapeHtml(patientName)}</span></div>
+    <div class="field"><b>Age</b><span class="write">${patientAge === undefined ? '' : escapeHtml(patientAge)}</span></div>
+    <div class="field wide"><b>Sex</b><span class="write">${escapeHtml(patientGender || '')}</span></div>
+    <div class="field"><b>Weight</b><span class="write">${patientWeight === undefined ? '' : `${escapeHtml(patientWeight)} kg`}</span></div>
+    <div class="field wide"><b>Card No. (MRN)</b><span class="write">${escapeHtml(patientCode || '')}</span></div>
+    <div class="field full"><b>Patient status</b><span class="checks">${visitStatus}</span><b style="margin-left:auto">Start</b><span class="checks">${tick(true)}</span><b>Refill</b><span class="checks">${tick(isRefill)}</span><b>Pregnancy</b><span class="checks">${pregnancy}</span></div>
+    <div class="field full"><b>Diagnosis (ICD Code) No.</b><span class="write">${escapeHtml(cleanClinicalText(doctorDiagnosis) || '')}</span></div>
+    <div class="field"><b>Region</b><span class="write">${escapeHtml(region || '')}</span></div><div class="field"><b>Town</b><span class="write">${escapeHtml(town || '')}</span></div><div class="field"><b>Kebele</b><span class="write">${escapeHtml(kebele || '')}</span></div>
+  </section>
+  <div class="selection"><b>Prescription source:</b> ${tick(!isOutsidePrint)} Clinic pharmacy&nbsp;&nbsp;&nbsp; ${tick(isOutsidePrint)} Outside purchase</div>
+  <div class="rx-label">Rx</div>
+  <table><thead><tr><th>S.N.</th><th>Drug Name, Strength,<br/>Dosage Form</th><th>Dose<br/>Frequency</th><th>Duration</th><th>Quantity</th><th>How to use &amp; Other Information</th><th>Price<br/>(For Dispensers Use Only)</th></tr></thead><tbody>${rows}${blankRows}</tbody></table>
+  ${cleanNotes ? `<p class="notes"><b>Clinician notes:</b> ${clinicalTextHtml(cleanNotes)}</p>` : ''}
+  <div class="total"><span>Total Price</span><span class="total-box">${totalText}</span></div>
+  <section class="signatures"><div class="sig"><b>Prescriber’s</b><div class="sig-line"></div><div>${escapeHtml(doctorName)}</div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Evaluator</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div><div class="sig"><b>Counselor</b><div class="sig-line"></div><small>Full Name</small><small>Qualification</small><small>Signature</small></div></section>
+  <div class="paper-foot">${escapeHtml(CLINIC_NAME)} · Prescription document generated from BruClinic</div>
+</main><script>window.onload=function(){window.print()};<\/script></body></html>`);
     printWindow.document.close();
   };
 
   return (
     <ModalPortal>
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal"
-        style={{
-          maxWidth: 680,
-          width: '100%',
-          padding: '1.5rem',
-          borderRadius: 'var(--radius-lg, 12px)',
-          animation: 'fadeIn 0.15s ease-out',
-          maxHeight: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rx-slip-title"
-      >
-        {/* Header - Screen only */}
-        <div
-          className="no-print"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '1rem',
-            paddingBottom: '0.6rem',
-            borderBottom: '1px solid var(--clr-border)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FileText size={20} className="text-primary" />
-            <h2 id="rx-slip-title" style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-              {isOutsidePrint ? 'Outside Purchase Slip' : 'Clinic Pharmacy Dispense Slip'}
-            </h2>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <div className="pill-tabs" style={{ fontSize: '0.72rem' }}>
-              <button
-                type="button"
-                className={`pill-tab ${!isOutsidePrint ? 'active' : ''}`}
-                onClick={() => setPrintMode('clinic')}
-                disabled={internalMeds.length === 0}
-              >
-                Clinic dispense
-              </button>
-              <button
-                type="button"
-                className={`pill-tab ${isOutsidePrint ? 'active' : ''}`}
-                onClick={() => setPrintMode('outside')}
-                disabled={externalMeds.length === 0}
-              >
-                Outside purchase
-              </button>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handlePrint}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              <Printer size={15} /> Print this slip
-            </button>
-            <button
-              type="button"
-              className="modal-close-btn"
-              onClick={onClose}
-              aria-label="Close"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Printable Prescription Body */}
-        <div
-          className="printable-prescription-slip"
-          style={{
-            background: '#ffffff',
-            color: '#0f172a',
-            padding: '1.75rem',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0',
-            overflowY: 'auto',
-            flex: 1,
-            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-          }}
-        >
-          {/* Clinic Header */}
-          <div
-            style={{
-              borderBottom: '2px solid #0284c7',
-              paddingBottom: '0.75rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}
-          >
-            <div>
-              <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#0369a1', letterSpacing: '-0.02em' }}>
-                {CLINIC_NAME}
-              </h1>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>
-                Outpatient Department &amp; Clinical Medical Services
+      <div className="modal-overlay prescription-paper-overlay" onClick={onClose}>
+        <section className="modal prescription-paper-modal" onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="rx-slip-title">
+          <header className="prescription-modal-toolbar no-print">
+            <div className="prescription-toolbar-title"><FileText size={19} /><h2 id="rx-slip-title">Prescription paper</h2></div>
+            <div className="prescription-toolbar-actions">
+              <div className="pill-tabs">
+                <button type="button" className={`pill-tab ${!isOutsidePrint ? 'active' : ''}`} onClick={() => setPrintMode('clinic')} disabled={!internalMeds.length}><CheckCircle2 size={13} /> Clinic pharmacy</button>
+                <button type="button" className={`pill-tab ${isOutsidePrint ? 'active' : ''}`} onClick={() => setPrintMode('outside')} disabled={!externalMeds.length}><ShoppingBag size={13} /> Outside purchase</button>
               </div>
+              <button type="button" className="btn btn-primary btn-sm" onClick={handlePrint}><Printer size={15} /> Print paper</button>
+              <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
             </div>
-            <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#475569' }}>
-              <div style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.85rem' }}>{isOutsidePrint ? 'OUTSIDE PURCHASE SLIP' : 'CLINIC PHARMACY DISPENSE SLIP'}</div>
-              <div>Date: {date}</div>
-              {patientCode && <div>Patient Code: <strong>{patientCode}</strong></div>}
-            </div>
-          </div>
+          </header>
 
-          {/* Patient & Doctor Meta */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '0.5rem',
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              padding: '0.75rem 1rem',
-              marginBottom: '1.25rem',
-              fontSize: '0.8rem',
-            }}
-          >
-            <div>
-              <span style={{ color: '#64748b' }}>Patient Name: </span>
-              <strong style={{ color: '#0f172a' }}>{patientName}</strong>
-            </div>
-            <div>
-              <span style={{ color: '#64748b' }}>Age / Sex: </span>
-              <strong style={{ color: '#0f172a' }}>{patientAge !== undefined ? `${patientAge} years` : '—'} / {patientGender || '—'}</strong>
-            </div>
-            <div>
-              <span style={{ color: '#64748b' }}>Weight: </span>
-              <strong style={{ color: '#0f172a' }}>{patientWeight !== undefined ? `${patientWeight} kg` : '—'}</strong>
-            </div>
-            <div>
-              <span style={{ color: '#64748b' }}>Prescribing Clinician: </span>
-              <strong style={{ color: '#0f172a' }}>{doctorName}</strong>
-            </div>
-            {doctorDiagnosis && (
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: '#64748b' }}>Clinical Diagnosis: </span>
-                <span style={{ color: '#0f172a', fontWeight: 600 }}>{doctorDiagnosis}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Separate patient slip: outside purchase or clinic dispensing */}
-          {isOutsidePrint && externalMeds.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.4rem 0.6rem',
-                  background: '#fef3c7',
-                  border: '1px solid #fde68a',
-                  borderRadius: '6px',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                <ShoppingBag size={16} color="#d97706" />
-                <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#92400e' }}>
-                  MEDICINES TO PURCHASE FROM OUTSIDE RETAIL PHARMACY
-                </h3>
-              </div>
-              <p style={{ fontSize: '0.72rem', color: '#78350f', margin: '0 0 0.5rem 0' }}>
-                The following medicine(s) are not currently stocked in the clinic dispensary. Please take this slip to any community pharmacy to purchase.
-              </p>
-
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fef3c7', color: '#92400e', textAlign: 'left' }}>
-                    <th style={{ padding: '6px 8px' }}>#</th>
-                    <th style={{ padding: '6px 8px' }}>Medication Name</th>
-                    <th style={{ padding: '6px 8px' }}>Instructions</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {externalMeds.map((med, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '8px', color: '#64748b' }}>{idx + 1}</td>
-                      <td style={{ padding: '8px' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{med.name}</div>
-                      </td>
-                      <td style={{ padding: '8px', color: '#334155', whiteSpace: 'pre-wrap' }}>{medicationDirections(med)}</td>
-                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                        {med.quantity || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+          <div className="prescription-paper-preview">
+            <h1>BORANA UNIVERSITY MEDIUM CLINIC<br />PRESCRIPTION PAPER</h1>
+            <div className="prescription-paper-date"><b>Date</b><span>{date}</span></div>
+            <section className="prescription-paper-patient">
+              <div className="span-2"><b>Patient’s Full Name</b><span>{patientName}</span></div><div><b>Age</b><span>{patientAge === undefined ? ' ' : `${patientAge} years`}</span></div>
+              <div className="span-2"><b>Sex</b><span>{patientGender || ' '}</span></div><div><b>Weight</b><span>{patientWeight === undefined ? ' ' : `${patientWeight} kg`}</span></div>
+              <div className="span-3"><b>Card No. (MRN)</b><span>{patientCode || ' '}</span></div>
+              <div className="span-3"><b>Patient status</b><span>{tick(patientStatus === 'In patient')} In patient　 {tick(patientStatus === 'Out patient')} Out patient　 <b>Start</b> {tick(true)}　<b>Refill</b> {tick(isRefill)}　<b>Pregnancy</b> {tick(pregnancyStatus === 'Pregnant')} Pregnant　 {tick(pregnancyStatus === 'Non-Pregnant')} Non-Pregnant</span></div>
+              <div className="span-3"><b>Diagnosis (ICD Code) No.</b><span>{doctorDiagnosis || ' '}</span></div>
+              <div><b>Region</b><span>{region || ' '}</span></div><div><b>Town</b><span>{town || ' '}</span></div><div><b>Kebele</b><span>{kebele || ' '}</span></div>
+            </section>
+            <div className="prescription-paper-source"><b>Prescription source:</b> {tick(!isOutsidePrint)} Clinic pharmacy　　{tick(isOutsidePrint)} Outside purchase</div>
+            <div className="prescription-paper-rx">Rx</div>
+            <div className="prescription-paper-table-wrap">
+              <table className="prescription-paper-table"><thead><tr><th>S.N.</th><th>Drug Name, Strength,<br />Dosage Form</th><th>Dose<br />Frequency</th><th>Duration</th><th>Quantity</th><th>How to use &amp; Other Information</th><th>Price<br />(For Dispensers Use Only)</th></tr></thead>
+                <tbody>{selectedMedicines.map((medicine, index) => <tr key={`${medicine.name}-${index}`}><td>{index + 1}</td><td><strong>{medicine.name}</strong>{medicine.strength && <small>{medicine.strength}</small>}{medicine.doseForm && <small>{medicine.doseForm}</small>}</td><td>{medicine.dosage || '—'}<br />{medicine.frequency || '—'}</td><td>{medicine.duration || '—'}</td><td>{medicine.quantity ?? '—'}</td><td>{printedDirections(medicine)}</td><td>{medicine.price === undefined ? '' : (Number(medicine.price) * Number(medicine.quantity || 0)).toFixed(2)}</td></tr>)}
+                  {Array.from({ length: Math.max(0, 4 - selectedMedicines.length) }, (_, index) => <tr className="prescription-empty-row" key={`blank-${index}`}><td>{selectedMedicines.length + index + 1}</td><td /><td /><td /><td /><td /><td /></tr>)}</tbody>
               </table>
             </div>
-          )}
-
-          {isOutsidePrint && externalMeds.length === 0 && (
-            <div style={{ padding: '1rem', border: '1px dashed #f59e0b', borderRadius: 6, color: '#92400e', fontSize: '0.8rem' }}>
-              No medicines were marked for outside purchase.
-            </div>
-          )}
-
-          {/* In-house clinic dispensing slip */}
-          {!isOutsidePrint && internalMeds.length > 0 && (
-            <div style={{ marginBottom: '1.25rem' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.4rem 0.6rem',
-                  background: '#ecfdf5',
-                  border: '1px solid #a7f3d0',
-                  borderRadius: '6px',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                <CheckCircle2 size={16} color="#059669" />
-                <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#065f46' }}>
-                  MEDICINES DISPENSED AT CLINIC PHARMACY
-                </h3>
-              </div>
-
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ background: '#f0fdf4', borderBottom: '1px solid #dcfce7', color: '#065f46', textAlign: 'left' }}>
-                    <th style={{ padding: '6px 8px' }}>#</th>
-                    <th style={{ padding: '6px 8px' }}>Medication Name</th>
-                    <th style={{ padding: '6px 8px' }}>Instructions</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {internalMeds.map((med, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '8px', color: '#64748b' }}>{idx + 1}</td>
-                      <td style={{ padding: '8px' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{med.name}</div>
-                      </td>
-                      <td style={{ padding: '8px', color: '#334155', whiteSpace: 'pre-wrap' }}>{medicationDirections(med)}</td>
-                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                        {med.quantity || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {!isOutsidePrint && internalMeds.length === 0 && (
-            <div style={{ padding: '1rem', border: '1px dashed #10b981', borderRadius: 6, color: '#065f46', fontSize: '0.8rem' }}>
-              No medicines are currently assigned to clinic dispensing.
-            </div>
-          )}
-
-          {cleanNotes && (
-            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#475569', fontStyle: 'italic' }}>
-              <strong>Clinician Notes:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{cleanNotes}</span>
-            </div>
-          )}
-
-          {/* Signature & Stamp Footer */}
-          <div
-            style={{
-              marginTop: '2.5rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-            }}
-          >
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-              Valid for fulfillment within 14 days from issue date.<br />
-              {CLINIC_NAME} Electronic Health Records System
-            </div>
-            <div style={{ textAlign: 'center', width: 220 }}>
-              <div style={{ borderBottom: '1px dashed #64748b', marginBottom: 4, height: 35 }}></div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a' }}>{CLINIC_NAME}</div>
-              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>Clinic name and authorized clinic stamp</div>
-            </div>
+            {cleanNotes && <p className="prescription-paper-notes"><b>Clinician notes:</b> {cleanNotes}</p>}
+            <div className="prescription-paper-total"><b>Total Price</b><span>{totalPrice === undefined ? '' : totalPrice.toFixed(2)}</span></div>
+            <section className="prescription-paper-signatures">
+              <div><b>Prescriber’s</b><i /> <strong>{doctorName}</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
+              <div><b>Evaluator</b><i /><strong>&nbsp;</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
+              <div><b>Counselor</b><i /><strong>&nbsp;</strong><span>Full Name</span><span>Qualification</span><span>Signature</span></div>
+            </section>
           </div>
-        </div>
-
-        {/* Action Footer - Screen only */}
-        <div
-          className="no-print"
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '0.75rem',
-            marginTop: '1rem',
-            paddingTop: '0.75rem',
-            borderTop: '1px solid var(--clr-border)',
-          }}
-        >
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="btn btn-primary" onClick={handlePrint}>
-            <Printer size={15} /> Print / Save {isOutsidePrint ? 'Outside Purchase' : 'Clinic Dispense'} PDF
-          </button>
-        </div>
+          <footer className="prescription-modal-footer no-print"><button type="button" className="btn btn-secondary" onClick={onClose}>Close</button><button type="button" className="btn btn-primary" onClick={handlePrint}><Printer size={15} /> Print / Save {isOutsidePrint ? 'Outside Purchase' : 'Clinic Pharmacy'} PDF</button></footer>
+        </section>
       </div>
-
-
-    </div>
     </ModalPortal>
   );
 }

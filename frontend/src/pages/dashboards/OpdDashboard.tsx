@@ -44,7 +44,7 @@ function calculateAge(dateOfBirth?: string): number | undefined {
 
 export default function OpdDashboard() {
   const {
-    queue, records, medicines, patients, doctors, erCases,
+    queue, records, medicines, patients, doctors, erCases, labOrders,
     updateQueueItem, sendOpdToLabRequest, sendOpdToPharmacyRequest,
     completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency
   } = useClinic();
@@ -243,6 +243,16 @@ export default function OpdDashboard() {
   const pastMedicalRecords = selectedQueueItem
     ? records.filter(r => r.patientId === selectedQueueItem.patientId)
     : [];
+  const selectedLabOrders = useMemo(() => {
+    if (!selectedQueueItem) return [];
+    const linked = labOrders.filter(order => order.queueItemId === selectedQueueItem.id);
+    if (linked.length) return linked;
+    const firstOrder = labOrders.find(order => order.id === selectedQueueItem.labOrderId);
+    if (!firstOrder) return [];
+    return firstOrder.requestGroupId
+      ? labOrders.filter(order => order.requestGroupId === firstOrder.requestGroupId)
+      : [firstOrder];
+  }, [labOrders, selectedQueueItem]);
   const isCompletedReview = selectedQueueItem?.stage === 'Completed';
 
   const handleSelectPatient = (item: ClinicQueueItem) => {
@@ -704,7 +714,8 @@ export default function OpdDashboard() {
             ) : (
               doctorStationQueue.map((item) => {
                 const isSelected = selectedQueueItem?.id === item.id;
-                const hasLabResults = item.labStatus === 'Completed';
+                const linkedLabResults = labOrders.filter(order => order.queueItemId === item.id && order.status === 'Completed');
+                const hasLabResults = item.labStatus === 'Completed' || linkedLabResults.length > 0;
 
                 return (
                   <div
@@ -751,7 +762,7 @@ export default function OpdDashboard() {
                         color: 'var(--clr-primary-400)', padding: '0.35rem 0.65rem', borderRadius: 6,
                         fontSize: '0.74rem', fontWeight: 700, marginBottom: '0.5rem'
                       }}>
-                        <FlaskConical size={14} /> LAB RESULTS READY: {item.labTestName} ({item.labResult})
+                        <FlaskConical size={14} /> {linkedLabResults.length > 0 ? `${linkedLabResults.length} lab result${linkedLabResults.length === 1 ? '' : 's'} returned` : 'Lab results ready'}: {item.labTestName}
                       </div>
                     )}
 
@@ -896,46 +907,43 @@ export default function OpdDashboard() {
             {!isCompletedReview && (
               <div>
                 {/* Returned Lab Results Display Banner */}
-                {selectedQueueItem.labStatus === 'Completed' && (
-                  <div style={{
-                    background: 'var(--clr-bg-surface)',
-                    border: '1px solid var(--clr-border)',
-                    borderRadius: 10,
-                    padding: '0.9rem 1.1rem',
-                    marginBottom: '1rem',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text-primary)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                        <FlaskConical size={16} className="text-primary" /> Lab result
-                      </h4>
-                      <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
-                        Completed at {selectedQueueItem.labCompletedAt || 'Today'}
-                      </span>
-                    </div>
-
-                    <div className="opd-lab-results-grid" style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
+                {(selectedLabOrders.length > 0 || selectedQueueItem.labStatus === 'Completed') && (
+                  <section className="opd-lab-return-card" aria-label="Laboratory results returned for this visit">
+                    <header className="opd-lab-return-heading">
                       <div>
-                        <div>Test: <strong>{selectedQueueItem.labTestName}</strong></div>
-                        <div>Category: {selectedQueueItem.labCategory || 'Clinical Pathology'}</div>
+                        <h4><FlaskConical size={17} /> Laboratory results</h4>
+                        <p>{selectedLabOrders.length} requested investigation{selectedLabOrders.length === 1 ? '' : 's'} · {selectedLabOrders.filter(order => order.status === 'Completed').length} result{selectedLabOrders.filter(order => order.status === 'Completed').length === 1 ? '' : 's'} returned</p>
                       </div>
-                      <div style={{
-                        background: 'var(--clr-bg-card)',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: 6,
-                        border: selectedQueueItem.labIsAbnormal ? '1px solid var(--clr-rose-500)' : '1px solid var(--clr-border)',
-                      }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>Result Findings:</div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: selectedQueueItem.labIsAbnormal ? 'var(--clr-rose-500)' : 'var(--clr-primary-400)' }}>
-                          {selectedQueueItem.labResult || 'Pending value'} {selectedQueueItem.labUnit}
-                        </div>
-                        {selectedQueueItem.labReferenceRange && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)' }}>
-                            Ref: {selectedQueueItem.labReferenceRange}
+                      <span className={`badge ${selectedLabOrders.some(order => order.status !== 'Completed') ? 'badge-amber' : 'badge-green'}`}>
+                        {selectedLabOrders.some(order => order.status !== 'Completed') ? 'Results in progress' : 'Verified by laboratory'}
+                      </span>
+                    </header>
+                    <div className="opd-lab-return-list">
+                      {selectedLabOrders.map(order => (
+                        <article key={order.id} className={`opd-lab-return-item${order.isAbnormal ? ' is-abnormal' : ''}`}>
+                          <div className="opd-lab-return-test">
+                            <strong>{order.testName}</strong>
+                            <span>{order.category} · {order.specimenType}</span>
+                            {order.notes && <small>OPD request: {order.notes}</small>}
                           </div>
-                        )}
-                      </div>
+                          <div className="opd-lab-return-result">
+                            {order.status === 'Completed' ? <>
+                              <strong>{order.result || 'Result recorded'}{order.unit ? ` ${order.unit}` : ''}</strong>
+                              <span>{order.isAbnormal ? 'Abnormal result' : 'Within expected range'}{order.referenceRange ? ` · Reference: ${order.referenceRange}` : ''}</span>
+                              {(order.technicianInitials || order.approvedBy || order.completedAt) && <small>{[order.technicianInitials && `Tech: ${order.technicianInitials}`, order.approvedBy && `Verified by ${order.approvedBy}`, order.completedAt && `Released ${order.completedAt}`].filter(Boolean).join(' · ')}</small>}
+                              {order.technicianComment && <small className="opd-lab-return-comment">Lab comment: {order.technicianComment}</small>}
+                            </> : <span className="opd-lab-result-pending">Awaiting laboratory result</span>}
+                          </div>
+                        </article>
+                      ))}
+                      {selectedLabOrders.length === 0 && selectedQueueItem.labResult && (
+                        <article className="opd-lab-return-item">
+                          <div className="opd-lab-return-test"><strong>{selectedQueueItem.labTestName || 'Laboratory investigation'}</strong></div>
+                          <div className="opd-lab-return-result"><strong>{selectedQueueItem.labResult}</strong><span>{selectedQueueItem.labReferenceRange ? `Reference: ${selectedQueueItem.labReferenceRange}` : ''}</span></div>
+                        </article>
+                      )}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {/* Workflow Navigation Sub-tabs */}

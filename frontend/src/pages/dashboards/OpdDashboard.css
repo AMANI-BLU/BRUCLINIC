@@ -22,6 +22,28 @@
 .opd-queue-filters { flex-wrap: wrap; font-size: 0.72rem; }
 .opd-queue-panel > div:last-child { padding: 0.85rem 1rem 1rem; }
 
+.opd-lab-return-card { margin-bottom: 1rem; overflow: hidden; border: 1px solid var(--clr-border); border-left: 4px solid var(--clr-primary-400); border-radius: 0.65rem; background: var(--clr-bg-surface); }
+.opd-lab-return-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--clr-border); background: var(--clr-bg-hover); }
+.opd-lab-return-heading h4 { display: flex; align-items: center; gap: 0.45rem; margin: 0; color: var(--clr-text-primary); font-size: 0.9rem; font-weight: 800; }
+.opd-lab-return-heading h4 svg { color: var(--clr-primary-400); }
+.opd-lab-return-heading p { margin: 0.2rem 0 0; color: var(--clr-text-muted); font-size: 0.7rem; }
+.opd-lab-return-list { display: grid; gap: 0.55rem; padding: 0.7rem; }
+.opd-lab-return-item { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 0.8rem; padding: 0.75rem; border: 1px solid var(--clr-border); border-radius: 0.5rem; background: var(--clr-bg-card); }
+.opd-lab-return-item.is-abnormal { border-color: var(--clr-rose-400); background: rgba(220, 53, 69, 0.045); }
+.opd-lab-return-test, .opd-lab-return-result { display: grid; align-content: start; gap: 0.22rem; min-width: 0; }
+.opd-lab-return-test strong, .opd-lab-return-result strong { color: var(--clr-text-primary); font-size: 0.8rem; overflow-wrap: anywhere; }
+.opd-lab-return-test span, .opd-lab-return-result span { color: var(--clr-text-muted); font-size: 0.7rem; overflow-wrap: anywhere; }
+.opd-lab-return-test small, .opd-lab-return-result small { color: var(--clr-text-muted); font-size: 0.67rem; overflow-wrap: anywhere; }
+.opd-lab-return-result strong { color: var(--clr-primary-400); font-size: 0.84rem; }
+.opd-lab-return-item.is-abnormal .opd-lab-return-result strong { color: var(--clr-rose-500); }
+.opd-lab-return-result .opd-lab-result-pending { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--clr-warning-500, #b45309); font-weight: 700; }
+.opd-lab-return-comment { padding-top: 0.25rem; border-top: 1px dashed var(--clr-border); }
+
+@media (max-width: 600px) {
+  .opd-lab-return-heading { align-items: flex-start; flex-direction: column; }
+  .opd-lab-return-item { grid-template-columns: 1fr; gap: 0.55rem; }
+}
+
 .opd-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

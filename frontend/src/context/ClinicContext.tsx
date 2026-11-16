@@ -40,6 +40,7 @@ interface ClinicContextType {
   deleteEmergencyBay: (id: string) => Promise<void>;
   addLabOrder: (order: Omit<LabOrder, 'id' | 'orderedAt'>) => Promise<LabOrder>;
   updateLabOrder: (id: string, changes: Partial<LabOrder>) => Promise<void>;
+  updateLabOrderGroup: (updates: Array<{ id: string; changes: Partial<LabOrder> }>) => Promise<void>;
   addPharmacyOrder: (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => Promise<PharmacyOrder>;
   dispensePharmacyOrder: (id: string, dispensedBy: string, overrides?: Record<string, string>, quantities?: Record<string, number>) => Promise<void>;
 }
@@ -310,6 +311,60 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     }
     notifyActionSuccess(changes.status === 'Completed' ? 'Laboratory result verified' : 'Laboratory order updated');
   }), [labOrders, mutate, queue, token]);
+  const updateLabOrderGroup = useCallback((updates: Array<{ id: string; changes: Partial<LabOrder> }>) => mutate(async () => {
+    if (updates.length === 0) return;
+    const updatedById = new Map<string, LabOrder>();
+    try {
+      for (const update of updates) {
+        const response = await apiPatch<{ data: LabOrder }>(`/lab-orders/${encodeURIComponent(update.id)}`, update.changes, token);
+        updatedById.set(update.id, response.data);
+      }
+    } catch (cause) {
+      await refresh({ silent: true });
+      throw cause;
+    }
+
+    setLabOrders(previous => previous.map(order => updatedById.get(order.id) || order));
+    const updatedOrders = labOrders.map(order => updatedById.get(order.id) || order);
+    const firstUpdated = updatedById.values().next().value as LabOrder | undefined;
+    const target = firstUpdated && (queue.find(item => item.id === firstUpdated.queueItemId)
+      || queue.find(item => item.labOrderId === firstUpdated.id)
+      || queue.find(item => item.stage === 'Laboratory' && item.patientId === firstUpdated.patientId));
+
+    if (target && firstUpdated) {
+      const relatedOrders = updatedOrders.filter(order => order.queueItemId === target.id
+        || (!order.queueItemId && order.patientId === target.patientId));
+      const pendingOrders = relatedOrders.filter(order => order.status !== 'Completed');
+      const completedOrders = relatedOrders.filter(order => order.status === 'Completed' && order.result);
+      const allResults = completedOrders.map(order => `${order.testName}: ${order.result}${order.unit ? ` ${order.unit}` : ''}`).join(' | ');
+      const referenceRanges = completedOrders.filter(order => order.referenceRange).map(order => `${order.testName}: ${order.referenceRange}`).join(' | ');
+      const queueChanges: Partial<ClinicQueueItem> = pendingOrders.length > 0 ? {
+        stage: 'Laboratory',
+        labStatus: 'Requested',
+        labTestName: relatedOrders.map(order => order.testName).join(', '),
+        labResult: allResults,
+        labIsAbnormal: completedOrders.some(order => order.isAbnormal),
+        requestSource: 'Laboratory',
+        requestDestination: 'Laboratory',
+        requestNotes: `${pendingOrders.length} laboratory investigation(s) still pending.`,
+      } : {
+        stage: 'Doctor Consultation',
+        labStatus: 'Completed',
+        labTestName: relatedOrders.map(order => order.testName).join(', '),
+        labResult: allResults || 'Analysis complete',
+        labUnit: '',
+        labReferenceRange: referenceRanges,
+        labIsAbnormal: completedOrders.some(order => order.isAbnormal),
+        labCompletedAt: new Date().toLocaleString(),
+        requestSource: 'Laboratory',
+        requestDestination: 'Doctor Consultation',
+        requestNotes: `Laboratory results ready: ${allResults || 'Analysis complete'}.`,
+      };
+      const response = await apiPatch<{ data: ClinicQueueItem }>(`/queue/${encodeURIComponent(target.id)}`, queueChanges, token);
+      const normalized = normalizeQueueItem(response.data);
+      setQueue(previous => previous.map(item => item.id === target.id ? normalized : item));
+    }
+  }, 'Laboratory results verified and returned to OPD'), [labOrders, mutate, queue, refresh, token]);
   const addPharmacyOrder = useCallback(async (order: Omit<PharmacyOrder, 'id' | 'prescribedAt'>) => {
     const response = await apiPost<{ data: PharmacyOrder }>('/pharmacy-orders', { ...order, prescribedAt: new Date().toISOString() }, token);
     setPharmacyOrders(previous => [response.data, ...previous]);
@@ -322,7 +377,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     patients, doctors, appointments, records, medicines, queue, erCases, emergencyBays, labOrders, pharmacyOrders, loading, error, refresh,
     addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, addRecord, addMedicine, updateMedicineStock, updateMedicine,
     addToQueue, updateQueueItem, removeFromQueue, sendCardToOpdRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest, completeOpdConsultation, saveOpdAssessment, referOutside, transferToEmergency,
-    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, updateLabOrder, addPharmacyOrder, dispensePharmacyOrder,
+    addERCase, updateERCase, completeEmergencyCase, referEmergencyCase, addEmergencyBay, deleteEmergencyBay, addLabOrder, updateLabOrder, updateLabOrderGroup, addPharmacyOrder, dispensePharmacyOrder,
   }}>{children}</ClinicContext.Provider>;
 }
 

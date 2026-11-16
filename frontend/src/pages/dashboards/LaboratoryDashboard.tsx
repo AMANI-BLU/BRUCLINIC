@@ -1,20 +1,36 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import type { LabOrder } from '../../types';
-import { firstError, validateRequired } from '../../utils/validation';
 import { patientCodeFor, patientNameFor } from '../../utils/patient';
-import { findStandardLabTest, type StandardLabTest } from '../../utils/labPresets';
 import {
   FlaskConical, CheckCircle2, Clock, AlertTriangle, X,
-  Printer, Sparkles
+  Printer
 } from 'lucide-react';
 import './LaboratoryDashboard.css';
 import ModalPortal from '../../components/ModalPortal';
 import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
 import { cleanClinicalText, clinicalTextHtml } from '../../utils/clinicalText';
+
+interface LabResultDraft {
+  result: string;
+  unit: string;
+  referenceRange: string;
+  isAbnormal: boolean;
+  cost: string;
+  loggedInAt: string;
+  star: boolean;
+  technicianInitials: string;
+  technicianComment: string;
+}
+
+interface LabRequestGroup {
+  id: string;
+  orders: LabOrder[];
+  first: LabOrder;
+}
 
 function patientAge(dateOfBirth?: string): string {
   if (!dateOfBirth) return '—';
@@ -42,29 +58,16 @@ function escapeHtml(value: string | number | null | undefined): string {
 }
 
 export default function LaboratoryDashboard() {
-  const { labOrders, patients, updateLabOrder } = useClinic();
+  const { labOrders, patients, updateLabOrderGroup } = useClinic();
   const { currentUser } = useAuth();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [priorityFilter, setPriorityFilter] = useState<string>('All');
-  const [resultModal, setResultModal] = useState<LabOrder | null>(null);
+  const [resultModal, setResultModal] = useState<LabOrder[] | null>(null);
 
-  // Result entry form state
-  const [resultValue, setResultValue] = useState('');
-  const [unit, setUnit] = useState('');
-  const [referenceRange, setReferenceRange] = useState('');
-  const [isAbnormal, setIsAbnormal] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [cost, setCost] = useState('');
-  const [loggedInAt, setLoggedInAt] = useState('');
-  const [loggedOutAt, setLoggedOutAt] = useState('');
-  const [star, setStar] = useState(false);
-  const [technicianInitials, setTechnicianInitials] = useState('');
-  const [technicianComment, setTechnicianComment] = useState('');
-  const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
-  const [activeStandardTest, setActiveStandardTest] = useState<StandardLabTest | null>(null);
+  const [resultDrafts, setResultDrafts] = useState<Record<string, LabResultDraft>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [savingResult, setSavingResult] = useState(false);
 
@@ -73,88 +76,92 @@ export default function LaboratoryDashboard() {
   const criticalResults = labOrders.filter(o => o.isAbnormal);
   const categories = [...new Set(labOrders.map(order => order.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-  const filteredOrders = labOrders.filter(o => {
-    const matchCat = filterCategory === 'All' || o.category === filterCategory;
+  const requestGroups = useMemo<LabRequestGroup[]>(() => {
+    const groups = new Map<string, LabOrder[]>();
+    labOrders.forEach(order => {
+      const id = order.requestGroupId || `single-${order.id}`;
+      const group = groups.get(id) || [];
+      group.push(order);
+      groups.set(id, group);
+    });
+    return [...groups.entries()].map(([id, orders]) => {
+      const sortedOrders = [...orders].sort((left, right) => left.orderedAt.localeCompare(right.orderedAt));
+      return { id, orders: sortedOrders, first: sortedOrders[0] };
+    }).sort((left, right) => right.first.orderedAt.localeCompare(left.first.orderedAt));
+  }, [labOrders]);
+
+  const filteredGroups = requestGroups.filter(group => {
+    const matchCat = filterCategory === 'All' || group.orders.some(order => order.category === filterCategory);
     const matchStatus = statusFilter === 'All'
-      || (statusFilter === 'Completed' && o.status === 'Completed')
-      || (statusFilter === 'Requested' && o.status !== 'Completed');
-    const matchPriority = priorityFilter === 'All' || o.priority === priorityFilter;
-    const matchSearch = o.patientName.toLowerCase().includes(search.toLowerCase()) ||
-      o.testName.toLowerCase().includes(search.toLowerCase()) ||
-      o.id.toLowerCase().includes(search.toLowerCase());
+      || (statusFilter === 'Completed' && group.orders.every(order => order.status === 'Completed'))
+      || (statusFilter === 'Requested' && group.orders.some(order => order.status !== 'Completed'));
+    const matchPriority = priorityFilter === 'All' || group.orders.some(order => order.priority === priorityFilter);
+    const searchValue = search.toLowerCase();
+    const matchSearch = group.orders.some(order => order.patientName.toLowerCase().includes(searchValue)
+      || order.testName.toLowerCase().includes(searchValue)
+      || order.id.toLowerCase().includes(searchValue));
     return matchCat && matchStatus && matchPriority && matchSearch;
   });
 
-  const resultPatient = resultModal ? patients.find(patient => patient.id === resultModal.patientId) : undefined;
+  const resultPatient = resultModal?.[0] ? patients.find(patient => patient.id === resultModal[0].patientId) : undefined;
 
-  const handleOpenResultEntry = (order: LabOrder) => {
-    const standard = findStandardLabTest(order.testName, order.category);
-    setActiveStandardTest(standard || null);
-    setResultModal(order);
-    setResultValue(order.result || '');
-    setUnit(order.unit || standard?.defaultUnit || (order.category === 'Hematology' ? 'g/dL' : order.category === 'Biochemistry' ? 'mg/dL' : ''));
-    setReferenceRange(order.referenceRange || standard?.defaultRefRange || 'Normal Range');
-    setIsAbnormal(order.isAbnormal || false);
-    setNotes(order.notes || '');
-    setCost(order.cost === null || order.cost === undefined ? '' : String(order.cost));
-    setLoggedInAt(order.loggedInAt || new Date().toISOString());
-    setLoggedOutAt(order.loggedOutAt || '');
-    setStar(Boolean(order.star || order.priority === 'Critical'));
-    setTechnicianInitials(order.technicianInitials || nameInitials(currentUser?.name));
-    setTechnicianComment(order.technicianComment || '');
-    setParameterValues({});
+  const handleOpenResultEntry = (orders: LabOrder[]) => {
+    const openedAt = new Date().toISOString();
+    setResultModal(orders);
+    setResultDrafts(Object.fromEntries(orders.map(order => [order.id, {
+      result: order.result || '',
+      unit: order.unit || '',
+      referenceRange: order.referenceRange || '',
+      isAbnormal: Boolean(order.isAbnormal),
+      cost: order.cost === null || order.cost === undefined ? '' : String(order.cost),
+      loggedInAt: order.loggedInAt || openedAt,
+      star: Boolean(order.star || order.priority === 'Critical'),
+      technicianInitials: order.technicianInitials || nameInitials(currentUser?.name),
+      technicianComment: order.technicianComment || '',
+    }])));
     setFormError(null);
   };
 
-  const handleQuickResultFill = (val: string, abnormal = false) => {
-    setResultValue(val);
-    setIsAbnormal(abnormal);
-  };
-
-  const handleParameterChange = (paramName: string, val: string) => {
-    const next = { ...parameterValues, [paramName]: val };
-    setParameterValues(next);
-
-    // Auto-compose overall result value from parameter breakdown
-    const parts = Object.entries(next)
-      .filter(([, v]) => v.trim())
-      .map(([k, v]) => `${k.replace(/\s*\(.*?\)\s*/g, '')}: ${v}`);
-    if (parts.length > 0) {
-      setResultValue(parts.join(' | '));
-    }
+  const updateDraft = (orderId: string, changes: Partial<LabResultDraft>) => {
+    setResultDrafts(previous => ({ ...previous, [orderId]: { ...previous[orderId], ...changes } }));
   };
 
   const handleSaveResult = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resultModal) return;
     if (savingResult) return;
-    const error = firstError(...Object.values(validateRequired({ resultValue }, { resultValue: 'Diagnostic result' })));
-    if (error) {
-      setFormError(error);
+    const unfinished = resultModal.filter(order => order.status !== 'Completed' && !resultDrafts[order.id]?.result.trim());
+    if (unfinished.length) {
+      setFormError(`Enter a result for: ${unfinished.map(order => order.testName).join(', ')}.`);
       return;
     }
 
-    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     const completedAt = new Date().toISOString();
     try {
       setSavingResult(true);
-      await updateLabOrder(resultModal.id, {
-        status: 'Completed',
-        result: resultValue,
-        unit,
-        referenceRange,
-        isAbnormal,
-        notes,
-        completedAt: time,
-        cost: cost.trim() ? Number(cost) : null,
-        loggedInAt: loggedInAt || completedAt,
-        loggedOutAt: loggedOutAt || completedAt,
-        star,
-        technicianInitials: technicianInitials.trim().toUpperCase(),
-        technicianComment,
-        approvedBy: currentUser?.name || 'Laboratory technologist',
-        approvedAt: completedAt,
+      const updates = resultModal.filter(order => order.status !== 'Completed').map(order => {
+        const draft = resultDrafts[order.id];
+        return {
+          id: order.id,
+          changes: {
+            status: 'Completed' as const,
+            result: draft.result.trim(),
+            unit: draft.unit.trim(),
+            referenceRange: draft.referenceRange.trim(),
+            isAbnormal: draft.isAbnormal,
+            completedAt,
+            cost: draft.cost.trim() ? Number(draft.cost) : null,
+            loggedInAt: draft.loggedInAt,
+            loggedOutAt: completedAt,
+            star: draft.star,
+            technicianInitials: draft.technicianInitials.trim().toUpperCase(),
+            technicianComment: draft.technicianComment.trim(),
+            approvedBy: currentUser?.name || 'Laboratory technologist',
+            approvedAt: completedAt,
+          },
+        };
       });
+      await updateLabOrderGroup(updates);
       setFormError(null);
       setResultModal(null);
     } catch (cause) {
@@ -317,7 +324,7 @@ export default function LaboratoryDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.length === 0 ? (
+                {filteredGroups.length === 0 ? (
                   <tr className="empty-state-row">
                     <td colSpan={7}>
                       <div className="empty-state">
@@ -330,54 +337,40 @@ export default function LaboratoryDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map(order => (
-                    <tr key={order.id}>
-                      <td><code className="id-code">{order.id}</code></td>
+                  filteredGroups.map(group => {
+                    const { first, orders } = group;
+                    const completed = orders.filter(order => order.status === 'Completed');
+                    const pending = orders.length - completed.length;
+                    return (
+                    <tr key={group.id}>
+                      <td><code className="id-code">{first.requestGroupId || first.id}</code></td>
                       <td>
-                        <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>{order.patientName}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)' }}>{first.patientName}</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--clr-text-muted)' }}>
-                          MRN: {patientCodeFor(patients, order.patientId)} · Dr. {order.doctorName}
+                          MRN: {patientCodeFor(patients, first.patientId)} · Dr. {first.doctorName}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{order.testName}</div>
-                        <span className="badge badge-blue" style={{ fontSize: '0.68rem', marginTop: 2 }}>
-                          {order.category}
-                        </span>
-                        {order.notes && (
-                          <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)', marginTop: 5 }}>
-                            <strong>Requested:</strong> {cleanClinicalText(order.notes)}
-                          </div>
-                        )}
+                        <div className="lab-group-test-list">{orders.map(order => <span key={order.id}><strong>{order.testName}</strong><small>{order.category}</small></span>)}</div>
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--clr-text-secondary)' }}>
-                          {order.specimenType}
-                        </span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--clr-text-secondary)' }}>{[...new Set(orders.map(order => order.specimenType))].join(', ')}</span>
                         <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)', marginTop: 4 }}>
-                          {order.unit || 'Unit not specified'} · Ref: {order.referenceRange || 'See form'}
+                          {orders.length} requested test{orders.length === 1 ? '' : 's'}
                         </div>
                       </td>
                       <td>
                         <div className="lab-status-cell">
-                          <span className={`badge ${order.status === 'Completed' ? 'badge-green' : 'badge-gray'}`}>
-                            {order.status === 'Completed' ? 'Result entered' : 'Requested'}
+                          <span className={`badge ${pending === 0 ? 'badge-green' : 'badge-gray'}`}>
+                            {pending === 0 ? 'Results released' : `${completed.length}/${orders.length} complete`}
                           </span>
-                          {order.star && <span className="badge badge-red" style={{ marginLeft: 4 }}>STAR</span>}
-                          <small>{order.status === 'Completed' ? 'Verified and released to OPD' : 'Awaiting laboratory result'}</small>
+                          {orders.some(order => order.star) && <span className="badge badge-red" style={{ marginLeft: 4 }}>STAT</span>}
+                          <small>{pending === 0 ? 'Verified and released to OPD' : 'Awaiting laboratory result'}</small>
                         </div>
                       </td>
                       <td>
-                        {order.status === 'Completed' ? (
-                          <div>
-                            <div style={{ fontWeight: 700, color: order.isAbnormal ? 'var(--clr-rose-400)' : 'var(--clr-emerald-400)', fontSize: '0.86rem' }}>
-                              {order.result} {order.unit}
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--clr-text-muted)' }}>
-                              Ref: {order.referenceRange || 'Standard'}
-                              {order.isAbnormal && <span className="badge badge-red ms-1" style={{ marginLeft: 4 }}>Abnormal</span>}
-                            </div>
-                          </div>
+                        {completed.length ? (
+                          <div className="lab-group-result-list">{completed.map(order => <div key={order.id}><strong className={order.isAbnormal ? 'is-abnormal' : ''}>{order.testName}: {order.result} {order.unit}</strong><small>{order.referenceRange ? `Ref: ${order.referenceRange}` : 'Reference not entered'}{order.isAbnormal ? ' · Abnormal' : ''}</small></div>)}</div>
                         ) : (
                           <span style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', fontStyle: 'italic' }}>
                             Awaiting analysis
@@ -386,24 +379,24 @@ export default function LaboratoryDashboard() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {order.status !== 'Completed' ? (
+                          {pending > 0 ? (
                             <LoadingButton
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={() => handleOpenResultEntry(order)}
+                              onClick={() => handleOpenResultEntry(orders)}
                               loading={false}
                               loadingLabel="Opening…"
                               style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }}
                             >
-                              Enter Result
+                              Open request
                             </LoadingButton>
                           ) : (
                             <>
                               <button
                                 type="button"
                                 className="btn btn-secondary btn-sm btn-icon"
-                                onClick={() => handlePrintReport(order)}
-                                title="Print Official Lab Slip"
+                                onClick={() => handlePrintReport(orders[0])}
+                                title="Print Laboratory Result"
                               >
                                 <Printer size={14} />
                               </button>
@@ -412,7 +405,8 @@ export default function LaboratoryDashboard() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -423,176 +417,71 @@ export default function LaboratoryDashboard() {
       {/* Real Clinical Laboratory Result Entry Modal */}
       {resultModal && (
         <ModalPortal>
-        <div className="modal-overlay" onClick={() => !savingResult && setResultModal(null)} style={{ zIndex: 1100 }}>
-          <div
-            className="modal lab-result-modal"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="lab-result-heading">
-              <div>
-                <div className="lab-result-eyebrow">
-                  Clinical Pathology &amp; Diagnostic Reporting
+          <div className="modal-overlay" onClick={() => !savingResult && setResultModal(null)} style={{ zIndex: 1100 }}>
+            <div className="modal lab-result-modal lab-result-paper-modal" onClick={event => event.stopPropagation()}>
+              <div className="lab-result-heading">
+                <div>
+                  <div className="lab-result-eyebrow">General laboratory request and report</div>
+                  <h2><FlaskConical size={18} className="text-primary" /> Enter results for {resultModal.length} requested test{resultModal.length === 1 ? '' : 's'}</h2>
                 </div>
-                <h2>
-                  <FlaskConical size={18} className="text-primary" /> {resultModal.testName}
-                </h2>
+                <button type="button" className="modal-close-btn" onClick={() => setResultModal(null)} disabled={savingResult} aria-label="Close dialog"><X size={16} /></button>
               </div>
-              <button type="button" className="modal-close-btn" onClick={() => setResultModal(null)} disabled={savingResult} aria-label="Close dialog">
-                <X size={16} />
-              </button>
+
+              <form onSubmit={handleSaveResult} noValidate className="lab-result-form">
+                {formError && <div className="alert alert-danger py-2 px-3 mb-3" role="alert">{formError}</div>}
+                <div className="lab-result-paper-sheet">
+                  <header className="lab-result-paper-header">
+                    <img src="/bu-logo.png" alt="Borana University emblem" />
+                    <div><strong>BORANA UNIVERSITY</strong><span>Student Service Clinic</span><b>GENERAL LABORATORY REQUEST<br />AND REPORT FORM</b></div>
+                    <div className="lab-result-paper-meta"><span>Request: <b>{resultModal[0].requestGroupId || resultModal[0].id}</b></span><span>Order date: <b>{new Date(resultModal[0].orderedAt).toLocaleDateString()}</b></span><span>Form: <b>Page 1 of 2</b></span></div>
+                  </header>
+
+                  <section className="lab-result-paper-patient">
+                    <div><b>Patient name</b><span>{patientNameFor(patients, resultModal[0].patientId, resultModal[0].patientName)}</span></div>
+                    <div><b>Age / Sex</b><span>{patientAge(resultPatient?.dateOfBirth)} · {resultPatient?.gender || '—'}</span></div>
+                    <div><b>MRN</b><span>{patientCodeFor(patients, resultModal[0].patientId)}</span></div>
+                    <div><b>Address</b><span>{resultPatient?.address || '—'}</span></div>
+                    <div><b>Referring clinician</b><span>Dr. {resultModal[0].doctorName}</span></div>
+                    <div><b>Priority / STAR</b><span>{resultModal.some(order => order.star || order.priority === 'Critical') ? 'STAT / Emergency' : resultModal[0].priority}</span></div>
+                    <div className="lab-result-paper-request-note"><b>Clinical notes / instructions from OPD</b><span>{cleanClinicalText(resultModal[0].notes) || 'No additional instructions provided.'}</span></div>
+                  </section>
+
+                  <div className="lab-result-paper-section-title">Requested investigations and laboratory report</div>
+                  <div className="lab-result-entry-list">
+                    {resultModal.map((order, index) => {
+                      const draft = resultDrafts[order.id];
+                      const readonly = order.status === 'Completed';
+                      if (!draft) return null;
+                      return (
+                        <article className={`lab-result-entry${draft.isAbnormal ? ' is-abnormal' : ''}${readonly ? ' is-complete' : ''}`} key={order.id}>
+                          <header><span className="lab-result-entry-number">{index + 1}</span><div><strong>{order.testName}</strong><small>{order.category} · {order.specimenType}</small></div><span className={`badge ${readonly ? 'badge-green' : 'badge-blue'}`}>{readonly ? 'Verified' : 'Requested'}</span></header>
+                          {order.notes && <p className="lab-result-request-instructions"><b>OPD request:</b> {cleanClinicalText(order.notes)}</p>}
+                          <div className="lab-result-entry-fields">
+                            <label className="lab-result-entry-value"><span>Result / clinical finding {readonly ? '' : '*'}</span><textarea rows={2} required={!readonly} readOnly={readonly} value={draft.result} onChange={event => updateDraft(order.id, { result: event.target.value })} placeholder="Enter result for this requested test" /></label>
+                            <label><span>Unit</span><input readOnly={readonly} value={draft.unit} onChange={event => updateDraft(order.id, { unit: event.target.value })} placeholder="e.g. mg/dL" /></label>
+                            <label><span>Reference range</span><input readOnly={readonly} value={draft.referenceRange} onChange={event => updateDraft(order.id, { referenceRange: event.target.value })} placeholder="Expected range" /></label>
+                            <label><span>Cost (lab use)</span><input readOnly={readonly} type="number" min="0" step="0.01" value={draft.cost} onChange={event => updateDraft(order.id, { cost: event.target.value })} placeholder="—" /></label>
+                            <label><span>Technologist initials</span><input readOnly={readonly} maxLength={10} value={draft.technicianInitials} onChange={event => updateDraft(order.id, { technicianInitials: event.target.value })} placeholder="Initials" /></label>
+                            <label className="lab-result-entry-abnormal"><input type="checkbox" disabled={readonly} checked={draft.isAbnormal} onChange={event => updateDraft(order.id, { isAbnormal: event.target.checked })} /><AlertTriangle size={14} /> Flag abnormal</label>
+                            <label className="lab-result-entry-comment"><span>Tech’s comment</span><textarea rows={2} readOnly={readonly} value={draft.technicianComment} onChange={event => updateDraft(order.id, { technicianComment: event.target.value })} placeholder="Observation or interpretation" /></label>
+                            <div className="lab-result-entry-log"><span>Log in: {formatDateTime12(draft.loggedInAt)}</span><span>Log out: {readonly && order.loggedOutAt ? formatDateTime12(order.loggedOutAt) : 'Set on verification'}</span></div>
+                          </div>
+                          {readonly && order.approvedBy && <div className="lab-result-entry-approval"><CheckCircle2 size={14} /> Verified by {order.approvedBy}{order.approvedAt ? ` · ${formatDateTime12(order.approvedAt)}` : ''}</div>}
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <footer className="lab-result-paper-signoff"><div><b>Approved by</b><span>{currentUser?.name || 'Laboratory technologist'}</span><small>Technologist signature / date</small></div><div><b>Requesting clinician</b><span>Dr. {resultModal[0].doctorName}</span><small>Digital request from OPD</small></div></footer>
+                </div>
+
+                <div className="modal-footer lab-result-actions">
+                  <button type="button" className="btn btn-secondary" onClick={() => setResultModal(null)} disabled={savingResult}>Cancel</button>
+                  {resultModal.some(order => order.status !== 'Completed') && <LoadingButton type="submit" className="btn btn-primary" loading={savingResult} loadingLabel="Verifying results…"><CheckCircle2 size={16} /> Verify and return all results to OPD</LoadingButton>}
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleSaveResult} noValidate className="lab-result-form">
-              {formError && <div className="alert alert-danger py-2 px-3 mb-3" role="alert">{formError}</div>}
-
-              <div className="lab-result-meta">
-                <div><strong>Patient</strong>{patientNameFor(patients, resultModal.patientId, resultModal.patientName)}</div>
-                <div><strong>Card number</strong>{patientCodeFor(patients, resultModal.patientId)}</div>
-                <div><strong>Age / sex</strong>{patientAge(resultPatient?.dateOfBirth)} · {resultPatient?.gender || '—'}</div>
-                <div><strong>Address</strong>{resultPatient?.address || '—'}</div>
-                <div><strong>Ordering doctor</strong>Dr. {resultModal.doctorName}</div>
-                <div><strong>Specimen</strong>{resultModal.specimenType} · {resultModal.category}</div>
-              </div>
-
-              <div className="alert alert-info py-2 px-3 mb-3" role="note">
-                <strong>What was requested:</strong> {resultModal.testName}
-                {resultModal.notes ? ` — ${resultModal.notes}` : ''}
-              </div>
-
-              <section className="lab-result-meta" style={{ marginBottom: '1rem' }}>
-                <div>
-                  <label className="form-label">Cost</label>
-                  <input type="number" min="0" step="0.01" value={cost} onChange={e => setCost(e.target.value)} placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="form-label">Log in</label>
-                  <input value={loggedInAt ? formatDateTime12(loggedInAt) : '—'} readOnly />
-                </div>
-                <div>
-                  <label className="form-label">Log out</label>
-                  <input value={loggedOutAt ? formatDateTime12(loggedOutAt) : 'Set on verification'} readOnly />
-                </div>
-                <label className={`lab-result-abnormal ${star ? 'flagged' : ''}`} style={{ alignSelf: 'end', padding: '0.55rem' }}>
-                  <input type="checkbox" checked={star} onChange={e => setStar(e.target.checked)} />
-                  STAR / STAT
-                </label>
-                <div>
-                  <label className="form-label">Tech initials</label>
-                  <input value={technicianInitials} maxLength={10} onChange={e => setTechnicianInitials(e.target.value)} placeholder="e.g. AB" />
-                </div>
-              </section>
-
-              <div className="lab-result-presets">
-                <span className="lab-result-presets-label">Common result text</span>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleQuickResultFill('Negative / Normal', false)}>Negative / normal</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleQuickResultFill('Positive (+)', true)}>Positive</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleQuickResultFill('Normal Physiological Range', false)}>Normal range</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleQuickResultFill('Trace / Inconclusive (Repeat Recommended)', true)}>Trace / inconclusive</button>
-              </div>
-
-              {activeStandardTest?.parameters && activeStandardTest.parameters.length > 0 && (
-                <section className="lab-parameter-list">
-                  <h3><Sparkles size={14} /> Panel measurements</h3>
-                  <div className="lab-parameter-row lab-parameter-heading" aria-hidden="true">
-                    <span>Parameter</span><span>Result</span><span>Unit</span><span>Reference</span>
-                  </div>
-                  <div className="lab-parameter-rows">
-                    {activeStandardTest.parameters.map(param => (
-                      <div key={param.name} className="lab-parameter-row">
-                        <span>{param.name}</span>
-                        <input
-                          placeholder="Measured value"
-                          value={parameterValues[param.name] || ''}
-                          onChange={e => handleParameterChange(param.name, e.target.value)}
-                        />
-                        <span className="lab-parameter-unit">{param.unit}</span>
-                        <span className="lab-parameter-range">{param.refRange}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              <section className="lab-result-values">
-                <div className="form-group lab-result-summary-field">
-                  <label className="form-label">Summary result / clinical finding *</label>
-                  <input
-                    required
-                    value={resultValue}
-                    onChange={e => setResultValue(e.target.value)}
-                    placeholder="Enter the final result or a concise clinical finding"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Measurement Unit</label>
-                  <input
-                    value={unit}
-                    onChange={e => setUnit(e.target.value)}
-                    placeholder="e.g. mg/dL, g/dL, %, cells/HPF"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Normal Reference Range</label>
-                  <input
-                    value={referenceRange}
-                    onChange={e => setReferenceRange(e.target.value)}
-                    placeholder="e.g. 70 - 140 mg/dL, Negative"
-                  />
-                </div>
-              </section>
-
-              <div className={`lab-result-abnormal ${isAbnormal ? 'flagged' : ''}`}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={isAbnormal}
-                    onChange={e => setIsAbnormal(e.target.checked)}
-                  />
-                  <AlertTriangle size={16} /> Flag as clinically abnormal / critical
-                </label>
-                {isAbnormal && <span className="badge badge-red">Abnormal flag</span>}
-              </div>
-
-              <div className="form-group lab-result-notes">
-                <label className="form-label">Technologist remarks</label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Observations or interpretation"
-                />
-              </div>
-
-              <div className="form-group lab-result-notes">
-                <label className="form-label">Tech’s comment</label>
-                <textarea
-                  rows={2}
-                  value={technicianComment}
-                  onChange={e => setTechnicianComment(e.target.value)}
-                  placeholder="Laboratory technologist comment"
-                />
-              </div>
-
-              <div className="lab-result-return-note">
-                <CheckCircle2 size={16} /> Approved by {currentUser?.name || 'Laboratory technologist'}; approval date is recorded when the result is verified.
-              </div>
-
-              <div className="lab-result-return-note">
-                <CheckCircle2 size={16} /> Verified results return this visit to the OPD doctor for review.
-              </div>
-
-              <div className="modal-footer lab-result-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setResultModal(null)} disabled={savingResult}>
-                  Cancel
-                </button>
-                <LoadingButton type="submit" className="btn btn-primary" loading={savingResult} loadingLabel="Verifying…">
-                  <CheckCircle2 size={16} /> Verify &amp; Return Results to OPD Doctor
-                </LoadingButton>
-              </div>
-            </form>
           </div>
-        </div>
         </ModalPortal>
       )}
     </div>
