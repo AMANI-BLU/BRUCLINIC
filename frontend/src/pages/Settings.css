@@ -325,6 +325,13 @@
   margin-top: 0.75rem;
 }
 
+.settings-login-background-actions .btn-primary {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+}
+
+.settings-login-background-actions .btn-primary svg { color: #fff; }
+
 @media (max-width: 900px) {
   .settings-layout { grid-template-columns: 1fr; }
 }

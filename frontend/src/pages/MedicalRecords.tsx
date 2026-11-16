@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useClinic } from '../context/ClinicContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import InfoBox from '../components/AdminLTE/InfoBox';
 import type { MedicalRecord, Patient, LabOrder, PharmacyOrder } from '../types';
 import { findPatient, patientCode, patientFullName, patientInitials, patientOptionLabel, patientTypeClass } from '../utils/patient';
@@ -499,8 +500,9 @@ function PVItem({ label, value }: { label: string; value?: string | number | nul
 }
 
 function RecordView({ record }: { record: MedicalRecord }) {
-  const { patients, queue, labOrders, pharmacyOrders } = useClinic();
-  const [activeTab, setActiveTab] = useState<'summary' | 'journey' | 'prescriptions' | 'labs' | 'demographics'>('summary');
+  const { patients, records, queue, erCases, labOrders, pharmacyOrders } = useClinic();
+  const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'summary' | 'history' | 'journey' | 'prescriptions' | 'labs' | 'demographics'>('summary');
   const [printReferral, setPrintReferral] = useState<{
     patientName: string;
     patientCode?: string;
@@ -519,6 +521,15 @@ function RecordView({ record }: { record: MedicalRecord }) {
   } | null>(null);
 
   const patient = findPatient(patients, record.patientId);
+  const patientRecords = records.filter(item => item.patientId === record.patientId);
+  const priorRecords = patientRecords
+    .filter(item => item.id !== record.id)
+    .sort((left, right) => right.visitDate.localeCompare(left.visitDate));
+  const recordedEmergencyCaseIds = new Set(patientRecords.map(item => item.emergencyCaseId).filter((id): id is string => Boolean(id)));
+  const priorEmergencyCases = erCases
+    .filter(item => item.patientId === record.patientId && item.id !== record.emergencyCaseId && !recordedEmergencyCaseIds.has(item.id))
+    .sort((left, right) => right.arrivalTime.localeCompare(left.arrivalTime));
+  const historyCount = priorRecords.length + priorEmergencyCases.length;
   const displaySymptoms = (record.symptoms || []).map(cleanClinicalText).filter(Boolean);
   const displayNotes = cleanClinicalText(record.notes);
   const initials = patient ? patientInitials(patient) : getInitials(record.patientName);
@@ -603,6 +614,13 @@ function RecordView({ record }: { record: MedicalRecord }) {
         </button>
         <button
           type="button"
+          className={`pill-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          {t('Medical History')} ({historyCount})
+        </button>
+        <button
+          type="button"
           className={`pill-tab ${activeTab === 'journey' ? 'active' : ''}`}
           onClick={() => setActiveTab('journey')}
         >
@@ -684,10 +702,97 @@ function RecordView({ record }: { record: MedicalRecord }) {
               )}
             </section>
           )}
+
+          <section className="view-section">
+            <div className="view-section-head">
+              <h4><Activity size={16} /> {t('Patient medical history')}</h4>
+              <button type="button" className="btn btn-link btn-sm" onClick={() => setActiveTab('history')}>{t('View full history')}</button>
+            </div>
+            <div className="record-history-profile-grid">
+              <div><span>{t('Chronic Conditions')}</span><strong>{patient?.chronicConditions?.length ? patient.chronicConditions.join(', ') : t('Not recorded')}</strong></div>
+              <div><span>{t('Known allergies')}</span><strong>{patient?.allergies?.length ? patient.allergies.join(', ') : t('Not recorded')}</strong></div>
+              <div><span>{t('Previous encounters')}</span><strong>{historyCount}</strong></div>
+            </div>
+          </section>
         </div>
       )}
 
-      {/* TAB 2: Workflow Timeline & Departments */}
+      {/* TAB 2: Patient medical history */}
+      {activeTab === 'history' && (
+        <div className="view-stack">
+          <section className="view-section">
+            <div className="view-section-head"><h4><Activity size={16} /> {t('Long-term health profile')}</h4></div>
+            <div className="view-info-grid">
+              <PVItem label={t('Known allergies')} value={patient?.allergies?.join(', ') || t('Not recorded')} />
+              <PVItem label={t('Chronic Conditions / Health History')} value={patient?.chronicConditions?.join(', ') || t('Not recorded')} />
+              <PVItem label={t('Blood Group')} value={patient?.bloodGroup || t('Not recorded')} />
+            </div>
+          </section>
+
+          <section className="view-section">
+            <div className="view-section-head">
+              <h4><Clock size={16} /> {t('Previous clinic encounters')}</h4>
+              <span className="badge badge-gray">{priorRecords.length}</span>
+            </div>
+            {priorRecords.length ? (
+              <div className="record-history-list">
+                {priorRecords.map(previous => {
+                  const symptoms = (previous.symptoms || []).map(cleanClinicalText).filter(Boolean);
+                  const medications = Array.from(new Set([
+                    ...(previous.prescription || []).map(item => item.medication),
+                    ...pharmacyOrders.filter(order => orderMatchesRecord(previous, order)).flatMap(order => order.medicines.map(item => item.name)),
+                  ].filter(Boolean)));
+                  const investigations = Array.from(new Set([
+                    ...(previous.labTests || []).map(test => `${test.testName}: ${test.result || test.status}`),
+                    ...labOrders.filter(order => orderMatchesRecord(previous, order)).map(order => `${order.testName}: ${order.result || order.status}`),
+                  ]));
+                  return (
+                    <article className="record-history-entry" key={previous.id}>
+                      <div className="record-history-date"><Calendar size={14} /><strong>{previous.visitDate}</strong></div>
+                      <div className="record-history-content">
+                        <strong>{diagnosisLabel(previous.diagnosis, Boolean(previous.externalReferral))}</strong>
+                        <span>{formatDoctorName(previous.doctorName)} · Record {previous.id}</span>
+                        {symptoms.length > 0 && <p><b>{t('Symptoms')}:</b> {symptoms.join(', ')}</p>}
+                        {medications.length > 0 && <p><b>{t('Medication')}:</b> {medications.join(', ')}</p>}
+                        {investigations.length > 0 && <p><b>{t('Investigations')}:</b> {investigations.join(' · ')}</p>}
+                        {cleanClinicalText(previous.notes) && <p>{cleanClinicalText(previous.notes)}</p>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="view-empty view-empty-inline">{t('No previous clinic records are available for this patient.')}</div>
+            )}
+          </section>
+
+          <section className="view-section">
+            <div className="view-section-head">
+              <h4><Stethoscope size={16} /> {t('Emergency encounters')}</h4>
+              <span className="badge badge-gray">{priorEmergencyCases.length}</span>
+            </div>
+            {priorEmergencyCases.length ? (
+              <div className="record-history-list">
+                {priorEmergencyCases.map(emergencyCase => (
+                  <article className="record-history-entry" key={emergencyCase.id}>
+                    <div className="record-history-date"><Calendar size={14} /><strong>{new Date(emergencyCase.arrivalTime).toLocaleDateString()}</strong></div>
+                    <div className="record-history-content">
+                      <strong>{emergencyCase.diagnosis || emergencyCase.chiefComplaint}</strong>
+                      <span>{formatDoctorName(emergencyCase.attendingDoctor)} · {emergencyCase.acuity} {t('acuity')} · {t(emergencyCase.status)}</span>
+                      {emergencyCase.diagnosis && <p><b>{t('Presenting complaint')}:</b> {emergencyCase.chiefComplaint}</p>}
+                      {emergencyCase.criticalNotes && <p>{cleanClinicalText(emergencyCase.criticalNotes)}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="view-empty view-empty-inline">{t('No other emergency encounters are available for this patient.')}</div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* TAB 3: Workflow Timeline & Departments */}
       {activeTab === 'journey' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <section className="record-journey" style={{ margin: 0 }}>
@@ -815,7 +920,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
         </div>
       )}
 
-      {/* TAB 3: Prescriptions & Medications */}
+      {/* TAB 4: Prescriptions & Medications */}
       {activeTab === 'prescriptions' && (
         <div className="view-list">
           {pharmacyRows.length === 0 ? (
@@ -839,7 +944,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
         </div>
       )}
 
-      {/* TAB 4: Diagnostic Lab Investigations */}
+      {/* TAB 5: Diagnostic Lab Investigations */}
       {activeTab === 'labs' && (
         <div className="view-list">
           {labRows.length === 0 ? (
@@ -871,7 +976,7 @@ function RecordView({ record }: { record: MedicalRecord }) {
         </div>
       )}
 
-      {/* TAB 5: Full Demographics / Patient Card */}
+      {/* TAB 6: Full Demographics / Patient Card */}
       {activeTab === 'demographics' && (
         <div>
           {patient ? (

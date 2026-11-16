@@ -37,6 +37,7 @@ const common = {
       visitDate: 'visit_date', diagnosis: 'diagnosis', symptoms: 'symptoms', vitals: 'vitals', prescription: 'prescription',
       labTests: 'lab_tests', notes: 'notes', followUpDate: 'follow_up_date',
       queueItemId: 'queue_item_id',
+      emergencyCaseId: 'emergency_case_id',
     },
     arrays: ['symptoms'], json: ['vitals', 'prescription', 'labTests'], dates: ['visitDate', 'followUpDate'],
     search: ['patient_name', 'doctor_name', 'diagnosis', 'id'], order: 'visit_date DESC, created_at DESC',

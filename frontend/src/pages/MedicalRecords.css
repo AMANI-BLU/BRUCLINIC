@@ -388,6 +388,47 @@
   font-size: 0.78rem;
 }
 
+.record-history-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.record-history-profile-grid > div {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.25rem;
+  background: var(--clr-bg-hover);
+}
+
+.record-history-profile-grid span { color: var(--clr-text-muted); font-size: 0.69rem; font-weight: 700; }
+.record-history-profile-grid strong { color: var(--clr-text-primary); font-size: 0.78rem; font-weight: 600; overflow-wrap: anywhere; }
+
+.record-history-list { display: flex; flex-direction: column; gap: 0.55rem; }
+
+.record-history-entry {
+  display: grid;
+  grid-template-columns: minmax(125px, 0.25fr) minmax(0, 1fr);
+  gap: 0.8rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--clr-border);
+  border-radius: 0.3rem;
+  background: var(--clr-bg-hover);
+}
+
+.record-history-date { display: flex; align-items: flex-start; gap: 0.35rem; color: var(--clr-primary-400); font-size: 0.74rem; }
+.record-history-date svg { flex: 0 0 auto; margin-top: 0.1rem; }
+.record-history-date strong { color: var(--clr-text-primary); }
+.record-history-content { display: grid; gap: 0.2rem; min-width: 0; }
+.record-history-content > strong { color: var(--clr-text-primary); font-size: 0.82rem; }
+.record-history-content > span { color: var(--clr-text-muted); font-size: 0.7rem; }
+.record-history-content p { margin: 0.2rem 0 0; color: var(--clr-text-secondary); font-size: 0.74rem; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.record-history-content p b { color: var(--clr-text-primary); }
+
 @media (max-width: 900px) {
   .records-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .records-table-wrapper { overflow-x: auto; }
@@ -396,6 +437,8 @@
 
 @media (max-width: 575.98px) {
   .records-stats, .records-form-grid, .record-detail-grid { grid-template-columns: 1fr; }
+  .record-history-profile-grid { grid-template-columns: 1fr; }
+  .record-history-entry { grid-template-columns: 1fr; gap: 0.35rem; }
   .records-stats .info-box-icon { width: 62px; min-height: 76px; flex-basis: 62px; }
   .records-form-span-2 { grid-column: auto; }
   .record-detail-date { margin-left: 0; text-align: left; }
