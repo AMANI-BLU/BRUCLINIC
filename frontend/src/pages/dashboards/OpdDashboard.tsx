@@ -178,6 +178,16 @@ export default function OpdDashboard() {
     q.stage === 'Completed' && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
   );
 
+  const completedConsultationsToday = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const completedQueueIds = new Set(queue.filter(item => item.stage === 'Completed').map(item => item.id));
+    return records.filter(record =>
+      record.visitDate === today &&
+      record.doctorId === currentUser?.id &&
+      Boolean(record.queueItemId && completedQueueIds.has(record.queueItemId)),
+    ).length;
+  }, [queue, records, currentUser?.id]);
+
   const totalAssignedToMe = useMemo(() => {
     return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && isAssignedToCurrentDoctor(q)).length;
   }, [queue, activeEmergencyPatientIds, isAssignedToCurrentDoctor]);
@@ -267,7 +277,7 @@ export default function OpdDashboard() {
           testName: labTestName.trim(), category: labCategory, specimenType: labSpecimenType.trim(),
         }),
         notes: labClinicalNotes || `OPD referral for ${selectedQueueItem.chiefComplaint}`,
-        doctorId: selectedQueueItem.assignedDoctorId || '',
+        doctorId: currentUser?.id || selectedQueueItem.assignedDoctorId || '',
         doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
         doctorDiagnosis: consultation.diagnosis.trim(),
         consultationNotes: consultation.clinicalNotes.trim(),
@@ -362,7 +372,7 @@ export default function OpdDashboard() {
       await completeOpdConsultation(selectedQueueItem.id, {
         patientId: selectedQueueItem.patientId,
         patientName: selectedQueueItem.patientName,
-        doctorId: selectedQueueItem.assignedDoctorId || '',
+        doctorId: currentUser?.id || selectedQueueItem.assignedDoctorId || '',
         doctorName: selectedQueueItem.assignedDoctorName || currentUser?.name || 'OPD clinician',
         visitDate: new Date().toISOString().split('T')[0],
         diagnosis: consultation.diagnosis,
@@ -560,7 +570,7 @@ export default function OpdDashboard() {
         <InfoBox
           tone="secondary"
           icon={<CheckCircle2 size={22} />}
-          value={completedToday.length}
+          value={completedConsultationsToday}
           label="Completed"
           detail="Consultations treated today"
           onClick={() => setOpdTabFilter('completed')}

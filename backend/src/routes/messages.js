@@ -7,6 +7,10 @@ export async function messagesHandler(request, response, segments) {
   const userId = request.user?.id;
   if (!userId) return sendError(response, 401, 'Authentication required');
 
+  // Opening or polling the messenger is also a presence heartbeat. The UI
+  // uses this timestamp instead of assuming every staff member is online.
+  await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1 AND is_active = TRUE', [userId]);
+
   if (request.method === 'GET' && segments.length === 2) {
     const result = await query(
       `SELECT m.id, m.sender_id, m.recipient_id, m.body, m.read_at, m.created_at,

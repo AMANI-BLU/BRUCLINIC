@@ -100,8 +100,8 @@ export async function transferToEmergency(queueItemId, data, user) {
       const emergencyId = workflowId('ER');
       await client.query(
         `INSERT INTO emergency_cases
-          (id, patient_id, patient_name, age, gender, arrival_method, arrival_time, acuity, chief_complaint, bed_number, vitals, attending_doctor, status, critical_notes, diagnosis)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'In Treatment', $13, $14)`,
+          (id, patient_id, patient_name, age, gender, arrival_method, arrival_time, acuity, chief_complaint, bed_number, vitals, attending_doctor_id, attending_doctor, status, critical_notes, diagnosis)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'In Treatment', $14, $15)`,
         [
           emergencyId,
           patient.id,
@@ -114,6 +114,7 @@ export async function transferToEmergency(queueItemId, data, user) {
           data?.chiefComplaint || queueItem.chief_complaint || 'Emergency assessment requested',
           data?.bedNumber || 'Bay 02 (Resus/Trauma 2)',
           JSON.stringify(data?.vitals || parseJsonField(queueItem.vitals, {})),
+          data?.attendingDoctorId || null,
           data?.attendingDoctor || queueItem.assigned_doctor_name || 'Emergency clinician',
           data?.criticalNotes || 'Transferred to Emergency for urgent assessment.',
           String(data?.diagnosis || '').trim() || null,

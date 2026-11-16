@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import type { UserProfile, UserRole } from '../types';
+import type { Gender, UserProfile, UserRole } from '../types';
 import {
   Users,
   UserPlus,
@@ -16,7 +16,7 @@ import {
   Key,
   Unlock,
 } from 'lucide-react';
-import { firstError, validateEmail, validatePassword, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { firstError, validateEmail, validatePassword, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import { apiGet } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
@@ -65,6 +65,8 @@ export default function StaffAccounts() {
   const [formRoleTitle, setFormRoleTitle] = useState(ROLE_PRESETS.receptionist.title);
   const [formDept, setFormDept] = useState(ROLE_PRESETS.receptionist.dept);
   const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formGender, setFormGender] = useState<Gender>('Male');
 
   // Password Reset Modal State
   const [showResetModal, setShowResetModal] = useState(false);
@@ -130,6 +132,8 @@ export default function StaffAccounts() {
       validateTextLength(formName, 'Name', { min: 2, max: 150, required: true }),
       validateTextLength(formUsername, 'Username', { min: 3, max: 60, required: true }),
       formEmail ? validateEmail(formEmail) : undefined,
+      validateTextLength(formPhone, 'Phone number', { min: 8, max: 40, required: true }),
+      validatePhone(formPhone, 'Phone number'),
     );
     if (validationError) {
       setCreateError(validationError);
@@ -145,6 +149,8 @@ export default function StaffAccounts() {
         roleTitle: sanitizeInput(formRoleTitle) || ROLE_PRESETS[formRole].title,
         department: sanitizeInput(formDept) || ROLE_PRESETS[formRole].dept,
         email: sanitizeInput(formEmail) || `${sanitizeInput(formUsername).toLowerCase()}@bru.edu.et`,
+        phone: sanitizeInput(formPhone),
+        gender: formGender,
       });
 
       if (res.success && res.user) {
@@ -156,6 +162,8 @@ export default function StaffAccounts() {
         setFormName('');
         setFormUsername('');
         setFormEmail('');
+        setFormPhone('');
+        setFormGender('Male');
         await loadData();
       } else {
         setCreateError(res.error || 'Failed to create staff account');
@@ -426,6 +434,8 @@ export default function StaffAccounts() {
               <th>Role</th>
               <th>Department</th>
               <th>Email</th>
+              <th>Phone</th>
+              <th>Gender</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
@@ -433,13 +443,13 @@ export default function StaffAccounts() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--clr-text-muted)' }}>
                   Loading staff directory...
                 </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
               <tr className="empty-state-row">
-                <td colSpan={7}>
+                <td colSpan={9}>
                   <div className="empty-state">
                     <div className="empty-state-icon tone-blue"><ShieldCheck size={28} /></div>
                     <h5 className="empty-state-title">No staff accounts found</h5>
@@ -512,6 +522,8 @@ export default function StaffAccounts() {
 
                     <td>{user.department || '—'}</td>
                     <td>{user.email || '—'}</td>
+                    <td>{user.phone || '—'}</td>
+                    <td>{user.gender || '—'}</td>
 
                     <td>
                       <button
@@ -687,6 +699,32 @@ export default function StaffAccounts() {
                     onChange={(e) => setFormEmail(e.target.value)}
                     style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Phone number *</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. +251 911 223 344"
+                      value={formPhone}
+                      onChange={(e) => setFormPhone(e.target.value)}
+                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Gender *</label>
+                    <select
+                      required
+                      value={formGender}
+                      onChange={(e) => setFormGender(e.target.value as Gender)}
+                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

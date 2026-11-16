@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS users (
   email           VARCHAR(180) NOT NULL UNIQUE,
   avatar_initials VARCHAR(10) NOT NULL,
   badge_color     VARCHAR(20) NOT NULL DEFAULT '#2563eb',
+  phone           VARCHAR(40) NOT NULL DEFAULT '',
+  gender          VARCHAR(20) NOT NULL DEFAULT 'Male',
+  avatar_url      TEXT,
+  last_seen_at    TIMESTAMP,
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -176,12 +180,14 @@ CREATE TABLE IF NOT EXISTS emergency_cases (
   chief_complaint  TEXT NOT NULL,
   bed_number       VARCHAR(120) NOT NULL,
   vitals           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  attending_doctor_id VARCHAR(64),
   attending_doctor VARCHAR(180) NOT NULL,
   status           VARCHAR(40) NOT NULL DEFAULT 'In Treatment',
   critical_notes   TEXT,
   created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_emergency_patient FOREIGN KEY (patient_id) REFERENCES patients (id) ON UPDATE CASCADE ON DELETE RESTRICT
+  CONSTRAINT fk_emergency_patient FOREIGN KEY (patient_id) REFERENCES patients (id) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT fk_emergency_assignee FOREIGN KEY (attending_doctor_id) REFERENCES users (id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS lab_orders (

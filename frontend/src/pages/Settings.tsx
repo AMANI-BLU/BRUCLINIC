@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
@@ -24,6 +24,8 @@ import {
   Sun,
   UserRound,
   Users,
+  Camera,
+  Trash2,
 } from 'lucide-react';
 import './Settings.css';
 
@@ -104,9 +106,39 @@ const themeOptions = [
   { id: 'dark', label: 'Dark', description: 'Low-glare workspace', icon: Moon },
 ] as const;
 
+function resizeProfileImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Please choose an image file.'));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxDimension = 320;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight, 1));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) { reject(new Error('Could not prepare that image.')); return; }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      if (dataUrl.length > 600000) {
+        reject(new Error('That image is too large. Please choose a smaller photo.'));
+        return;
+      }
+      resolve(dataUrl);
+    };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('That image could not be read.')); };
+    image.src = objectUrl;
+  });
+}
+
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, role, token } = useAuth();
+  const { currentUser, role, token, updateProfile } = useAuth();
   const roleSetting = ROLE_SETTINGS[role];
   const RoleIcon = roleSetting.icon;
   const [defaultPassword, setDefaultPassword] = useState('');
@@ -116,6 +148,9 @@ export default function Settings() {
   const [defaultPasswordMessage, setDefaultPasswordMessage] = useState('');
   const [defaultPasswordError, setDefaultPasswordError] = useState('');
   const [savingDefaultPassword, setSavingDefaultPassword] = useState(false);
+  const [savingProfilePicture, setSavingProfilePicture] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     if (role !== 'admin') return;
@@ -149,6 +184,40 @@ export default function Settings() {
       setDefaultPasswordError(error instanceof Error ? error.message : 'Could not update the default password.');
     } finally {
       setSavingDefaultPassword(false);
+    }
+  };
+
+  const handleProfilePicture = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setProfileMessage('');
+    setProfileError('');
+    setSavingProfilePicture(true);
+    try {
+      const avatarUrl = await resizeProfileImage(file);
+      const result = await updateProfile({ avatarUrl });
+      if (!result.success) throw new Error(result.error || 'Could not update your profile picture.');
+      setProfileMessage('Profile picture updated.');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Could not update your profile picture.');
+    } finally {
+      setSavingProfilePicture(false);
+    }
+  };
+
+  const removeProfilePicture = async () => {
+    setProfileMessage('');
+    setProfileError('');
+    setSavingProfilePicture(true);
+    try {
+      const result = await updateProfile({ avatarUrl: null });
+      if (!result.success) throw new Error(result.error || 'Could not remove your profile picture.');
+      setProfileMessage('Profile picture removed.');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Could not remove your profile picture.');
+    } finally {
+      setSavingProfilePicture(false);
     }
   };
 
@@ -208,7 +277,7 @@ export default function Settings() {
 
           <div className="settings-account-summary">
             <div className="settings-account-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }}>
-              {currentUser?.avatarInitials || 'ST'}
+              {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Your profile" /> : (currentUser?.avatarInitials || 'ST')}
             </div>
             <div className="settings-account-name">
               <strong>{currentUser?.name || 'Staff User'}</strong>
@@ -216,9 +285,25 @@ export default function Settings() {
             </div>
           </div>
 
+          <div className="settings-profile-picture-actions">
+            <label className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: savingProfilePicture ? 'wait' : 'pointer' }}>
+              <Camera size={14} /> {savingProfilePicture ? 'Saving…' : currentUser?.avatarUrl ? 'Change picture' : 'Add profile picture'}
+              <input type="file" accept="image/*" onChange={handleProfilePicture} disabled={savingProfilePicture} hidden />
+            </label>
+            {currentUser?.avatarUrl && (
+              <button type="button" className="btn btn-link btn-sm" onClick={removeProfilePicture} disabled={savingProfilePicture}>
+                <Trash2 size={13} /> Remove
+              </button>
+            )}
+          </div>
+          {profileError && <div className="alert alert-danger py-1 px-2 mt-2 mb-0" role="alert">{profileError}</div>}
+          {profileMessage && <div className="alert alert-success py-1 px-2 mt-2 mb-0" role="status">{profileMessage}</div>}
+
           <dl className="settings-details">
             <div><dt>Username</dt><dd>{currentUser?.username || '—'}</dd></div>
             <div><dt>Email</dt><dd>{currentUser?.email || '—'}</dd></div>
+            <div><dt>Phone</dt><dd>{currentUser?.phone || '—'}</dd></div>
+            <div><dt>Gender</dt><dd>{currentUser?.gender || '—'}</dd></div>
             <div><dt>Department</dt><dd>{currentUser?.department || '—'}</dd></div>
           </dl>
 

@@ -70,7 +70,7 @@ const common = {
     table: 'emergency_cases', prefix: 'ER', required: ['patientId', 'patientName', 'age', 'gender', 'arrivalMethod', 'arrivalTime', 'acuity', 'chiefComplaint', 'bedNumber', 'attendingDoctor'],
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', age: 'age', gender: 'gender', arrivalMethod: 'arrival_method', arrivalTime: 'arrival_time',
-      acuity: 'acuity', chiefComplaint: 'chief_complaint', bedNumber: 'bed_number', vitals: 'vitals', attendingDoctor: 'attending_doctor', status: 'status', criticalNotes: 'critical_notes', diagnosis: 'diagnosis', externalReferral: 'external_referral',
+      acuity: 'acuity', chiefComplaint: 'chief_complaint', bedNumber: 'bed_number', vitals: 'vitals', attendingDoctorId: 'attending_doctor_id', attendingDoctor: 'attending_doctor', status: 'status', criticalNotes: 'critical_notes', diagnosis: 'diagnosis', externalReferral: 'external_referral',
     },
     json: ['vitals', 'externalReferral'], numbers: ['age'], search: ['patient_name', 'patient_id', 'chief_complaint', 'bed_number', 'diagnosis'], order: 'created_at DESC',
   },

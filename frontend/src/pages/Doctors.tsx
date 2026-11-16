@@ -14,7 +14,7 @@ const SPEC_ICONS: Record<string, React.ComponentType<{ size?: number; color?: st
 };
 
 export default function Doctors() {
-  const { doctors, appointments } = useClinic();
+  const { doctors, appointments, queue, records } = useClinic();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -38,7 +38,15 @@ export default function Doctors() {
           {doctors.map(d => {
           const SpecIcon = SPEC_ICONS[d.specialization] ?? Stethoscope;
           const apptCount = appointments.filter(a => a.doctorId === d.id).length;
-          const completedCount = appointments.filter(a => a.doctorId === d.id && a.status === 'Completed').length;
+          // A completed doctor visit is finalized in the clinical queue. The
+          // old metric counted completed appointments, which excluded normal
+          // walk-in consultations and made the doctor total look wrong.
+          const completedQueueIds = new Set(queue.filter(item => item.stage === 'Completed').map(item => item.id));
+          const completedCount = records.filter(record => {
+            if (record.doctorId !== d.id) return false;
+            if (record.queueItemId) return completedQueueIds.has(record.queueItemId);
+            return queue.some(item => item.stage === 'Completed' && item.assignedDoctorId === d.id && item.patientId === record.patientId);
+          }).length;
 
           return (
             <div key={d.id} className="card" style={{ position: 'relative', overflow: 'hidden' }}>

@@ -137,6 +137,7 @@ export default function EmergencyDashboard() {
           temperature: Number(newCase.temp),
           spo2: Number(newCase.spo2),
         },
+        attendingDoctorId: currentUser?.id,
         attendingDoctor: currentUser?.name || newCase.attendingDoctor || 'Emergency clinician',
         status: 'In Treatment',
         criticalNotes: newCase.criticalNotes,

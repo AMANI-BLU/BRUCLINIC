@@ -82,9 +82,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const roleNotifications = useMemo<ClinicAlert[]>(() => {
     const alerts: ClinicAlert[] = [];
 
+    const sameStaffName = (value?: string) => {
+      if (!value || !currentUser?.name) return false;
+      const clean = (input: string) => input.replace(/^(dr\.?|doctor)\s+/i, '').trim().toLowerCase();
+      return clean(value) === clean(currentUser.name);
+    };
+    const emergencyCaseBelongsToUser = (caseItem: { attendingDoctorId?: string; attendingDoctor?: string }) =>
+      role === 'admin' || caseItem.attendingDoctorId === currentUser?.id || sameStaffName(caseItem.attendingDoctor);
+    const labOrderBelongsToUser = (order: { doctorId?: string; doctorName?: string }) =>
+      role !== 'opd' || order.doctorId === currentUser?.id || sameStaffName(order.doctorName);
+
     // 1. Emergency Department: Red & Yellow acuity cases
     if (role === 'emergency') {
-      erCases.filter(c => c.acuity === 'Red').forEach(c => {
+      erCases.filter(c => c.acuity === 'Red' && emergencyCaseBelongsToUser(c)).forEach(c => {
         alerts.push({
           id: `er-red-${c.id}`,
           category: 'er',
@@ -100,7 +110,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     if (role === 'emergency') {
-      erCases.filter(c => c.acuity === 'Yellow').forEach(c => {
+      erCases.filter(c => c.acuity === 'Yellow' && emergencyCaseBelongsToUser(c)).forEach(c => {
         alerts.push({
           id: `er-yellow-${c.id}`,
           category: 'er',
@@ -119,7 +129,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (role === 'opd') {
       const myDoctorQueue = queue.filter(q =>
         q.stage === 'Doctor Consultation' &&
-        (!q.assignedDoctorId || q.assignedDoctorId === currentUser?.id)
+        (q.assignedDoctorId === currentUser?.id || sameStaffName(q.assignedDoctorName))
       );
       myDoctorQueue.forEach(q => {
         alerts.push({
@@ -153,7 +163,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     // 3. Laboratory: Abnormal results and pending orders
     if (['admin', 'laboratory', 'opd'].includes(role)) {
-      labOrders.filter(l => l.status === 'Completed' && l.isAbnormal).forEach(l => {
+      labOrders.filter(l => l.status === 'Completed' && l.isAbnormal && labOrderBelongsToUser(l)).forEach(l => {
         alerts.push({
           id: `lab-abnormal-${l.id}`,
           category: 'lab',
@@ -169,7 +179,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     if (role === 'opd') {
-      labOrders.filter(l => l.status === 'Completed' && !l.isAbnormal).forEach(l => {
+      labOrders.filter(l => l.status === 'Completed' && !l.isAbnormal && labOrderBelongsToUser(l)).forEach(l => {
         alerts.push({
           id: `lab-ready-${l.id}`,
           category: 'lab',
@@ -264,7 +274,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     return alerts;
-  }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id]);
+  }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id, currentUser?.name]);
 
   const visibleNotifications = useMemo(() => {
     return roleNotifications.filter(item => !dismissedAlertIds.includes(item.id));

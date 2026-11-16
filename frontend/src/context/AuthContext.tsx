@@ -16,6 +16,7 @@ interface AuthContextType {
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<ActionResponse>;
   unlockSession: (password: string) => Promise<ActionResponse>;
+  updateProfile: (changes: { avatarUrl?: string | null; phone?: string; gender?: UserProfile['gender'] }) => Promise<AuthResponse>;
   createStaffAccount: (data: CreateStaffInput) => Promise<AuthResponse>;
   fetchStaffList: () => Promise<UserProfile[]>;
   updateStaffStatus: (userId: string, isActive: boolean) => Promise<ActionResponse>;
@@ -81,6 +82,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => setAuthLoading(false));
   }, [token, clearSession]);
 
+  // Keep presence accurate while the staff member is using any part of the
+  // clinic app. Messenger displays a real last-seen value for everyone else.
+  useEffect(() => {
+    if (!token) return;
+    const heartbeat = () => {
+      void apiPost<{ lastSeenAt: string }>('/auth/presence', {}, token)
+        .then(result => setCurrentUser(user => user ? { ...user, lastSeenAt: result.lastSeenAt } : user))
+        .catch(() => {});
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 45_000);
+    return () => window.clearInterval(interval);
+  }, [token]);
+
   useEffect(() => {
     if (token) localStorage.setItem(STORAGE_TOKEN_KEY, token);
   }, [token]);
@@ -121,6 +136,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await apiPost<{ message: string }>('/auth/unlock', { password }, token);
       return { success: true, message: response.message };
+    } catch (error) {
+      return { success: false, error: messageFrom(error) };
+    }
+  }, [token]);
+
+  const updateProfile = useCallback(async (changes: { avatarUrl?: string | null; phone?: string; gender?: UserProfile['gender'] }): Promise<AuthResponse> => {
+    try {
+      const response = await apiPatch<{ user: UserProfile; message: string }>('/auth/profile', changes, token);
+      setCurrentUser(response.user);
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
+      return { success: true, user: response.user, message: response.message };
     } catch (error) {
       return { success: false, error: messageFrom(error) };
     }
@@ -179,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       currentUser, token, role: currentUser?.role || 'admin', isAuthenticated: Boolean(currentUser), authLoading, idleLockMinutes,
-      login, logout, changePassword, unlockSession, createStaffAccount, fetchStaffList, updateStaffStatus, unlockStaffAccount, resetStaffPassword, deleteStaffAccount,
+      login, logout, changePassword, unlockSession, updateProfile, createStaffAccount, fetchStaffList, updateStaffStatus, unlockStaffAccount, resetStaffPassword, deleteStaffAccount,
     }}>
       {children}
     </AuthContext.Provider>

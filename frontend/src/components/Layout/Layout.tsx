@@ -420,7 +420,7 @@ export default function Layout({ children }: LayoutProps) {
           </li>
           <li className="nav-item app-header-user">
             <span className="nav-link">
-              <span className="app-header-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }}>{currentUser?.avatarInitials || 'AD'}</span>
+              <span className="app-header-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</span>
               <span className="app-header-user-copy d-none d-md-inline-flex"><strong>{currentUser?.name || 'Staff User'}</strong></span>
             </span>
           </li>
@@ -437,7 +437,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         <div className="sidebar-wrapper">
           <div className="user-panel mt-2 pb-2 mb-2 d-flex app-user-panel">
-            <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={currentUser?.name || 'Staff User'}>{currentUser?.avatarInitials || 'AD'}</div></div>
+            <div className="image"><div className="app-user-avatar" style={{ backgroundColor: currentUser?.badgeColor || '#007bff' }} title={currentUser?.name || 'Staff User'}>{currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" /> : (currentUser?.avatarInitials || 'AD')}</div></div>
             {isAsideExpanded && <div className="info"><span className="d-block app-user-name">{currentUser?.name || 'Staff User'}</span><small>{currentUser?.roleTitle || role}</small></div>}
           </div>
           <nav className="mt-1" aria-label="Main navigation">
@@ -515,8 +515,8 @@ export default function Layout({ children }: LayoutProps) {
         <div role="dialog" aria-modal="true" aria-labelledby="session-lock-title" style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9, 18, 35, .94)', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', padding: 20 }}>
           <form onSubmit={submitUnlock} noValidate style={{ width: 'min(100%, 420px)', borderRadius: 16, padding: 30, background: 'var(--clr-bg-card, #fff)', color: 'var(--clr-text-primary, #172033)', boxShadow: '0 24px 80px rgba(0,0,0,.5)', border: '1px solid var(--clr-border, #e2e8f0)' }}>
             <div style={{ textAlign: 'center', marginBottom: 18 }}>
-              <div style={{ width: 62, height: 62, borderRadius: '50%', background: currentUser?.badgeColor || '#0284c7', color: '#fff', fontSize: '1.4rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
-                {currentUser?.avatarInitials || 'ST'}
+              <div style={{ width: 62, height: 62, borderRadius: '50%', background: currentUser?.badgeColor || '#0284c7', color: '#fff', fontSize: '1.4rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+                {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (currentUser?.avatarInitials || 'ST')}
               </div>
               <h2 id="session-lock-title" style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>Session Locked</h2>
               <div style={{ fontWeight: 700, color: 'var(--clr-text-primary)', fontSize: '0.94rem' }}>{currentUser?.name || 'Staff User'}</div>

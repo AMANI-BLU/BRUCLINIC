@@ -18,6 +18,8 @@ interface StaffContact {
   department: string;
   role_title?: string;
   roleTitle?: string;
+  avatar_url?: string | null;
+  last_seen_at?: string | null;
 }
 
 interface UserMessage {
@@ -98,6 +100,26 @@ function formatSnippetTime(isoString: string): string {
   } catch {
     return '';
   }
+}
+
+const PRESENCE_WINDOW_MS = 2 * 60 * 1000;
+
+function isRecentlyOnline(lastSeenAt?: string | null): boolean {
+  if (!lastSeenAt) return false;
+  const timestamp = new Date(lastSeenAt).getTime();
+  return Number.isFinite(timestamp) && Date.now() - timestamp <= PRESENCE_WINDOW_MS;
+}
+
+function formatLastSeen(lastSeenAt?: string | null): string {
+  if (isRecentlyOnline(lastSeenAt)) return 'Online';
+  if (!lastSeenAt) return 'Last seen unavailable';
+  const seen = new Date(lastSeenAt);
+  if (Number.isNaN(seen.getTime())) return 'Last seen unavailable';
+  const today = new Date();
+  if (seen.toDateString() === today.toDateString()) {
+    return `Last seen today at ${seen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+  }
+  return `Last seen ${seen.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${seen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
 }
 
 export default function Messages() {
@@ -276,6 +298,7 @@ export default function Messages() {
   };
 
   const activeContact = contacts.find(c => c.id === activeContactId);
+  const activeContactOnline = isRecentlyOnline(activeContact?.last_seen_at);
   const totalUnreadAll = useMemo(() => {
     return messages.filter(m => m.recipient_id === currentUser?.id && !m.read_at).length;
   }, [messages, currentUser?.id]);
@@ -362,6 +385,7 @@ export default function Messages() {
                 const unread = summary?.unreadCount || 0;
                 const isSelected = contact.id === activeContactId;
                 const avatarBg = ROLE_COLORS[contact.role] || '#2563eb';
+                const contactOnline = isRecentlyOnline(contact.last_seen_at);
 
                 return (
                   <li
@@ -371,14 +395,14 @@ export default function Messages() {
                   >
                     <div className="tg-avatar-wrap">
                       <div className="tg-avatar" style={{ backgroundColor: avatarBg }}>
-                        {getInitials(contact.name)}
+                        {contact.avatar_url ? <img src={contact.avatar_url} alt="" /> : getInitials(contact.name)}
                       </div>
-                      <span className="tg-online-dot" title="Staff active" />
+                      <span className={`tg-online-dot ${contactOnline ? '' : 'offline'}`} title={formatLastSeen(contact.last_seen_at)} />
                     </div>
 
                     <div className="tg-item-info">
                       <div className="tg-item-top">
-                        <span className="tg-contact-name">{contact.name}</span>
+                          <span className="tg-contact-name">{contact.name}</span>
                         {lastMsg && (
                           <span className="tg-item-time">{formatSnippetTime(lastMsg.created_at)}</span>
                         )}
@@ -433,9 +457,9 @@ export default function Messages() {
 
                   <div className="tg-avatar-wrap">
                     <div className="tg-avatar" style={{ backgroundColor: ROLE_COLORS[activeContact.role] || '#2563eb', width: 40, height: 40, fontSize: '0.88rem' }}>
-                      {getInitials(activeContact.name)}
+                      {activeContact.avatar_url ? <img src={activeContact.avatar_url} alt="" /> : getInitials(activeContact.name)}
                     </div>
-                    <span className="tg-online-dot" />
+                    <span className={`tg-online-dot ${activeContactOnline ? '' : 'offline'}`} title={formatLastSeen(activeContact.last_seen_at)} />
                   </div>
 
                   <div className="tg-header-copy">
@@ -446,8 +470,8 @@ export default function Messages() {
                       </span>
                     </h2>
                     <p className="tg-header-subtitle">
-                      <span className="tg-online-dot-inline" />
-                      Online<span className="tg-header-dept"> · {activeContact.department}</span>
+                      <span className={`tg-online-dot-inline ${activeContactOnline ? '' : 'offline'}`} />
+                      {formatLastSeen(activeContact.last_seen_at)}<span className="tg-header-dept"> · {activeContact.department}</span>
                     </p>
                   </div>
                 </div>

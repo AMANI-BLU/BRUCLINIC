@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS users (
   email           VARCHAR(180) NOT NULL UNIQUE,
   avatar_initials VARCHAR(10) NOT NULL,
   badge_color     VARCHAR(20) NOT NULL DEFAULT '#2563eb',
+  phone           VARCHAR(40) NOT NULL DEFAULT '',
+  gender          VARCHAR(20) NOT NULL DEFAULT 'Male',
+  avatar_url      TEXT,
+  last_seen_at    TIMESTAMP,
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -190,12 +194,14 @@ CREATE TABLE IF NOT EXISTS emergency_cases (
   chief_complaint  TEXT NOT NULL,
   bed_number       VARCHAR(120) NOT NULL,
   vitals           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  attending_doctor_id VARCHAR(64),
   attending_doctor VARCHAR(180) NOT NULL,
   status           VARCHAR(40) NOT NULL DEFAULT 'In Treatment',
   critical_notes   TEXT,
   created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_emergency_patient FOREIGN KEY (patient_id) REFERENCES patients (id) ON UPDATE CASCADE ON DELETE RESTRICT
+  CONSTRAINT fk_emergency_patient FOREIGN KEY (patient_id) REFERENCES patients (id) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT fk_emergency_assignee FOREIGN KEY (attending_doctor_id) REFERENCES users (id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS lab_orders (
@@ -712,6 +718,31 @@ ALTER TABLE emergency_cases
   ADD COLUMN IF NOT EXISTS external_referral JSONB;
 
 INSERT INTO schema_migrations (version) VALUES ('013_emergency_assessment.sql') ON CONFLICT DO NOTHING;
+
+
+-- ================================================================
+-- 014_user_profile_presence.sql
+-- ================================================================
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS phone VARCHAR(40) NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS gender VARCHAR(20) NOT NULL DEFAULT 'Male',
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+  ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users (last_seen_at DESC);
+INSERT INTO schema_migrations (version) VALUES ('014_user_profile_presence.sql') ON CONFLICT DO NOTHING;
+
+
+-- ================================================================
+-- 015_emergency_assignee.sql
+-- ================================================================
+ALTER TABLE emergency_cases
+  ADD COLUMN IF NOT EXISTS attending_doctor_id VARCHAR(64)
+    REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_emergency_cases_assignee
+  ON emergency_cases (attending_doctor_id, created_at DESC);
+INSERT INTO schema_migrations (version) VALUES ('015_emergency_assignee.sql') ON CONFLICT DO NOTHING;
 
 
 

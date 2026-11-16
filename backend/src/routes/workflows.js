@@ -14,7 +14,7 @@ const handlers = {
   'transfer-to-emergency': { roles: ['admin', 'receptionist', 'opd'], run: request => transferToEmergency(request.body.queueItemId, request.body, request.user) },
   'opd-to-lab': { roles: ['admin', 'opd'], run: request => sendOpdToLabRequest(request.body.queueItemId, request.body) },
   'opd-to-pharmacy': { roles: ['admin', 'opd'], run: request => sendOpdToPharmacyRequest(request.body.queueItemId, request.body) },
-  'complete-consultation': { roles: ['admin', 'opd'], run: request => completeOpdConsultation(request.body.queueItemId, request.body.recordData) },
+  'complete-consultation': { roles: ['admin', 'opd'], run: request => completeOpdConsultation(request.body.queueItemId, { ...request.body.recordData, doctorId: request.user?.role === 'opd' ? request.user.id : request.body.recordData.doctorId }) },
   'complete-emergency': { roles: ['admin', 'emergency'], run: request => completeEmergencyCase(request.body.emergencyCaseId, request.body) },
   'refer-emergency': { roles: ['admin', 'emergency'], run: request => referEmergencyCase(request.body.emergencyCaseId, request.body, request.user) },
   'save-assessment': { roles: ['admin', 'opd'], run: request => saveOpdAssessment(request.body.queueItemId, request.body.recordData) },

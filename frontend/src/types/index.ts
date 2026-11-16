@@ -136,6 +136,10 @@ export interface UserProfile {
   avatarInitials: string;
   badgeColor: string;
   email: string;
+  phone?: string;
+  gender?: Gender;
+  avatarUrl?: string | null;
+  lastSeenAt?: string | null;
   isActive?: boolean;
   mustChangePassword?: boolean;
   createdAt?: string;
@@ -149,6 +153,8 @@ export interface CreateStaffInput {
   roleTitle?: string;
   department?: string;
   email?: string;
+  phone: string;
+  gender: Gender;
 }
 
 // ── Vitals & Triage ──
@@ -236,6 +242,7 @@ export interface ERCase {
   chiefComplaint: string;
   bedNumber: string;
   vitals: Vitals;
+  attendingDoctorId?: string;
   attendingDoctor: string;
   status: 'In Treatment' | 'Stabilized' | 'Admitted to Ward' | 'Discharged' | 'Transferred';
   criticalNotes?: string;

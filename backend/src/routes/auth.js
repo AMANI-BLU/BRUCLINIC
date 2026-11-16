@@ -22,7 +22,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { query } from '../db/pool.js';
 import { generateToken, hashPassword, verifyPassword } from '../utils/auth.js';
 import { sendError, sendJson } from '../utils/http.js';
-import { assertPlainObject, validateEmail, validatePassword, validateText } from '../utils/validation.js';
+import { assertPlainObject, validateEmail, validateEnum, validatePassword, validatePhone, validateText } from '../utils/validation.js';
 import { writeAuditLog, writeSecurityEvent } from '../middleware/auditLogger.js';
 import { checkAuthRateLimit, clearAuthRateLimit, clearAuthRateLimitForUsername, getClientIp } from '../middleware/rateLimiter.js';
 import { AUDIT_ACTION, SECURITY_EVENT } from '../constants/events.js';
@@ -62,12 +62,30 @@ function toProfile(user) {
     roleTitle: user.role_title,
     department: user.department,
     email: user.email,
+    phone: user.phone || '',
+    gender: user.gender || 'Male',
     avatarInitials: user.avatar_initials,
+    avatarUrl: user.avatar_url || null,
     badgeColor: user.badge_color,
+    lastSeenAt: user.last_seen_at || null,
     isActive: user.is_active === undefined ? Boolean(user.isActive) : Boolean(user.is_active),
     mustChangePassword: Boolean(user.must_change_password ?? user.mustChangePassword),
     createdAt: user.created_at || user.createdAt,
   };
+}
+
+function validateAvatarUrl(value) {
+  if (value === undefined || value === null || value === '') return;
+  if (typeof value !== 'string' || value.length > 600000) {
+    const error = new Error('Profile picture must be 600 KB or smaller');
+    error.statusCode = 422;
+    throw error;
+  }
+  if (!/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(value)) {
+    const error = new Error('Profile picture must be an uploaded image');
+    error.statusCode = 422;
+    throw error;
+  }
 }
 
 function requireAdmin(request, response) {
@@ -156,7 +174,8 @@ export async function authHandler(request, response, segments) {
         await query('UPDATE users SET must_change_password = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
       }
     }
-    const profile = toProfile({ ...user, must_change_password: mustChangePassword });
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [user.id]);
+    const profile = toProfile({ ...user, last_seen_at: new Date().toISOString(), must_change_password: mustChangePassword });
 
     writeSecurityEvent({
       eventType: SECURITY_EVENT.LOGIN_SUCCESS,
@@ -213,7 +232,8 @@ export async function authHandler(request, response, segments) {
       return sendError(response, 401, 'Session is no longer valid');
     }
     const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
-    return sendJson(response, 200, { user: toProfile(result.rows[0]), idleLockMinutes });
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [request.user.id]);
+    return sendJson(response, 200, { user: toProfile({ ...result.rows[0], last_seen_at: new Date().toISOString() }), idleLockMinutes });
   }
 
   if (request.method === 'POST' && action === 'change-password') {
@@ -252,10 +272,42 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { message: 'Session unlocked' });
   }
 
+  if (request.method === 'POST' && action === 'presence') {
+    if (!request.user) return sendError(response, 401, 'Authentication required');
+    const seenAt = new Date().toISOString();
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1 AND is_active = TRUE', [request.user.id]);
+    return sendJson(response, 200, { lastSeenAt: seenAt });
+  }
+
+  if (request.method === 'PATCH' && action === 'profile') {
+    if (!request.user) return sendError(response, 401, 'Authentication required');
+    assertPlainObject(request.body);
+    const { avatarUrl, phone, gender } = request.body || {};
+    validateAvatarUrl(avatarUrl);
+    if (phone !== undefined) {
+      validateText(phone, 'Phone', { required: true, max: 40 });
+      validatePhone(phone);
+    }
+    if (gender !== undefined) validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
+    const updates = []; const values = [];
+    if (avatarUrl !== undefined) { values.push(avatarUrl || null); updates.push(`avatar_url = $${values.length}`); }
+    if (phone !== undefined) { values.push(String(phone).trim()); updates.push(`phone = $${values.length}`); }
+    if (gender !== undefined) { values.push(gender); updates.push(`gender = $${values.length}`); }
+    if (!updates.length) return sendError(response, 422, 'No profile changes were provided');
+    values.push(request.user.id);
+    const updated = await query(`UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`, values);
+    if (!updated.rows[0]) return sendError(response, 404, 'Staff account not found');
+    return sendJson(response, 200, { message: 'Profile updated', user: toProfile(updated.rows[0]) });
+  }
+
   if (request.method === 'GET' && action === 'directory') {
     if (!request.user) return sendError(response, 401, 'Authentication required');
+    await query(
+      'UPDATE users SET last_seen_at = NOW() WHERE id = $1 AND is_active = TRUE',
+      [request.user.id],
+    );
     const result = await query(
-      'SELECT id, name, username, role, role_title, department FROM users WHERE is_active = TRUE AND id <> $1 ORDER BY name ASC',
+      'SELECT id, name, username, role, role_title, department, avatar_url, last_seen_at FROM users WHERE is_active = TRUE AND id <> $1 ORDER BY name ASC',
       [request.user.id],
     );
     return sendJson(response, 200, { data: result.rows });
@@ -272,13 +324,16 @@ export async function authHandler(request, response, segments) {
   if (request.method === 'POST' && action === 'create-user') {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
-    const { name, username, role, roleTitle, department, email } = request.body || {};
+    const { name, username, role, roleTitle, department, email, phone, gender } = request.body || {};
     validateText(name, 'Name', { required: true, max: 150 });
     validateText(username, 'Username', { required: true, max: 60 });
     validateText(role, 'Role', { required: true, max: 20 });
     validateText(roleTitle, 'Role title', { max: 100 });
     validateText(department, 'Department', { max: 150 });
     validateEmail(email);
+    validateText(phone, 'Phone', { required: true, max: 40 });
+    validatePhone(phone);
+    validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
     if (!ALL_ROLES.includes(role)) {
       return sendError(response, 422, `Invalid role. Allowed: ${ALL_ROLES.join(', ')}`);
     }
@@ -301,15 +356,17 @@ export async function authHandler(request, response, segments) {
       roleTitle: String(roleTitle || ROLE_LABELS[role] || role).trim(),
       department: String(department || ROLE_DEPARTMENTS[role] || 'Clinical Services').trim(),
       email: safeEmail,
+      phone: String(phone).trim(),
+      gender,
       avatarInitials: getInitials(cleanName),
       badgeColor: ROLE_BADGE_COLORS[role] || '#2563eb',
       isActive: true,
       mustChangePassword: true,
     };
     await query(
-      `INSERT INTO users (id, username, password_hash, name, role, role_title, department, email, avatar_initials, badge_color, is_active, must_change_password)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, TRUE)`,
-      [id, profile.username, defaultPasswordHash, profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.avatarInitials, profile.badgeColor],
+      `INSERT INTO users (id, username, password_hash, name, role, role_title, department, email, phone, gender, avatar_initials, badge_color, is_active, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE, TRUE)`,
+      [id, profile.username, defaultPasswordHash, profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.phone, profile.gender, profile.avatarInitials, profile.badgeColor],
     );
 
     // Auto-create doctor record for OPD physicians
@@ -321,9 +378,9 @@ export async function authHandler(request, response, segments) {
       const schedule = JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
       await query(
         `INSERT INTO doctors (id, first_name, last_name, specialization, email, phone, gender, available, schedule)
-         VALUES ($1, $2, $3, $4, $5, '', 'Male', TRUE, $6)
-         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, available = TRUE, updated_at = NOW()`,
-        [id, firstName, lastName, specialization, safeEmail, schedule],
+         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8)
+         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, phone = EXCLUDED.phone, gender = EXCLUDED.gender, available = TRUE, updated_at = NOW()`,
+        [id, firstName, lastName, specialization, safeEmail, profile.phone, profile.gender, schedule],
       );
     }
 
@@ -481,9 +538,11 @@ export async function authHandler(request, response, segments) {
   // ── PATCH /api/auth/users/:id ────────────────────────────────
   if (request.method === 'PATCH' && action === 'users' && targetId && !subAction) {
     if (!requireAdmin(request, response)) return;
-    const { name, role, roleTitle, department, email } = request.body || {};
+    const { name, role, roleTitle, department, email, phone, gender } = request.body || {};
     if (role && !ALL_ROLES.includes(role)) return sendError(response, 422, 'Invalid staff role');
-    const fields = { name, role, role_title: roleTitle, department, email };
+    if (phone !== undefined) { validateText(phone, 'Phone', { required: true, max: 40 }); validatePhone(phone); }
+    if (gender !== undefined) validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
+    const fields = { name, role, role_title: roleTitle, department, email, phone, gender };
     const updates = []; const values = [];
     for (const [column, value] of Object.entries(fields)) {
       if (value !== undefined && value !== '') {
@@ -506,9 +565,9 @@ export async function authHandler(request, response, segments) {
       const spec = updatedRow.role_title || updatedRow.department || 'General Practice';
       await query(
         `INSERT INTO doctors (id, first_name, last_name, specialization, email, phone, gender, available, schedule)
-         VALUES ($1, $2, $3, $4, $5, '', 'Male', $6, $7)
-         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, available = EXCLUDED.available, updated_at = NOW()`,
-        [targetId, firstName, lastName, spec, updatedRow.email || '', Boolean(updatedRow.is_active), JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])],
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, phone = EXCLUDED.phone, gender = EXCLUDED.gender, available = EXCLUDED.available, updated_at = NOW()`,
+        [targetId, firstName, lastName, spec, updatedRow.email || '', updatedRow.phone || '', updatedRow.gender || 'Male', Boolean(updatedRow.is_active), JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])],
       );
     }
 
