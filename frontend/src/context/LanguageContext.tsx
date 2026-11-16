@@ -230,6 +230,12 @@ const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
     'Email must be a valid email address (e.g. staff@bru.edu.et).': 'Imeeliin teessoo sirrii ta’uu qaba (fakkeenyaaf staff@bru.edu.et).',
     'Emergency contact phone must be a valid phone number with at least 8 digits (e.g. +251911223344).': 'Bilbilli quunnamtii hatattamaa sirrii ta’uu fi yoo xiqqaate lakkoofsa 8 qabaachuu qaba (fakkeenyaaf +251911223344).',
     'Reason must not exceed 500 characters.': 'Sababni qubee 500 caaluu hin qabu.',
+    'Sick Leave': 'Ragaa boqonnaa dhukkubsataa', 'Special Meal': 'Ajaja nyaata addaa',
+    'Prepare a printable clinic form for': 'Unka kilinikaa maxxanfamu qopheessi:', 'Document date': 'Guyyaa galmee',
+    'Date of treatment': 'Guyyaa yaalaa', 'Diagnosis': 'Dhukkuba adda bahe', 'Treatment given': 'Tajaajila yaalaa kenname',
+    'Type of meal ordered': 'Gosa nyaata ajajame', 'Rest from': 'Boqonnaa irraa jalqaba',
+    'Special meal from': 'Guyyaa nyaata addaa jalqaba', 'To': 'Hanga', 'Name of physician': 'Maqaa ogeessa fayyaa',
+    'Profession': 'Ogummaa', 'Print / Save PDF': 'Maxxansi / PDF olkaa’i', 'e.g. low-salt diet': 'fakkeenyaaf nyaata soogidda xiqqaa qabu',
   },
   am: {
     'Dashboard': 'ዳሽቦርድ', 'Staff Accounts': 'የሠራተኞች መለያዎች', 'Patients': 'ታካሚዎች',
@@ -452,6 +458,12 @@ const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
     'Email must be a valid email address (e.g. staff@bru.edu.et).': 'ኢሜይሉ ትክክለኛ የኢሜይል አድራሻ መሆን አለበት (ለምሳሌ፦ staff@bru.edu.et)።',
     'Emergency contact phone must be a valid phone number with at least 8 digits (e.g. +251911223344).': 'የድንገተኛ ተጠሪ ስልክ ትክክለኛ መሆን እና ቢያንስ 8 አሃዞች መያዝ አለበት (ለምሳሌ፦ +251911223344)።',
     'Reason must not exceed 500 characters.': 'ምክንያቱ ከ500 ቁምፊዎች መብለጥ የለበትም።',
+    'Sick Leave': 'የሕመም ፈቃድ', 'Special Meal': 'ልዩ የምግብ ትዕዛዝ',
+    'Prepare a printable clinic form for': 'ለዚህ የሚታተም የክሊኒክ ቅጽ ያዘጋጁ፦', 'Document date': 'የሰነዱ ቀን',
+    'Date of treatment': 'የሕክምና ቀን', 'Diagnosis': 'ምርመራ', 'Treatment given': 'የተሰጠ ሕክምና',
+    'Type of meal ordered': 'የታዘዘው የምግብ ዓይነት', 'Rest from': 'እረፍት ከ',
+    'Special meal from': 'ልዩ ምግብ ከ', 'To': 'እስከ', 'Name of physician': 'የሐኪም ስም',
+    'Profession': 'ሙያ', 'Print / Save PDF': 'አትም / PDF አስቀምጥ', 'e.g. low-salt diet': 'ለምሳሌ፦ ዝቅተኛ ጨው ያለው ምግብ',
   },
 };
 
@@ -462,7 +474,8 @@ interface LanguageContextType {
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-const LANGUAGE_STORAGE_KEY = 'bruclinic-language';
+// Start with the English default after rollout, then retain future user choices.
+const LANGUAGE_STORAGE_KEY = 'bruclinic-language-v2';
 
 function getSavedLanguage(): Language {
   if (typeof window === 'undefined') return 'en';

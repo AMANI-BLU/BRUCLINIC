@@ -16,6 +16,7 @@ import MedicineSearchSelect from '../../components/MedicineSearchSelect';
 import DiagnosisField from '../../components/DiagnosisField';
 import ModalPortal from '../../components/ModalPortal';
 import ReferralPrintModal from '../../components/ReferralPrintModal';
+import OpdClinicDocumentModal, { type OpdClinicDocumentType } from '../../components/OpdClinicDocumentModal';
 import LoadingButton from '../../components/LoadingButton';
 import LaboratoryPaperForm, { type LabRequestLine } from '../../components/LaboratoryPaperForm';
 import type { StandardLabTest } from '../../utils/labPresets';
@@ -74,6 +75,7 @@ export default function OpdDashboard() {
   // Consultation modal / action tab
   const [activeConsultationTab, setActiveConsultationTab] = useState<'overview' | 'lab' | 'pharmacy' | 'vitals'>('overview');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [clinicDocumentType, setClinicDocumentType] = useState<OpdClinicDocumentType | null>(null);
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
   const [showOutsideReferral, setShowOutsideReferral] = useState(false);
   const [referralDestination, setReferralDestination] = useState('');
@@ -143,6 +145,9 @@ export default function OpdDashboard() {
     : '';
   const selectedPatientAge = calculateAge(selectedPatient?.dateOfBirth);
   const selectedPatientCode = selectedQueueItem ? patientCodeFor(patients, selectedQueueItem.patientId) : '';
+  const selectedVisitRecord = selectedQueueItem
+    ? records.find(record => record.queueItemId === selectedQueueItem.id)
+    : undefined;
 
   const toggleLabPreset = (preset: StandardLabTest) => {
     setLabTests(previous => {
@@ -862,6 +867,24 @@ export default function OpdDashboard() {
               </div>
 
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  title={t('Sick Leave')}
+                  onClick={() => setClinicDocumentType('sick-leave')}
+                  style={{ fontSize: '0.74rem' }}
+                >
+                  <FileText size={14} /> {t('Sick Leave')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  title={t('Special Meal')}
+                  onClick={() => setClinicDocumentType('special-meal')}
+                  style={{ fontSize: '0.74rem' }}
+                >
+                  <ShoppingBag size={14} /> {t('Special Meal')}
+                </button>
                 {selectedQueueItem.externalReferral && (
                   <button
                     type="button"
@@ -1400,6 +1423,23 @@ export default function OpdDashboard() {
           </div>
         )}
       </div>
+
+      {clinicDocumentType && selectedQueueItem && (
+        <OpdClinicDocumentModal
+          key={`${clinicDocumentType}-${selectedQueueItem.id}`}
+          type={clinicDocumentType}
+          patientName={patientNameFor(patients, selectedQueueItem.patientId, selectedQueueItem.patientName)}
+          patientCode={patientCodeFor(patients, selectedQueueItem.patientId)}
+          patientAge={calculateAge(selectedPatient?.dateOfBirth)}
+          patientGender={selectedPatient?.gender}
+          doctorName={stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician'}
+          profession={currentUser?.roleTitle || 'Physician'}
+          treatmentDate={selectedVisitRecord?.visitDate}
+          diagnosis={consultation.diagnosis || selectedVisitRecord?.diagnosis || selectedQueueItem.doctorDiagnosis}
+          treatment={consultation.clinicalNotes || selectedVisitRecord?.notes || selectedQueueItem.consultationNotes}
+          onClose={() => setClinicDocumentType(null)}
+        />
+      )}
 
       {/* MODAL: Historical Records from Patient Card File */}
       {showHistoryModal && selectedQueueItem && (
