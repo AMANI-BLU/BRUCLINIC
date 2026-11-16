@@ -286,6 +286,14 @@ export interface LabOrder {
   completedAt?: string;
   requestGroupId?: string;
   queueItemId?: string;
+  cost?: number | null;
+  loggedInAt?: string;
+  loggedOutAt?: string;
+  star?: boolean;
+  technicianInitials?: string;
+  technicianComment?: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 // ── Pharmacy Dispense Queue ──

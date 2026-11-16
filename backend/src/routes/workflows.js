@@ -43,7 +43,10 @@ export async function workflowHandler(request, response, segments) {
       validateText(test.testName, 'Test name', { required: true, max: 150 });
       validateText(test.category, 'Category', { required: true, max: 80 });
       validateText(test.specimenType, 'Specimen type', { required: true, max: 100 });
+      validateText(test.unit, 'Unit', { required: false, max: 40 });
+      validateText(test.referenceRange, 'Reference range', { required: false, max: 120 });
       validateText(test.technologistInstructions, 'Technologist instructions', { required: false, max: 1000 });
+      if (test.star !== undefined && typeof test.star !== 'boolean') return sendError(response, 422, 'STAR status must be true or false');
     }
     validateText(request.body.doctorDiagnosis, 'Working diagnosis', { required: false, max: 1000 });
   }

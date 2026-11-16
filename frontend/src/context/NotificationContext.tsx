@@ -28,19 +28,38 @@ interface NotificationContextType {
   clearAllAlerts: () => void;
   restoreAlert: (id: string) => void;
   restoreAllAlerts: () => void;
-  markAlertsRead: (key?: string) => void;
+  markAlertsRead: () => void;
   refreshClinicData: () => Promise<void>;
   loading: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+function readStoredAlertIds(storageKey: string, fallbackKey?: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(storageKey) || (fallbackKey ? localStorage.getItem(fallbackKey) : null);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveReadAlertIds(storageKey: string, ids: string[]) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(ids));
+  } catch {}
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser, role } = useAuth();
   const { erCases, labOrders, medicines, pharmacyOrders, queue, refresh, loading } = useClinic();
 
   const dismissedStorageKey = `bruclinic:dismissed_alerts_${currentUser?.id || 'guest'}`;
-  const readAlertStorageKey = `bruclinic:read_alert_key_${currentUser?.id || 'guest'}`;
+  const readAlertStorageKey = `bruclinic:read_alert_ids_${currentUser?.id || 'guest'}`;
+  const legacyReadAlertStorageKey = `bruclinic:read_alert_key_${currentUser?.id || 'guest'}`;
 
   const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -52,14 +71,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [readAlertKey, setReadAlertKey] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      return localStorage.getItem(readAlertStorageKey) || '';
-    } catch {
-      return '';
-    }
-  });
+  const [readAlertIds, setReadAlertIds] = useState<string[]>(() =>
+    readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey),
+  );
+  const [pendingMarkRead, setPendingMarkRead] = useState(false);
 
   // Re-sync storage keys if user account changes
   useEffect(() => {
@@ -71,12 +86,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const storedRead = localStorage.getItem(readAlertStorageKey);
-      setReadAlertKey(storedRead || '');
+      setReadAlertIds(readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey));
     } catch {
-      setReadAlertKey('');
+      setReadAlertIds([]);
     }
-  }, [dismissedStorageKey, readAlertStorageKey]);
+  }, [dismissedStorageKey, readAlertStorageKey, legacyReadAlertStorageKey]);
 
   // Generate department-filtered alerts based on staff role
   const roleNotifications = useMemo<ClinicAlert[]>(() => {
@@ -281,19 +295,40 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [roleNotifications, dismissedAlertIds]);
 
   const totalAlerts = visibleNotifications.length;
-  const currentAlertKey = useMemo(() => {
-    return JSON.stringify(visibleNotifications.map(item => item.id).sort());
-  }, [visibleNotifications]);
+  const unreadAlerts = visibleNotifications.filter(item => !readAlertIds.includes(item.id)).length;
 
-  const unreadAlerts = currentAlertKey === readAlertKey ? 0 : totalAlerts;
-
-  const markAlertsRead = (keyToMark?: string) => {
-    const key = keyToMark ?? currentAlertKey;
-    setReadAlertKey(key);
-    try {
-      localStorage.setItem(readAlertStorageKey, key);
-    } catch {}
+  const markAlertsRead = () => {
+    // The notification menu can be opened while the first clinic refresh is still
+    // running. Defer the read action until the final alert IDs are available so a
+    // temporary empty list is never saved as the user's read state.
+    if (loading) {
+      setPendingMarkRead(true);
+      return;
+    }
+    const visibleIds = visibleNotifications.map(item => item.id);
+    if (!visibleIds.length) return;
+    setReadAlertIds(previous => {
+      const next = Array.from(new Set([...previous, ...visibleIds]));
+      saveReadAlertIds(readAlertStorageKey, next);
+      return next;
+    });
+    setPendingMarkRead(false);
   };
+
+  useEffect(() => {
+    if (!pendingMarkRead || loading) return;
+    if (!visibleNotifications.length) {
+      setPendingMarkRead(false);
+      return;
+    }
+    const visibleIds = visibleNotifications.map(item => item.id);
+    setReadAlertIds(previous => {
+      const next = Array.from(new Set([...previous, ...visibleIds]));
+      saveReadAlertIds(readAlertStorageKey, next);
+      return next;
+    });
+    setPendingMarkRead(false);
+  }, [pendingMarkRead, loading, visibleNotifications, readAlertStorageKey]);
 
   const dismissAlert = (id: string) => {
     setDismissedAlertIds(prev => {
@@ -315,7 +350,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       } catch {}
       return next;
     });
-    markAlertsRead('');
+    markAlertsRead();
   };
 
   const restoreAlert = (id: string) => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
+import { useAuth } from '../../context/AuthContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import type { LabOrder } from '../../types';
 import { firstError, validateRequired } from '../../utils/validation';
@@ -15,8 +16,28 @@ import LoadingButton from '../../components/LoadingButton';
 import { formatDateTime12, formatTime12 } from '../../utils/date';
 import { cleanClinicalText, clinicalTextHtml } from '../../utils/clinicalText';
 
+function patientAge(dateOfBirth?: string): string {
+  if (!dateOfBirth) return '—';
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return '—';
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
+  return age >= 0 ? `${age} years` : '—';
+}
+
+function nameInitials(name?: string): string {
+  return (name || 'LT')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0].toUpperCase())
+    .join('');
+}
+
 export default function LaboratoryDashboard() {
   const { labOrders, patients, updateLabOrder } = useClinic();
+  const { currentUser } = useAuth();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
@@ -30,6 +51,12 @@ export default function LaboratoryDashboard() {
   const [referenceRange, setReferenceRange] = useState('');
   const [isAbnormal, setIsAbnormal] = useState(false);
   const [notes, setNotes] = useState('');
+  const [cost, setCost] = useState('');
+  const [loggedInAt, setLoggedInAt] = useState('');
+  const [loggedOutAt, setLoggedOutAt] = useState('');
+  const [star, setStar] = useState(false);
+  const [technicianInitials, setTechnicianInitials] = useState('');
+  const [technicianComment, setTechnicianComment] = useState('');
   const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
   const [activeStandardTest, setActiveStandardTest] = useState<StandardLabTest | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -52,6 +79,8 @@ export default function LaboratoryDashboard() {
     return matchCat && matchStatus && matchPriority && matchSearch;
   });
 
+  const resultPatient = resultModal ? patients.find(patient => patient.id === resultModal.patientId) : undefined;
+
   const handleOpenResultEntry = (order: LabOrder) => {
     const standard = findStandardLabTest(order.testName);
     setActiveStandardTest(standard || null);
@@ -61,6 +90,12 @@ export default function LaboratoryDashboard() {
     setReferenceRange(order.referenceRange || standard?.defaultRefRange || 'Normal Range');
     setIsAbnormal(order.isAbnormal || false);
     setNotes(order.notes || '');
+    setCost(order.cost === null || order.cost === undefined ? '' : String(order.cost));
+    setLoggedInAt(order.loggedInAt || new Date().toISOString());
+    setLoggedOutAt(order.loggedOutAt || '');
+    setStar(Boolean(order.star || order.priority === 'Critical'));
+    setTechnicianInitials(order.technicianInitials || nameInitials(currentUser?.name));
+    setTechnicianComment(order.technicianComment || '');
     setParameterValues({});
     setFormError(null);
   };
@@ -94,6 +129,7 @@ export default function LaboratoryDashboard() {
     }
 
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const completedAt = new Date().toISOString();
     try {
       setSavingResult(true);
       await updateLabOrder(resultModal.id, {
@@ -104,6 +140,14 @@ export default function LaboratoryDashboard() {
         isAbnormal,
         notes,
         completedAt: time,
+        cost: cost.trim() ? Number(cost) : null,
+        loggedInAt: loggedInAt || completedAt,
+        loggedOutAt: loggedOutAt || completedAt,
+        star,
+        technicianInitials: technicianInitials.trim().toUpperCase(),
+        technicianComment,
+        approvedBy: currentUser?.name || 'Laboratory technologist',
+        approvedAt: completedAt,
       });
       setFormError(null);
       setResultModal(null);
@@ -145,8 +189,13 @@ export default function LaboratoryDashboard() {
           <div><strong>Order ID:</strong> ${order.id}</div>
           <div><strong>Requesting Clinician:</strong> ${order.doctorName}</div>
           <div><strong>Specimen:</strong> ${order.specimenType} (${order.category})</div>
+          <div><strong>Sex:</strong> ${patients.find(patient => patient.id === order.patientId)?.gender || '—'}</div>
+          <div><strong>Address:</strong> ${patients.find(patient => patient.id === order.patientId)?.address || '—'}</div>
           <div><strong>Ordered:</strong> ${formatDateTime12(order.orderedAt)}</div>
           <div><strong>Verified:</strong> ${order.completedAt ? formatTime12(order.completedAt) : 'Completed today'}</div>
+          <div><strong>Cost:</strong> ${order.cost ?? '—'}</div>
+          <div><strong>STAR / STAT:</strong> ${order.star ? 'Yes' : 'No'}</div>
+          <div><strong>Tech initials:</strong> ${order.technicianInitials || '—'}</div>
         </div>
         <div class="result-box">
           <div class="result-title">Investigation: ${order.testName}</div>
@@ -158,6 +207,8 @@ export default function LaboratoryDashboard() {
             Reference Range: ${order.referenceRange || 'Standard normal'}
           </div>
           ${order.notes ? `<div style="font-size: 13px; margin-top: 10px; font-style: italic;">Remarks: ${clinicalTextHtml(order.notes)}</div>` : ''}
+          ${order.technicianComment ? `<div style="font-size: 13px; margin-top: 10px;">Tech's comment: ${clinicalTextHtml(order.technicianComment)}</div>` : ''}
+          ${order.approvedBy ? `<div style="font-size: 13px; margin-top: 10px;">Approved by: ${order.approvedBy} · ${order.approvedAt ? formatDateTime12(order.approvedAt) : ''}</div>` : ''}
         </div>
         <div class="footer">
           <div>Verified by Medical Laboratory Technologist on duty.</div>
@@ -296,12 +347,16 @@ export default function LaboratoryDashboard() {
                         <span style={{ fontSize: '0.8rem', color: 'var(--clr-text-secondary)' }}>
                           {order.specimenType}
                         </span>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-muted)', marginTop: 4 }}>
+                          {order.unit || 'Unit not specified'} · Ref: {order.referenceRange || 'See form'}
+                        </div>
                       </td>
                       <td>
                         <div className="lab-status-cell">
                           <span className={`badge ${order.status === 'Completed' ? 'badge-green' : 'badge-gray'}`}>
                             {order.status === 'Completed' ? 'Result entered' : 'Requested'}
                           </span>
+                          {order.star && <span className="badge badge-red" style={{ marginLeft: 4 }}>STAR</span>}
                           <small>{order.status === 'Completed' ? 'Verified and released to OPD' : 'Awaiting laboratory result'}</small>
                         </div>
                       </td>
@@ -386,6 +441,8 @@ export default function LaboratoryDashboard() {
               <div className="lab-result-meta">
                 <div><strong>Patient</strong>{patientNameFor(patients, resultModal.patientId, resultModal.patientName)}</div>
                 <div><strong>Card number</strong>{patientCodeFor(patients, resultModal.patientId)}</div>
+                <div><strong>Age / sex</strong>{patientAge(resultPatient?.dateOfBirth)} · {resultPatient?.gender || '—'}</div>
+                <div><strong>Address</strong>{resultPatient?.address || '—'}</div>
                 <div><strong>Ordering doctor</strong>Dr. {resultModal.doctorName}</div>
                 <div><strong>Specimen</strong>{resultModal.specimenType} · {resultModal.category}</div>
               </div>
@@ -394,6 +451,29 @@ export default function LaboratoryDashboard() {
                 <strong>What was requested:</strong> {resultModal.testName}
                 {resultModal.notes ? ` — ${resultModal.notes}` : ''}
               </div>
+
+              <section className="lab-result-meta" style={{ marginBottom: '1rem' }}>
+                <div>
+                  <label className="form-label">Cost</label>
+                  <input type="number" min="0" step="0.01" value={cost} onChange={e => setCost(e.target.value)} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="form-label">Log in</label>
+                  <input value={loggedInAt ? formatDateTime12(loggedInAt) : '—'} readOnly />
+                </div>
+                <div>
+                  <label className="form-label">Log out</label>
+                  <input value={loggedOutAt ? formatDateTime12(loggedOutAt) : 'Set on verification'} readOnly />
+                </div>
+                <label className={`lab-result-abnormal ${star ? 'flagged' : ''}`} style={{ alignSelf: 'end', padding: '0.55rem' }}>
+                  <input type="checkbox" checked={star} onChange={e => setStar(e.target.checked)} />
+                  STAR / STAT
+                </label>
+                <div>
+                  <label className="form-label">Tech initials</label>
+                  <input value={technicianInitials} maxLength={10} onChange={e => setTechnicianInitials(e.target.value)} placeholder="e.g. AB" />
+                </div>
+              </section>
 
               <div className="lab-result-presets">
                 <span className="lab-result-presets-label">Common result text</span>
@@ -475,6 +555,20 @@ export default function LaboratoryDashboard() {
                   onChange={e => setNotes(e.target.value)}
                   placeholder="Observations or interpretation"
                 />
+              </div>
+
+              <div className="form-group lab-result-notes">
+                <label className="form-label">Tech’s comment</label>
+                <textarea
+                  rows={2}
+                  value={technicianComment}
+                  onChange={e => setTechnicianComment(e.target.value)}
+                  placeholder="Laboratory technologist comment"
+                />
+              </div>
+
+              <div className="lab-result-return-note">
+                <CheckCircle2 size={16} /> Approved by {currentUser?.name || 'Laboratory technologist'}; approval date is recorded when the result is verified.
               </div>
 
               <div className="lab-result-return-note">

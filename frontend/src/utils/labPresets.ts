@@ -1,241 +1,169 @@
 /**
- * BruClinic — Clinical Laboratory Presets & Reference Formularies
- * Standard test panels, specimens, normal reference ranges, and units
- * for flexible clinical lab ordering and report generation.
+ * Borana University Student Service Clinic — General Laboratory Request and
+ * Report Form catalogue.
+ *
+ * The scanned paper form is the source for the section names, test labels,
+ * units, and reference ranges below. Specimen names are the electronic form's
+ * operational values because the paper form leaves specimen collection to the
+ * laboratory workflow.
  */
+
+export type LabFormCategory =
+  | 'Hematology'
+  | 'Biochemistry'
+  | 'Urinalysis'
+  | 'Parasitology'
+  | 'Serology'
+  | 'Microbiology'
+  | 'Others';
 
 export interface StandardLabTest {
   testName: string;
-  category: 'Hematology' | 'Biochemistry' | 'Urinalysis' | 'Parasitology' | 'Serology' | 'Microbiology';
+  category: LabFormCategory;
+  formSection?: string;
   specimenType: string;
   defaultUnit: string;
   defaultRefRange: string;
   parameters?: Array<{ name: string; unit: string; refRange: string }>;
 }
 
-export const LAB_PANELS: Record<string, StandardLabTest[]> = {
-  Hematology: [
-    {
-      testName: 'Complete Blood Count (CBC / Hemogram)',
-      category: 'Hematology',
-      specimenType: 'EDTA Whole Blood (Purple Top)',
-      defaultUnit: 'Panel',
-      defaultRefRange: 'See parameter breakdown',
-      parameters: [
-        { name: 'White Blood Cells (WBC)', unit: 'K/µL', refRange: '4.0 - 11.0' },
-        { name: 'Red Blood Cells (RBC)', unit: 'K/µL', refRange: '4.5 - 6.0 (M) / 4.0 - 5.0 (F)' },
-        { name: 'Hemoglobin (Hgb)', unit: 'g/dL', refRange: '14 - 18 (M) / 12 - 16 (F)' },
-        { name: 'Hematocrit (Hct)', unit: '%', refRange: '41 - 50 (M) / 36 - 45 (F)' },
-        { name: 'MCV', unit: 'fL', refRange: '80 - 96' },
-        { name: 'MCH', unit: 'pg', refRange: '27 - 33' },
-        { name: 'MCHC', unit: 'g/dL', refRange: '33 - 36' },
-        { name: 'RDW', unit: '%', refRange: '11 - 14' },
-        { name: 'Platelet Count (PLT)', unit: 'K/µL', refRange: '150 - 400' },
-        { name: 'Neutrophils', unit: '%', refRange: '40 - 70' },
-        { name: 'Eosinophils', unit: '%', refRange: '1.0 - 4.0' },
-        { name: 'Basophils', unit: '%', refRange: '0.5 - 1.0' },
-        { name: 'Monocytes', unit: '%', refRange: '2.0 - 6.0' },
-        { name: 'Lymphocytes', unit: '%', refRange: '25 - 40' },
-        { name: 'ESR', unit: 'mm/hr', refRange: '< 20' },
-        { name: 'RBC Morphology', unit: 'N/A', refRange: 'Normocytic / Normochromic' },
-      ],
-    },
-    {
-      testName: 'Blood Film for Malaria (Giemsa Stain)',
-      category: 'Hematology',
-      specimenType: 'Capillary / EDTA Whole Blood',
-      defaultUnit: 'Microscopy',
-      defaultRefRange: 'No hemoparasites seen (Negative)',
-    },
-    {
-      testName: 'Hemoglobin & Hematocrit (Hgb / Hct)',
-      category: 'Hematology',
-      specimenType: 'Whole Blood',
-      defaultUnit: 'g/dL',
-      defaultRefRange: '12.0 - 17.5 g/dL',
-    },
-    {
-      testName: 'Erythrocyte Sedimentation Rate (ESR)',
-      category: 'Hematology',
-      specimenType: 'Citrated Whole Blood (Black Top)',
-      defaultUnit: 'mm/hr',
-      defaultRefRange: '0 - 15 (M) / 0 - 20 (F)',
-    },
-    {
-      testName: 'ABO & Rh Blood Grouping',
-      category: 'Hematology',
-      specimenType: 'Whole Blood',
-      defaultUnit: 'Typing',
-      defaultRefRange: 'A / B / AB / O (Rh + / -)',
-    },
-  ],
-  Biochemistry: [
-    {
-      testName: 'Random Blood Glucose (RBS)',
-      category: 'Biochemistry',
-      specimenType: 'Fluoride Oxalate / Serum',
-      defaultUnit: 'mg/dL',
-      defaultRefRange: '70 - 110 mg/dL (Male & Female)',
-    },
-    {
-      testName: 'Fasting Blood Sugar (FBS)',
-      category: 'Biochemistry',
-      specimenType: 'Fluoride Oxalate / Serum',
-      defaultUnit: 'mg/dL',
-      defaultRefRange: '70 - 100 mg/dL',
-    },
-    {
-      testName: 'Renal Function Test (Creatinine & Urea)',
-      category: 'Biochemistry',
-      specimenType: 'Serum (Gold / Red Top)',
-      defaultUnit: 'mg/dL',
-      defaultRefRange: 'Creatinine: 0.7 - 1.4 (M) / 0.6 - 1.1 (F); Urea: 20 - 40',
-      parameters: [
-        { name: 'Random Blood Sugar (RBS)', unit: 'mg/dL', refRange: '70 - 110' },
-        { name: 'Urea', unit: 'mg/dL', refRange: '20 - 40' },
-        { name: 'Serum Creatinine', unit: 'mg/dL', refRange: '0.7 - 1.4 (M) / 0.6 - 1.1 (F)' },
-        { name: 'Uric Acid', unit: 'mg/dL', refRange: '3.5 - 7.2 (M) / 2.6 - 6.0 (F)' },
-      ],
-    },
-    {
-      testName: 'Liver Function Panel (ALT / AST / Bilirubin)',
-      category: 'Biochemistry',
-      specimenType: 'Serum (Gold Top)',
-      defaultUnit: 'U/L',
-      defaultRefRange: 'AST: 10 - 39 (M) / 6 - 32 (F); ALT: 6 - 45 (M) / 3 - 30 (F)',
-      parameters: [
-        { name: 'Total Protein', unit: 'g/dL', refRange: '6.0 - 8.0' },
-        { name: 'Albumin', unit: 'g/dL', refRange: '3.5 - 5.0' },
-        { name: 'Total Bilirubin', unit: 'mg/dL', refRange: '0.1 - 1.2' },
-        { name: 'Direct Bilirubin', unit: 'mg/dL', refRange: '0 - 0.4' },
-        { name: 'AST (SGOT)', unit: 'U/L', refRange: '10 - 39 (M) / 6 - 32 (F)' },
-        { name: 'ALT (SGPT)', unit: 'U/L', refRange: '6 - 45 (M) / 3 - 30 (F)' },
-        { name: 'Alkaline Phosphatase (ALP)', unit: 'U/L', refRange: '52 - 237' },
-        { name: 'Creatine Kinase (CK)', unit: 'U/L', refRange: '38 - 174 (M) / 30 - 135 (F)' },
-        { name: 'LDH', unit: 'U/L', refRange: '60 - 190' },
-      ],
-    },
-    {
-      testName: 'Lipid Profile (Cholesterol / Triglycerides)',
-      category: 'Biochemistry',
-      specimenType: 'Fasting Serum',
-      defaultUnit: 'mg/dL',
-      defaultRefRange: 'Total Chol < 200, Triglycerides < 150',
-      parameters: [
-        { name: 'Total Cholesterol', unit: 'mg/dL', refRange: '130 - 234 (M) / 130 - 231 (F)' },
-        { name: 'LDL Cholesterol', unit: 'mg/dL', refRange: '70 - 135 (M) / 71 - 164 (F)' },
-        { name: 'HDL Cholesterol', unit: 'mg/dL', refRange: '31 - 63 (M) / 37 - 83 (F)' },
-        { name: 'Triglycerides', unit: 'mg/dL', refRange: '45 - 204 (M) / 42 - 159 (F)' },
-      ],
-    },
-    {
-      testName: 'Electrolytes (Na / K / Cl)',
-      category: 'Biochemistry',
-      specimenType: 'Serum',
-      defaultUnit: 'mmol/L',
-      defaultRefRange: 'Na: 135 - 145; K: 3.3 - 4.9; Cl: 98 - 107',
-      parameters: [
-        { name: 'Sodium (Na)', unit: 'mmol/L', refRange: '135 - 145' },
-        { name: 'Potassium (K)', unit: 'mmol/L', refRange: '3.3 - 4.9' },
-        { name: 'Chloride (Cl)', unit: 'mmol/L', refRange: '98 - 107' },
-      ],
-    },
-  ],
-  Urinalysis: [
-    {
-      testName: 'Routine Complete Urinalysis (Dipstick + Microscopy)',
-      category: 'Urinalysis',
-      specimenType: 'Clean Catch Mid-stream Urine',
-      defaultUnit: 'Multi-stix',
-      defaultRefRange: 'Straw/Yellow, Clear, Protein: Nil, Glucose: Nil',
-      parameters: [
-        { name: 'Color & Clarity', unit: 'Visual', refRange: 'Pale yellow, clear' },
-        { name: 'Specific Gravity', unit: 'Ratio', refRange: '1.005 - 1.030' },
-        { name: 'pH', unit: 'pH', refRange: '5.0 - 8.0' },
-        { name: 'Protein / Albumin', unit: 'Qualitative', refRange: 'Negative / Nil' },
-        { name: 'Glucose', unit: 'Qualitative', refRange: 'Negative / Nil' },
-        { name: 'Ketones', unit: 'Qualitative', refRange: 'Negative' },
-        { name: 'Microscopy (WBC / Pus Cells)', unit: '/HPF', refRange: '0 - 5 /HPF' },
-        { name: 'Microscopy (RBC)', unit: '/HPF', refRange: '0 - 2 /HPF' },
-      ],
-    },
-    {
-      testName: 'Urine hCG Pregnancy Test',
-      category: 'Urinalysis',
-      specimenType: 'First Morning Urine',
-      defaultUnit: 'Qualitative',
-      defaultRefRange: 'Negative',
-    },
-  ],
-  Parasitology: [
-    {
-      testName: 'Stool Direct Microscopic Examination (Ova & Parasite)',
-      category: 'Parasitology',
-      specimenType: 'Fresh Stool Specimen',
-      defaultUnit: 'Microscopy',
-      defaultRefRange: 'No ova, cysts, trophozoites seen (Normal)',
-    },
-    {
-      testName: 'Stool for Occult Blood (FOBT)',
-      category: 'Parasitology',
-      specimenType: 'Fresh Stool',
-      defaultUnit: 'Qualitative',
-      defaultRefRange: 'Negative',
-    },
-  ],
-  Serology: [
-    {
-      testName: 'Widal Agglutination Test (Typhoid Screen)',
-      category: 'Serology',
-      specimenType: 'Serum',
-      defaultUnit: 'Titer',
-      defaultRefRange: 'TO < 1:80, TH < 1:80 (Non-reactive)',
-    },
-    {
-      testName: 'H. Pylori Stool Antigen Test',
-      category: 'Serology',
-      specimenType: 'Fresh Stool',
-      defaultUnit: 'Chromatographic',
-      defaultRefRange: 'Negative',
-    },
-    {
-      testName: 'Hepatitis B Surface Antigen (HBsAg Rapid)',
-      category: 'Serology',
-      specimenType: 'Serum / Whole Blood',
-      defaultUnit: 'Rapid Test',
-      defaultRefRange: 'Non-reactive (Negative)',
-    },
-    {
-      testName: 'VDRL / RPR Syphilis Serology',
-      category: 'Serology',
-      specimenType: 'Serum',
-      defaultUnit: 'Flocculation',
-      defaultRefRange: 'Non-reactive',
-    },
-  ],
-  Microbiology: [
-    {
-      testName: 'Sputum AFB for Tuberculosis (Ziehl-Neelsen)',
-      category: 'Microbiology',
-      specimenType: 'Early Morning Deep Sputum',
-      defaultUnit: 'Microscopy',
-      defaultRefRange: 'No Acid-Fast Bacilli seen (Negative)',
-    },
-    {
-      testName: 'Gram Stain & Wet Mount Microscopy',
-      category: 'Microbiology',
-      specimenType: 'Urethral / Vaginal / Wound Swab',
-      defaultUnit: 'Microscopy',
-      defaultRefRange: 'Normal flora, no clue cells or yeasts',
-    },
-  ],
-};
+export interface LabFormSection {
+  title: string;
+  category: LabFormCategory;
+  tests: StandardLabTest[];
+}
+
+const hematologySpecimen = 'EDTA whole blood';
+const serumSpecimen = 'Serum';
+const urineSpecimen = 'Urine';
+
+const hematologyCbcTests: StandardLabTest[] = [
+  {
+    testName: 'CBC/FBC', category: 'Hematology', formSection: 'Hematology', specimenType: hematologySpecimen,
+    defaultUnit: 'Panel', defaultRefRange: 'See WBC, RBC, HGB, HCT, MCV, MCH, MCHC, RDW and PLT',
+    parameters: [
+      { name: 'WBC', unit: 'k/µl', refRange: 'M: 4.0–11 · F: 4.0–11' },
+      { name: 'RBC', unit: 'k/µl', refRange: 'M: 4.5–6.0 · F: 4.0–5.0' },
+      { name: 'HGB', unit: 'g/dl', refRange: 'M: 14–18 · F: 12–16' },
+      { name: 'HCT', unit: '%', refRange: 'M: 41–50 · F: 36–45' },
+      { name: 'MCV', unit: 'fl', refRange: '80–96' },
+      { name: 'MCH', unit: 'pg', refRange: '27–33' },
+      { name: 'MCHC', unit: 'g/dl', refRange: '33–36' },
+      { name: 'RDW', unit: '%', refRange: '11–14' },
+      { name: 'PLT', unit: 'k/µl', refRange: '150–400' },
+    ],
+  },
+  { testName: 'WBC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: 'M: 4.0–11 · F: 4.0–11' },
+  { testName: 'RBC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: 'M: 4.5–6.0 · F: 4.0–5.0' },
+  { testName: 'HGB', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'g/dl', defaultRefRange: 'M: 14–18 · F: 12–16' },
+  { testName: 'HCT', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: 'M: 41–50 · F: 36–45' },
+  { testName: 'MCV', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'fl', defaultRefRange: '80–96' },
+  { testName: 'MCH', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'pg', defaultRefRange: '27–33' },
+  { testName: 'MCHC', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'g/dl', defaultRefRange: '33–36' },
+  { testName: 'RDW', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '11–14' },
+  { testName: 'PLT', category: 'Hematology', formSection: 'CBC/FBC', specimenType: hematologySpecimen, defaultUnit: 'k/µl', defaultRefRange: '150–400' },
+];
+
+const hematologyDifferentialTests: StandardLabTest[] = [
+  { testName: 'Neutrophil', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '40–70' },
+  { testName: 'Eosinophil', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '1.0–4.0' },
+  { testName: 'Basophil', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '0.5–1.0' },
+  { testName: 'Monocyte', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '2.0–6.0' },
+  { testName: 'Lymphocyte', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: '%', defaultRefRange: '25–40' },
+  { testName: 'ESR', category: 'Hematology', formSection: 'WBC Differential', specimenType: 'Citrated whole blood', defaultUnit: 'mm/hr', defaultRefRange: '<20' },
+  { testName: 'RBC Morphs', category: 'Hematology', formSection: 'WBC Differential', specimenType: hematologySpecimen, defaultUnit: 'N/A', defaultRefRange: 'Normocytic · Normochromic' },
+];
+
+const biochemistryTests: StandardLabTest[] = [
+  { testName: 'RBS', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 70–110 · F: 70–110' },
+  { testName: 'Urea', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 20–40 · F: 20–40' },
+  { testName: 'Creat', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 0.7–1.4 · F: 0.6–1.1' },
+  { testName: 'Uric A', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 3.5–7.2 · F: 2.6–6.0' },
+  { testName: 'Pro-T', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'g/dl', defaultRefRange: 'M: 6.0–8.0 · F: 6.0–8.0' },
+  { testName: 'Alb', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'g/dl', defaultRefRange: 'M: 3.5–5.0 · F: 3.5–5.0' },
+  { testName: 'Bil-T', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 0.1–1.2 · F: 0.1–1.2' },
+  { testName: 'Bil-D', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 0–0.4 · F: 0–0.4' },
+  { testName: 'AST', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'U/L', defaultRefRange: 'M: 10–39 · F: 6–32' },
+  { testName: 'ALT', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'U/L', defaultRefRange: 'M: 6–45 · F: 3–30' },
+  { testName: 'ALP', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'U/L', defaultRefRange: 'M: 52–237 · F: 52–237' },
+  { testName: 'CK', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'U/L', defaultRefRange: 'M: 38–174 · F: 30–135' },
+  { testName: 'LDH', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'U/L', defaultRefRange: 'M: 60–190 · F: 60–190' },
+  { testName: 'LDL', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 70–135 · F: 71–164' },
+  { testName: 'Chol', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 130–234 · F: 130–231' },
+  { testName: 'HDL', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 31–63 · F: 37–83' },
+  { testName: 'TG', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mg/dl', defaultRefRange: 'M: 45–204 · F: 42–159' },
+  { testName: 'K', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mmol/L', defaultRefRange: 'M: 3.3–4.9 · F: 3.3–4.9' },
+  { testName: 'Cl', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mmol/L', defaultRefRange: 'M: 98–107 · F: 98–107' },
+  { testName: 'Na', category: 'Biochemistry', specimenType: serumSpecimen, defaultUnit: 'mmol/L', defaultRefRange: 'M: 135–145 · F: 135–145' },
+];
+
+const urinalysisChemicalTests: StandardLabTest[] = [
+  { testName: 'pH', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'pH', defaultRefRange: '5.0–8.0' },
+  { testName: 'SG', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Ratio', defaultRefRange: '1.005–1.030' },
+  { testName: 'Glucose', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Ketone', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Protein', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Nitrite', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Blood', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Leucocyte', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Bilirubin', category: 'Urinalysis', formSection: 'Chemical', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+];
+
+const urinalysisMicroscopyTests: StandardLabTest[] = [
+  { testName: 'Epithelial', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: '/HPF', defaultRefRange: 'Few' },
+  { testName: 'RBC', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: '/HPF', defaultRefRange: '0–2' },
+  { testName: 'WBC', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: '/HPF', defaultRefRange: '0–5' },
+  { testName: 'Casts', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: '/LPF', defaultRefRange: 'None seen' },
+  { testName: 'Crystals', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: 'Microscopy', defaultRefRange: 'None seen' },
+  { testName: 'parasites', category: 'Urinalysis', formSection: 'Microscopy', specimenType: urineSpecimen, defaultUnit: 'Microscopy', defaultRefRange: 'None seen' },
+];
+
+const serologyTests: StandardLabTest[] = [
+  { testName: 'Syphilis test', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Non-reactive' },
+  { testName: 'HCG', category: 'Serology', specimenType: urineSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+  { testName: 'Rk39', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'Rapid test', defaultRefRange: 'Negative' },
+  { testName: 'HCV', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Non-reactive' },
+  { testName: 'HBsAg', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'Qualitative', defaultRefRange: 'Non-reactive' },
+  { testName: 'ASO', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'IU/ml', defaultRefRange: '<200' },
+  { testName: 'RF', category: 'Serology', specimenType: serumSpecimen, defaultUnit: 'IU/ml', defaultRefRange: '<20' },
+  { testName: 'Blood group', category: 'Serology', specimenType: 'Whole blood', defaultUnit: 'Typing', defaultRefRange: 'A / B / AB / O; Rh + / −' },
+  { testName: 'H. pylori', category: 'Serology', specimenType: 'Serum or stool', defaultUnit: 'Qualitative', defaultRefRange: 'Negative' },
+];
+
+const microbiologyTests: StandardLabTest[] = [
+  { testName: 'Gram stain', category: 'Microbiology', specimenType: 'Clinical specimen', defaultUnit: 'Microscopy', defaultRefRange: 'No significant pathogen seen' },
+  { testName: 'KOH', category: 'Microbiology', specimenType: 'Skin or clinical specimen', defaultUnit: 'Microscopy', defaultRefRange: 'No fungal elements seen' },
+  { testName: 'CSF analysis', category: 'Microbiology', specimenType: 'CSF', defaultUnit: 'Report', defaultRefRange: 'See laboratory report' },
+];
+
+const parasitologyTests: StandardLabTest[] = [
+  { testName: 'Stool Microscopy', category: 'Parasitology', specimenType: 'Fresh stool', defaultUnit: 'Microscopy', defaultRefRange: 'No ova, cysts or parasites seen' },
+  { testName: 'Blood film', category: 'Parasitology', specimenType: 'Whole blood', defaultUnit: 'Microscopy', defaultRefRange: 'No hemoparasites seen' },
+];
+
+export const LAB_FORM_SECTIONS: LabFormSection[] = [
+  { title: 'Hematology · CBC/FBC', category: 'Hematology', tests: hematologyCbcTests },
+  { title: 'Hematology · WBC Differential', category: 'Hematology', tests: hematologyDifferentialTests },
+  { title: 'Biochemistry', category: 'Biochemistry', tests: biochemistryTests },
+  { title: 'Urinalysis · Chemical', category: 'Urinalysis', tests: urinalysisChemicalTests },
+  { title: 'Urinalysis · Microscopy', category: 'Urinalysis', tests: urinalysisMicroscopyTests },
+  { title: 'Serology', category: 'Serology', tests: serologyTests },
+  { title: 'Microbiology', category: 'Microbiology', tests: microbiologyTests },
+  { title: 'Parasitology', category: 'Parasitology', tests: parasitologyTests },
+];
+
+export const LAB_PANELS: Record<string, StandardLabTest[]> = LAB_FORM_SECTIONS.reduce<Record<string, StandardLabTest[]>>((panels, section) => {
+  panels[section.category] = [...(panels[section.category] || []), ...section.tests];
+  return panels;
+}, {});
 
 export function findStandardLabTest(testName: string): StandardLabTest | undefined {
+  const normalized = testName.trim().toLowerCase();
   for (const list of Object.values(LAB_PANELS)) {
-    const match = list.find(t => t.testName.toLowerCase() === testName.toLowerCase() || t.testName.toLowerCase().includes(testName.toLowerCase()));
+    const match = list.find(test =>
+      test.testName.toLowerCase() === normalized || test.testName.toLowerCase().includes(normalized),
+    );
     if (match) return match;
   }
   return undefined;
 }
-

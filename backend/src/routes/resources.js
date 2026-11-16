@@ -164,8 +164,8 @@ async function assertNoDuplicateResource(resource, body, excludeId = null) {
     values = [body.patientId, excludeId];
     message = 'This patient already has an active emergency case.';
   } else if (resource === 'labOrders' && body.patientId && body.testName && body.status !== 'Completed') {
-    sql = `SELECT id FROM lab_orders WHERE patient_id = $1 AND LOWER(BTRIM(test_name)) = LOWER(BTRIM($2)) AND status <> 'Completed' AND ($3::text IS NULL OR id <> $3) LIMIT 1`;
-    values = [body.patientId, body.testName, excludeId];
+    sql = `SELECT id FROM lab_orders WHERE patient_id = $1 AND LOWER(BTRIM(test_name)) = LOWER(BTRIM($2)) AND status <> 'Completed' AND ($3::text IS NULL OR id <> $3) AND ($4::text IS NULL OR category = $4) AND ($5::text IS NULL OR specimen_type = $5) LIMIT 1`;
+    values = [body.patientId, body.testName, excludeId, body.category || null, body.specimenType || null];
     message = 'This laboratory investigation is already pending for the patient.';
   } else if (resource === 'pharmacyOrders' && body.patientId && Array.isArray(body.medicines) && body.medicines.length && body.status !== 'Cancelled') {
     sql = `SELECT id FROM pharmacy_orders WHERE patient_id = $1 AND status = 'Pending' AND medicines @> $2::jsonb AND $2::jsonb @> medicines AND ($3::text IS NULL OR id <> $3) LIMIT 1`;

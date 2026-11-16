@@ -176,10 +176,13 @@ export async function sendOpdToLabRequest(queueItemId, data) {
     // A doctor may reopen the Lab Request tab or retry after a network hiccup.
     // Keep one active order per queue visit and investigation, while still
     // allowing a new request after a previous result has been completed.
+    const requestKey = test => [test.testName, test.category, test.specimenType]
+      .map(value => String(value || '').trim().toLowerCase())
+      .join('|');
     const requestSeen = new Set();
     const inputDuplicateNames = [];
     const uniqueRequests = requests.filter(test => {
-      const key = String(test.testName).trim().toLowerCase();
+      const key = requestKey(test);
       if (requestSeen.has(key)) {
         inputDuplicateNames.push(String(test.testName).trim());
         return false;
@@ -189,14 +192,19 @@ export async function sendOpdToLabRequest(queueItemId, data) {
     });
     const requestedNames = uniqueRequests.map(test => String(test.testName).trim().toLowerCase());
     const existingPending = await client.query(
-      `SELECT test_name FROM lab_orders
+      `SELECT test_name, category, specimen_type FROM lab_orders
        WHERE queue_item_id = $1
          AND status <> 'Completed'
          AND LOWER(BTRIM(test_name)) = ANY($2::text[])`,
       [queueItemId, requestedNames],
     );
-    const duplicateNames = new Set(existingPending.rows.map(row => String(row.test_name).trim().toLowerCase()));
-    const newRequests = uniqueRequests.filter(test => !duplicateNames.has(String(test.testName).trim().toLowerCase()));
+    const duplicateKeys = new Set(existingPending.rows.map(row => requestKey({
+      testName: row.test_name,
+      category: row.category,
+      specimenType: row.specimen_type,
+    })));
+    const duplicateRequests = uniqueRequests.filter(test => duplicateKeys.has(requestKey(test)));
+    const newRequests = uniqueRequests.filter(test => !duplicateKeys.has(requestKey(test)));
     if (newRequests.length === 0) {
       const duplicateLabels = [...new Set([...requests.map(test => String(test.testName).trim()), ...inputDuplicateNames])].join(', ');
       throw workflowError(`These laboratory investigations are already pending for this visit: ${duplicateLabels}`, 409);
@@ -209,9 +217,9 @@ export async function sendOpdToLabRequest(queueItemId, data) {
       const labId = workflowId('LAB');
       const techNotes = [test.technologistInstructions || test.notes, data.notes].filter(Boolean).join('\n');
       await client.query(
-        `INSERT INTO lab_orders (id, patient_id, patient_name, doctor_id, doctor_name, ordered_at, priority, test_name, category, specimen_type, status, notes, request_group_id, queue_item_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Requested', $11, $12, $13)`,
-        [labId, queueItem.patient_id, queueItem.patient_name, doctorId, doctorName, nowTime(), test.priority || data.priority || 'Medium', test.testName, test.category, test.specimenType, techNotes || `OPD clinical referral for ${queueItem.patient_name}`, groupId, queueItemId],
+        `INSERT INTO lab_orders (id, patient_id, patient_name, doctor_id, doctor_name, ordered_at, priority, test_name, category, specimen_type, status, unit, reference_range, star, notes, request_group_id, queue_item_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Requested', $11, $12, $13, $14, $15, $16)`,
+        [labId, queueItem.patient_id, queueItem.patient_name, doctorId, doctorName, nowTime(), test.priority || data.priority || 'Medium', test.testName, test.category, test.specimenType, test.unit || null, test.referenceRange || null, Boolean(test.star ?? data.star ?? (test.priority || data.priority) === 'Critical'), techNotes || `OPD clinical referral for ${queueItem.patient_name}`, groupId, queueItemId],
       );
       createdOrders.push({ id: labId, testName: test.testName, category: test.category });
     }
@@ -237,7 +245,7 @@ export async function sendOpdToLabRequest(queueItemId, data) {
       labOrderIds: createdOrders.map(order => order.id),
       requestGroupId: groupId,
       duplicateTestNames: [...new Set([
-        ...uniqueRequests.filter(test => duplicateNames.has(String(test.testName).trim().toLowerCase())).map(test => String(test.testName).trim()),
+        ...duplicateRequests.map(test => String(test.testName).trim()),
         ...inputDuplicateNames,
       ])],
     };

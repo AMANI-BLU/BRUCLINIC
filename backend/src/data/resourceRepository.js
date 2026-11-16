@@ -80,7 +80,9 @@ const common = {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', orderedAt: 'ordered_at', priority: 'priority',
       testName: 'test_name', category: 'category', specimenType: 'specimen_type', status: 'status', result: 'result', unit: 'unit', referenceRange: 'reference_range',
       isAbnormal: 'is_abnormal', notes: 'notes', completedAt: 'completed_at', requestGroupId: 'request_group_id', queueItemId: 'queue_item_id',
+      cost: 'cost', loggedInAt: 'logged_in_at', loggedOutAt: 'logged_out_at', star: 'star', technicianInitials: 'technician_initials', technicianComment: 'technician_comment', approvedBy: 'approved_by', approvedAt: 'approved_at',
     },
+    numbers: ['cost'],
     search: ['patient_name', 'patient_id', 'doctor_name', 'test_name'], order: 'created_at DESC',
   },
   pharmacyOrders: {
@@ -150,7 +152,7 @@ function deserializeRow(definition, row) {
     if (definition.arrays?.includes(apiField) && !Array.isArray(value)) {
       value = typeof value === 'string' && value ? [value] : [];
     }
-    if (dbField === 'available' || dbField === 'is_active' || dbField === 'has_existing_card' || dbField === 'is_abnormal') {
+    if (dbField === 'available' || dbField === 'is_active' || dbField === 'has_existing_card' || dbField === 'is_abnormal' || dbField === 'star') {
       if (typeof value === 'number') value = Boolean(value);
     }
     output[apiField] = value;
