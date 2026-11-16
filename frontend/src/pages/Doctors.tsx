@@ -3,6 +3,7 @@ import {
   Stethoscope, Mail, Phone, Calendar, CheckCircle2, XCircle,
   Brain, Eye, Sparkles, HeartPulse
 } from 'lucide-react';
+import './Doctors.css';
 
 
 const SPEC_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string; className?: string }>> = {
@@ -59,14 +60,15 @@ export default function Doctors() {
 
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  background: 'var(--clr-primary-500)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                  boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)',
-                }}>
+                <div className="doctor-directory-avatar">
                   <SpecIcon size={24} color="#ffffff" />
+                  {(d.avatarUrl || d.avatar) && (
+                    <img
+                      src={d.avatarUrl || d.avatar}
+                      alt={`${d.firstName} ${d.lastName}`}
+                      onError={event => { event.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>

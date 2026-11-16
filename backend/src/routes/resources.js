@@ -329,6 +329,22 @@ export function createResourceHandler(resource) {
         } catch (_) { /* Non-fatal — list proceeds even if sync fails */ }
       }
       const result = await listResource(resource, parsePagination(url.searchParams));
+      if (resource === 'doctors' && result.data.length) {
+        const profileResult = await query(
+          "SELECT id, LOWER(BTRIM(email)) AS email_key, avatar_url FROM users WHERE role = 'opd' AND is_active = TRUE AND avatar_url IS NOT NULL",
+        );
+        const avatarById = new Map(profileResult.rows.map(profile => [profile.id, profile.avatar_url]));
+        const avatarByEmail = new Map(profileResult.rows
+          .filter(profile => profile.email_key)
+          .map(profile => [profile.email_key, profile.avatar_url]));
+        result.data = result.data.map(doctor => ({
+          ...doctor,
+          avatarUrl: avatarById.get(doctor.id)
+            || avatarByEmail.get(String(doctor.email || '').trim().toLowerCase())
+            || doctor.avatar
+            || null,
+        }));
+      }
       return sendJson(response, 200, result);
     }
 

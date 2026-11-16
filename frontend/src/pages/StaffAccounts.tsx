@@ -15,6 +15,7 @@ import {
   UserCheck,
   Key,
   Unlock,
+  Pencil,
 } from 'lucide-react';
 import { firstError, validateEmail, validatePassword, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import { apiGet } from '../api/client';
@@ -40,6 +41,7 @@ export default function StaffAccounts() {
     token,
     fetchStaffList,
     createStaffAccount,
+    updateStaffAccount,
     updateStaffStatus,
     unlockStaffAccount,
     resetStaffPassword,
@@ -67,6 +69,14 @@ export default function StaffAccounts() {
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formGender, setFormGender] = useState<Gender>('Male');
+
+  // Edit account dialog
+  const [editTargetUser, setEditTargetUser] = useState<UserProfile | null>(null);
+  const [editForm, setEditForm] = useState<Pick<UserProfile, 'name' | 'username' | 'role' | 'roleTitle' | 'department' | 'email' | 'phone' | 'gender'>>({
+    name: '', username: '', role: 'receptionist', roleTitle: '', department: '', email: '', phone: '', gender: 'Male',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Password Reset Modal State
   const [showResetModal, setShowResetModal] = useState(false);
@@ -172,6 +182,72 @@ export default function StaffAccounts() {
       setCreateError('Could not communicate with the database');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (user: UserProfile) => {
+    setEditTargetUser(user);
+    setEditForm({
+      name: user.name,
+      username: user.username,
+      role: user.role,
+      roleTitle: user.roleTitle || ROLE_PRESETS[user.role].title,
+      department: user.department || ROLE_PRESETS[user.role].dept,
+      email: user.email,
+      phone: user.phone || '',
+      gender: user.gender || 'Male',
+    });
+    setEditError(null);
+  };
+
+  const handleEditSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editTargetUser || savingEdit) return;
+    setEditError(null);
+    const validationError = firstError(
+      ...Object.values(validateRequired(
+        { name: editForm.name, username: editForm.username, role: editForm.role, email: editForm.email, phone: editForm.phone },
+        { name: 'Name', username: 'Username', role: 'Role', email: 'Email', phone: 'Phone number' },
+      )),
+      validateTextLength(editForm.name, 'Name', { min: 2, max: 150, required: true }),
+      validateTextLength(editForm.username, 'Username', { min: 3, max: 60, required: true }),
+      validateTextLength(editForm.roleTitle, 'Role title', { min: 1, max: 100, required: true }),
+      validateTextLength(editForm.department, 'Department', { min: 1, max: 150, required: true }),
+      validateTextLength(editForm.email, 'Email', { min: 3, max: 180, required: true }),
+      validateEmail(editForm.email),
+      validateTextLength(editForm.phone, 'Phone number', { min: 8, max: 40, required: true }),
+      validatePhone(editForm.phone, 'Phone number'),
+    );
+    if (validationError) {
+      setEditError(validationError);
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const result = await updateStaffAccount(editTargetUser.id, {
+        name: sanitizeInput(editForm.name),
+        username: sanitizeInput(editForm.username).toLowerCase(),
+        role: editForm.role,
+        roleTitle: sanitizeInput(editForm.roleTitle),
+        department: sanitizeInput(editForm.department),
+        email: sanitizeInput(editForm.email).toLowerCase(),
+        phone: sanitizeInput(editForm.phone),
+        gender: editForm.gender,
+      });
+      const savedUser = result.user;
+      if (!result.success || !savedUser) {
+        setEditError(result.error || 'Could not update this account.');
+        return;
+      }
+      setStaffList(previous => previous.map(user => user.id === savedUser.id ? savedUser : user));
+      setEditTargetUser(null);
+      setToastMessage({ text: `Account updated for ${savedUser.name}.`, type: 'success' });
+      await loadData();
+    } catch {
+      setEditError('Could not communicate with the account service.');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -479,7 +555,7 @@ export default function StaffAccounts() {
                     <td>
                       <div className="patient-cell">
                         <div
-                          className="avatar"
+                          className="avatar staff-account-avatar"
                           style={{
                             background: user.badgeColor || 'var(--clr-primary-500)',
                             width: 36,
@@ -495,6 +571,13 @@ export default function StaffAccounts() {
                           }}
                         >
                           {initials}
+                          {user.avatarUrl && (
+                            <img
+                              src={user.avatarUrl}
+                              alt={`${user.name} profile`}
+                              onError={event => { event.currentTarget.style.display = 'none'; }}
+                            />
+                          )}
                         </div>
                         <div>
                           <div className="patient-name">
@@ -540,6 +623,16 @@ export default function StaffAccounts() {
 
                     <td style={{ textAlign: 'right' }}>
                       <div className="action-btns" style={{ justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm btn-icon"
+                          title={`Edit ${user.name}`}
+                          aria-label={`Edit account for ${user.name}`}
+                          onClick={() => handleOpenEdit(user)}
+                        >
+                          <Pencil size={14} />
+                        </button>
+
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm btn-icon"
@@ -753,6 +846,102 @@ export default function StaffAccounts() {
             </form>
           </div>
         </div>
+        </ModalPortal>
+      )}
+
+      {/* ── EDIT STAFF ACCOUNT ── */}
+      {editTargetUser && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => !savingEdit && setEditTargetUser(null)}>
+            <div
+              className="modal"
+              style={{ maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', padding: '1.25rem', borderRadius: 'var(--radius-lg)' }}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="modal-header pb-2 mb-3" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--clr-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
+                  <Pencil size={16} className="text-primary" /> Edit Staff Account
+                </div>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setEditTargetUser(null)}
+                  disabled={savingEdit}
+                  aria-label="Close dialog"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} noValidate>
+                {editError && (
+                  <div className="alert alert-danger py-2 px-2 mb-3" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem' }}>
+                    <AlertCircle size={14} /> <span>{editError}</span>
+                  </div>
+                )}
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Full name *</label>
+                    <input required value={editForm.name} onChange={event => setEditForm(form => ({ ...form, name: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Username *</label>
+                    <input required autoComplete="off" value={editForm.username} onChange={event => setEditForm(form => ({ ...form, username: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Role *</label>
+                    <select
+                      value={editForm.role}
+                      onChange={event => {
+                        const role = event.target.value as UserRole;
+                        const oldPreset = ROLE_PRESETS[editForm.role];
+                        const newPreset = ROLE_PRESETS[role];
+                        setEditForm(form => ({
+                          ...form,
+                          role,
+                          roleTitle: form.roleTitle === oldPreset.title ? newPreset.title : form.roleTitle,
+                          department: form.department === oldPreset.dept ? newPreset.dept : form.department,
+                        }));
+                      }}
+                    >
+                      {Object.entries(ROLE_PRESETS).map(([role, preset]) => (
+                        <option key={role} value={role}>{preset.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Role title *</label>
+                    <input required value={editForm.roleTitle} onChange={event => setEditForm(form => ({ ...form, roleTitle: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Department *</label>
+                    <input required value={editForm.department} onChange={event => setEditForm(form => ({ ...form, department: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email *</label>
+                    <input type="email" required value={editForm.email} onChange={event => setEditForm(form => ({ ...form, email: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Phone number *</label>
+                    <input type="tel" required value={editForm.phone} onChange={event => setEditForm(form => ({ ...form, phone: event.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Gender *</label>
+                    <select value={editForm.gender || 'Male'} onChange={event => setEditForm(form => ({ ...form, gender: event.target.value as Gender }))}>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-footer pt-3 mt-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', borderTop: '1px solid var(--clr-border)' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditTargetUser(null)} disabled={savingEdit}>Cancel</button>
+                  <LoadingButton type="submit" className="btn btn-primary btn-sm" loading={savingEdit} loadingLabel="Saving…" disabled={savingEdit}>
+                    Save Changes
+                  </LoadingButton>
+                </div>
+              </form>
+            </div>
+          </div>
         </ModalPortal>
       )}
 

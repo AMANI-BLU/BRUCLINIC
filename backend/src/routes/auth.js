@@ -538,15 +538,51 @@ export async function authHandler(request, response, segments) {
   // ── PATCH /api/auth/users/:id ────────────────────────────────
   if (request.method === 'PATCH' && action === 'users' && targetId && !subAction) {
     if (!requireAdmin(request, response)) return;
-    const { name, role, roleTitle, department, email, phone, gender } = request.body || {};
-    if (role && !ALL_ROLES.includes(role)) return sendError(response, 422, 'Invalid staff role');
+    assertPlainObject(request.body);
+    const { name, username, role, roleTitle, department, email, phone, gender } = request.body;
+    if (name !== undefined) validateText(name, 'Name', { required: true, max: 150 });
+    if (username !== undefined) validateText(username, 'Username', { required: true, max: 60 });
+    if (role !== undefined) validateEnum(role, 'Role', ALL_ROLES, { required: true });
+    if (roleTitle !== undefined) validateText(roleTitle, 'Role title', { required: true, max: 100 });
+    if (department !== undefined) validateText(department, 'Department', { required: true, max: 150 });
+    if (email !== undefined) {
+      validateText(email, 'Email', { required: true, max: 180 });
+      validateEmail(email);
+    }
     if (phone !== undefined) { validateText(phone, 'Phone', { required: true, max: 40 }); validatePhone(phone); }
     if (gender !== undefined) validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
-    const fields = { name, role, role_title: roleTitle, department, email, phone, gender };
+
+    const currentAccountResult = await query('SELECT id, username, role FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const currentAccount = currentAccountResult.rows[0];
+    if (!currentAccount) return sendError(response, 404, 'Staff account not found');
+
+    const normalizedUsername = username === undefined ? undefined : String(username).trim().toLowerCase();
+    const normalizedEmail = email === undefined ? undefined : String(email).trim().toLowerCase();
+    if (normalizedUsername !== undefined) {
+      const duplicate = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1', [normalizedUsername, targetId]);
+      if (duplicate.rows.length) return sendError(response, 409, `An account with username '${normalizedUsername}' already exists`);
+    }
+    if (normalizedEmail !== undefined) {
+      const duplicate = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1', [normalizedEmail, targetId]);
+      if (duplicate.rows.length) return sendError(response, 409, `An account with email '${normalizedEmail}' already exists`);
+    }
+
+    const fields = {
+      name: name === undefined ? undefined : String(name).trim(),
+      username: normalizedUsername,
+      role,
+      role_title: roleTitle === undefined ? undefined : String(roleTitle).trim(),
+      department: department === undefined ? undefined : String(department).trim(),
+      email: normalizedEmail,
+      phone: phone === undefined ? undefined : String(phone).trim(),
+      gender,
+      avatar_initials: name === undefined ? undefined : getInitials(String(name).trim()),
+      badge_color: role === undefined ? undefined : (ROLE_BADGE_COLORS[role] || '#2563eb'),
+    };
     const updates = []; const values = [];
     for (const [column, value] of Object.entries(fields)) {
-      if (value !== undefined && value !== '') {
-        values.push(String(value).trim());
+      if (value !== undefined) {
+        values.push(value);
         updates.push(`${column} = $${values.length}`);
       }
     }
@@ -554,6 +590,9 @@ export async function authHandler(request, response, segments) {
     values.push(targetId);
     const result = await query(`UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
     if (!result.affectedRows) return sendError(response, 404, 'Staff account not found');
+    if (normalizedUsername && normalizedUsername !== currentAccount.username) {
+      clearAuthRateLimitForUsername(currentAccount.username);
+    }
     const updated = await query('SELECT * FROM users WHERE id = $1', [targetId]);
     const updatedRow = updated.rows[0];
 
@@ -569,6 +608,8 @@ export async function authHandler(request, response, segments) {
          ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, phone = EXCLUDED.phone, gender = EXCLUDED.gender, available = EXCLUDED.available, updated_at = NOW()`,
         [targetId, firstName, lastName, spec, updatedRow.email || '', updatedRow.phone || '', updatedRow.gender || 'Male', Boolean(updatedRow.is_active), JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])],
       );
+    } else if (currentAccount.role === 'opd') {
+      await query('UPDATE doctors SET available = FALSE, updated_at = NOW() WHERE id = $1', [targetId]);
     }
 
     writeSecurityEvent({

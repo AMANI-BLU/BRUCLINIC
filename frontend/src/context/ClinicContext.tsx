@@ -304,20 +304,29 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           .map(item => item.id === id ? response.data : item)
           .filter(item => item.queueItemId === target.id || (!item.queueItemId && item.patientId === target.patientId));
         const pendingOrders = relatedOrders.filter(item => item.status !== 'Completed');
+        const completedOrders = relatedOrders.filter(item => item.status === 'Completed' && item.result);
         const allResults = relatedOrders
           .filter(item => item.status === 'Completed' && item.result)
           .map(item => `${item.testName}: ${item.result}`)
           .join(' | ');
-        await apiPatch(`/queue/${encodeURIComponent(target.id)}`, pendingOrders.length > 0 ? {
-          stage: 'Laboratory',
-          labStatus: 'Requested',
+        const hasReturnedResults = completedOrders.length > 0;
+        const stage = hasReturnedResults ? 'Doctor Consultation' : 'Laboratory';
+        const labStatus = pendingOrders.length ? (hasReturnedResults ? 'Partial' : 'Requested') : 'Completed';
+        await apiPatch(`/queue/${encodeURIComponent(target.id)}`, {
+          stage,
+          labStatus,
           requestSource: 'Laboratory',
-          requestDestination: 'Laboratory',
-          requestNotes: `${pendingOrders.length} laboratory investigation(s) still pending.`,
-        } : {
-          stage: 'Doctor Consultation', labStatus: 'Completed', labResult: allResults || changes.result, labUnit: changes.unit,
-          labReferenceRange: changes.referenceRange, labIsAbnormal: changes.isAbnormal, labCompletedAt: changes.completedAt,
-          requestSource: 'Laboratory', requestDestination: 'Doctor Consultation', requestNotes: `All laboratory results ready: ${allResults || changes.result || 'Analysis complete'}.`,
+          requestDestination: stage,
+          requestNotes: pendingOrders.length
+            ? `${pendingOrders.length} laboratory investigation(s) remain pending${hasReturnedResults ? '; partial results returned to OPD.' : '.'}`
+            : `All laboratory results ready: ${allResults || changes.result || 'Analysis complete'}.`,
+          ...(hasReturnedResults ? {
+            labResult: allResults || changes.result,
+            labUnit: changes.unit,
+            labReferenceRange: changes.referenceRange,
+            labIsAbnormal: completedOrders.some(item => item.isAbnormal),
+            labCompletedAt: changes.completedAt,
+          } : {}),
         }, token);
       }
     }
@@ -355,18 +364,19 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       const allResults = completedOrders.map(order => `${order.testName}: ${order.result}${order.unit ? ` ${order.unit}` : ''}`).join(' | ');
       const referenceRanges = labReferenceQueueSummary(completedOrders);
       const completedAt = new Date().toISOString();
-      const queueChanges: Partial<ClinicQueueItem> = pendingOrders.length > 0 ? {
-        stage: 'Laboratory', labStatus: 'Requested', labTestName: labTestQueueSummary(relatedOrders),
-        labResult: allResults, labIsAbnormal: completedOrders.some(order => order.isAbnormal),
-        requestSource: 'Laboratory', requestDestination: 'Laboratory',
-        requestNotes: `${pendingOrders.length} laboratory investigation(s) still pending.`,
-      } : {
-        stage: 'Doctor Consultation', labStatus: 'Completed',
+      const hasReturnedResults = completedOrders.length > 0;
+      const queueStage = hasReturnedResults ? 'Doctor Consultation' : 'Laboratory';
+      const queueLabStatus = pendingOrders.length ? (hasReturnedResults ? 'Partial' : 'Requested') : 'Completed';
+      const queueChanges: Partial<ClinicQueueItem> = {
+        stage: queueStage, labStatus: queueLabStatus,
         labTestName: labTestQueueSummary(relatedOrders), labResult: allResults || 'Analysis complete',
         labUnit: '', labReferenceRange: referenceRanges,
-        labIsAbnormal: completedOrders.some(order => order.isAbnormal), labCompletedAt: completedAt,
-        requestSource: 'Laboratory', requestDestination: 'Doctor Consultation',
-        requestNotes: `Laboratory results ready: ${allResults || 'Analysis complete'}.`,
+        labIsAbnormal: completedOrders.some(order => order.isAbnormal),
+        requestSource: 'Laboratory', requestDestination: queueStage,
+        requestNotes: pendingOrders.length
+          ? `${pendingOrders.length} laboratory investigation(s) remain pending${hasReturnedResults ? '; partial results returned to OPD.' : '.'}`
+          : `Laboratory results ready: ${allResults || 'Analysis complete'}.`,
+        ...(hasReturnedResults ? { labCompletedAt: completedAt } : {}),
       };
       setLabOrders(previous => previous.map(order => {
         const changes = changesById.get(order.id);

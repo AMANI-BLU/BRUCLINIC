@@ -19,6 +19,7 @@ interface AuthContextType {
   updateProfile: (changes: { avatarUrl?: string | null; phone?: string; gender?: UserProfile['gender'] }) => Promise<AuthResponse>;
   createStaffAccount: (data: CreateStaffInput) => Promise<AuthResponse>;
   fetchStaffList: () => Promise<UserProfile[]>;
+  updateStaffAccount: (userId: string, changes: Pick<UserProfile, 'name' | 'username' | 'role' | 'roleTitle' | 'department' | 'email' | 'phone' | 'gender'>) => Promise<AuthResponse>;
   updateStaffStatus: (userId: string, isActive: boolean) => Promise<ActionResponse>;
   unlockStaffAccount: (userId: string) => Promise<ActionResponse>;
   resetStaffPassword: (userId: string, newPassword?: string, autoGenerate?: boolean, useDefaultPassword?: boolean) => Promise<ActionResponse & { generatedPassword?: string }>;
@@ -166,6 +167,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return response.data;
   }, [token]);
 
+  const updateStaffAccount = useCallback(async (
+    userId: string,
+    changes: Pick<UserProfile, 'name' | 'username' | 'role' | 'roleTitle' | 'department' | 'email' | 'phone' | 'gender'>,
+  ): Promise<AuthResponse> => {
+    try {
+      const response = await apiPatch<{ user: UserProfile; message: string }>(
+        `/auth/users/${encodeURIComponent(userId)}`,
+        changes,
+        token,
+      );
+      if (response.user.id === currentUser?.id) {
+        setCurrentUser(response.user);
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(response.user));
+      }
+      return { success: true, user: response.user, message: response.message };
+    } catch (error) {
+      return { success: false, error: messageFrom(error) };
+    }
+  }, [currentUser?.id, token]);
+
   const updateStaffStatus = useCallback(async (userId: string, isActive: boolean): Promise<ActionResponse> => {
     try {
       const response = await apiPatch<{ message: string }>('/auth/users/' + encodeURIComponent(userId) + '/status', { isActive }, token);
@@ -205,7 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       currentUser, token, role: currentUser?.role || 'admin', isAuthenticated: Boolean(currentUser), authLoading, idleLockMinutes,
-      login, logout, changePassword, unlockSession, updateProfile, createStaffAccount, fetchStaffList, updateStaffStatus, unlockStaffAccount, resetStaffPassword, deleteStaffAccount,
+      login, logout, changePassword, unlockSession, updateProfile, createStaffAccount, fetchStaffList, updateStaffAccount, updateStaffStatus, unlockStaffAccount, resetStaffPassword, deleteStaffAccount,
     }}>
       {children}
     </AuthContext.Provider>

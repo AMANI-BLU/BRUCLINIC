@@ -118,14 +118,23 @@ function resizeProfileImage(file: File): Promise<string> {
     const image = new Image();
     image.onload = () => {
       URL.revokeObjectURL(objectUrl);
-      const maxDimension = 320;
-      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight, 1));
+      const sourceWidth = image.naturalWidth;
+      const sourceHeight = image.naturalHeight;
+      const cropSize = Math.min(sourceWidth, sourceHeight);
+      if (!cropSize) {
+        reject(new Error('That image has invalid dimensions.'));
+        return;
+      }
+      const cropX = (sourceWidth - cropSize) / 2;
+      const cropY = (sourceHeight - cropSize) / 2;
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.width = 320;
+      canvas.height = 320;
       const context = canvas.getContext('2d');
       if (!context) { reject(new Error('Could not prepare that image.')); return; }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(image, cropX, cropY, cropSize, cropSize, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       if (dataUrl.length > 600000) {
         reject(new Error('That image is too large. Please choose a smaller photo.'));

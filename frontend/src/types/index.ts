@@ -39,6 +39,7 @@ export interface Doctor {
   available: boolean;
   schedule: string[];
   avatar?: string;
+  avatarUrl?: string | null;
 }
 
 export interface Appointment {
@@ -201,7 +202,7 @@ export interface ClinicQueueItem {
   labOrderId?: string;
   labTestName?: string;
   labCategory?: string;
-  labStatus?: 'Requested' | 'Completed';
+  labStatus?: 'Requested' | 'Partial' | 'Completed';
   labResult?: string;
   labUnit?: string;
   labReferenceRange?: string;

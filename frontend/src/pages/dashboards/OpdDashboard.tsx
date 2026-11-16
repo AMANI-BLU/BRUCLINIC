@@ -198,6 +198,32 @@ export default function OpdDashboard() {
     return false;
   }, [currentUser, doctors]);
 
+  // Lab alerts belong to the clinician who requested the tests. A returning
+  // result should remain visible to that clinician even if reception assigned
+  // the visit to a different doctor station.
+  const isReturnedLabForCurrentDoctor = useCallback((q: ClinicQueueItem) => {
+    if (!currentUser || (q.labStatus !== 'Partial' && q.labStatus !== 'Completed')) return false;
+    const relatedOrders = labOrders.filter(order =>
+      order.queueItemId === q.id
+      || order.id === q.labOrderId,
+    );
+    const currentEmail = currentUser.email?.trim().toLowerCase();
+    const cleanName = (name?: string) => stripDoctorTitle(name).trim().toLowerCase();
+    const currentName = cleanName(currentUser.name);
+
+    return relatedOrders.some(order => {
+      if (order.doctorId && order.doctorId === currentUser.id) return true;
+      if (order.doctorId && currentEmail) {
+        const matchingDoctor = doctors.find(doctor => doctor.id === order.doctorId);
+        if (matchingDoctor?.email?.trim().toLowerCase() === currentEmail) return true;
+      }
+      return Boolean(currentName && cleanName(order.doctorName) === currentName);
+    });
+  }, [currentUser, doctors, labOrders]);
+  const canViewQueueItem = useCallback((q: ClinicQueueItem) =>
+    isAssignedToCurrentDoctor(q) || isReturnedLabForCurrentDoctor(q),
+  [isAssignedToCurrentDoctor, isReturnedLabForCurrentDoctor]);
+
   // A legacy or interrupted transfer can leave the queue row behind after
   // the ER case was created. Hide that patient from OPD while the ER case is
   // active so one patient cannot appear in two active departments.
@@ -208,10 +234,10 @@ export default function OpdDashboard() {
 
   // Categorized lists filtered by assigned doctor when in "my" scope
   const waitingForDoctor = queue.filter(q =>
-    q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+    q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || canViewQueueItem(q))
   );
   const atLaboratory = queue.filter(q =>
-    q.stage === 'Laboratory' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
+    (q.stage === 'Laboratory' || q.labStatus === 'Partial') && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || canViewQueueItem(q))
   );
   const atPharmacy = queue.filter(q =>
     q.stage === 'Pharmacy' && !activeEmergencyPatientIds.has(q.patientId) && (doctorQueueScope === 'all' || isAssignedToCurrentDoctor(q))
@@ -231,8 +257,8 @@ export default function OpdDashboard() {
   }, [queue, records, currentUser?.id]);
 
   const totalAssignedToMe = useMemo(() => {
-    return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && isAssignedToCurrentDoctor(q)).length;
-  }, [queue, activeEmergencyPatientIds, isAssignedToCurrentDoctor]);
+    return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId) && canViewQueueItem(q)).length;
+  }, [queue, activeEmergencyPatientIds, canViewQueueItem]);
 
   const totalOpdDoctorQueue = useMemo(() => {
     return queue.filter(q => q.stage === 'Doctor Consultation' && !activeEmergencyPatientIds.has(q.patientId)).length;
@@ -240,17 +266,17 @@ export default function OpdDashboard() {
 
   // Filtered list for the doctor station
   const doctorStationQueue = queue.filter(q => {
-    if (doctorQueueScope === 'my' && !isAssignedToCurrentDoctor(q)) return false;
+    if (doctorQueueScope === 'my' && !canViewQueueItem(q)) return false;
     if (activeEmergencyPatientIds.has(q.patientId)) return false;
     if (opdTabFilter === 'completed') {
       return q.stage === 'Completed';
     }
     if (q.stage !== 'Doctor Consultation') return false;
     if (opdTabFilter === 'card_requests') {
-      return !q.labStatus || q.labStatus !== 'Completed';
+      return q.labStatus !== 'Completed' && q.labStatus !== 'Partial';
     }
     if (opdTabFilter === 'lab_returned') {
-      return q.labStatus === 'Completed';
+      return q.labStatus === 'Completed' || q.labStatus === 'Partial';
     }
     return true;
   });
@@ -693,7 +719,7 @@ export default function OpdDashboard() {
                 className={`pill-tab ${opdTabFilter === 'lab_returned' ? 'active' : ''}`}
                 onClick={() => setOpdTabFilter('lab_returned')}
               >
-                Lab ready ({waitingForDoctor.filter(q => q.labStatus === 'Completed').length})
+                Lab results ({waitingForDoctor.filter(q => q.labStatus === 'Completed' || q.labStatus === 'Partial').length})
               </button>
               <button
                 type="button"
@@ -732,8 +758,10 @@ export default function OpdDashboard() {
             ) : (
               doctorStationQueue.map((item) => {
                 const isSelected = selectedQueueItem?.id === item.id;
-                const linkedLabResults = labOrders.filter(order => order.queueItemId === item.id && order.status === 'Completed');
-                const hasLabResults = item.labStatus === 'Completed' || linkedLabResults.length > 0;
+                const linkedLabOrders = labOrders.filter(order => order.queueItemId === item.id);
+                const linkedLabResults = linkedLabOrders.filter(order => order.status === 'Completed');
+                const pendingLabCount = linkedLabOrders.filter(order => order.status !== 'Completed').length;
+                const hasLabResults = item.labStatus === 'Completed' || item.labStatus === 'Partial' || linkedLabResults.length > 0;
 
                 return (
                   <div
@@ -771,7 +799,10 @@ export default function OpdDashboard() {
                     {hasLabResults && (
                       <div className="opd-queue-lab-ready">
                         <FlaskConical size={15} />
-                        <span><strong>{linkedLabResults.length || 'Lab'} result{linkedLabResults.length === 1 ? '' : 's'} returned</strong><small>{item.labTestName || 'Ready for clinician review'}</small></span>
+                        <span>
+                          <strong>{linkedLabResults.length || 'Lab'} result{linkedLabResults.length === 1 ? '' : 's'} returned</strong>
+                          <small>{item.labTestName || 'Ready for clinician review'}{item.labStatus === 'Partial' && pendingLabCount ? ` · ${pendingLabCount} test${pendingLabCount === 1 ? '' : 's'} still pending` : ''}</small>
+                        </span>
                       </div>
                     )}
 

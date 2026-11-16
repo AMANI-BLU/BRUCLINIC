@@ -334,10 +334,11 @@ export async function completeLabRequest(queueItemId, results) {
       .join(' | ');
     const referenceRanges = labReferenceSummary(completedOrders);
     const now = new Date().toISOString();
-    const stage = pendingOrders.length ? 'Laboratory' : 'Doctor Consultation';
-    const labStatus = pendingOrders.length ? 'Requested' : 'Completed';
+    const hasReturnedResults = completedOrders.length > 0;
+    const stage = hasReturnedResults ? 'Doctor Consultation' : 'Laboratory';
+    const labStatus = pendingOrders.length ? (hasReturnedResults ? 'Partial' : 'Requested') : 'Completed';
     const requestNotes = pendingOrders.length
-      ? `${pendingOrders.length} laboratory investigation(s) still pending.`
+      ? `${pendingOrders.length} laboratory investigation(s) remain pending${hasReturnedResults ? '; partial results returned to OPD.' : '.'}`
       : `Laboratory results ready: ${allResults || 'Analysis complete'}.`;
     const updatedQueue = await client.query(
       `UPDATE queue_items SET
@@ -351,7 +352,7 @@ export async function completeLabRequest(queueItemId, results) {
       [
         queueItemId, stage, visitOrders[0]?.id || null, queueTestNames, labStatus,
         allResults, referenceRanges, completedOrders.some(order => order.is_abnormal),
-        pendingOrders.length === 0, now, stage, requestNotes,
+        hasReturnedResults, now, stage, requestNotes,
       ],
     );
 
