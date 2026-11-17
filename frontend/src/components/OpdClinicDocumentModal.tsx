@@ -13,7 +13,7 @@ export type OpdClinicDocumentType = 'sick-leave' | 'special-meal';
 interface OpdClinicDocumentModalProps {
   type: OpdClinicDocumentType;
   patientId: string;
-  queueItemId: string;
+  queueItemId?: string;
   patientName: string;
   patientCode?: string;
   patientAge?: number;
@@ -143,7 +143,7 @@ export default function OpdClinicDocumentModal({
     const input: NewClinicDocument = {
       documentType: type,
       patientId,
-      queueItemId,
+      queueItemId: queueItemId || undefined,
       documentDate: fields.documentDate,
       treatmentDate: fields.treatmentDate,
       diagnosis: fields.diagnosis.trim(),

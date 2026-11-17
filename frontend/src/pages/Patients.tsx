@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import type { Patient, Gender, BloodGroup, PatientType, QueuePriority, QueueStage, MedicalRecord, ClinicQueueItem, LabOrder } from '../types';
 import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
-  Activity, HeartPulse
+  Activity, HeartPulse, FileText, Utensils
 } from 'lucide-react';
 import { firstError, validateEmail, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import { calculatePatientAge, dateOfBirthForAge, patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
@@ -14,6 +14,7 @@ import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
 import LoadingButton from '../components/LoadingButton';
+import OpdClinicDocumentModal, { type OpdClinicDocumentType } from '../components/OpdClinicDocumentModal';
 import './Patients.css';
 import { formatDateTime12, formatTime12 } from '../utils/date';
 import { normalizeDoctorName } from '../utils/doctorName';
@@ -76,7 +77,7 @@ export default function Patients() {
     patients, doctors, records, queue, labOrders,
     addPatient, updatePatient, deletePatient, sendCardToOpdRequest
   } = useClinic();
-  const { role } = useAuth();
+  const { role, currentUser } = useAuth();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<PatientType | 'All'>('All');
   const [modal, setModal] = useState<{ mode: ModalMode; patient?: Patient }>({ mode: null });
@@ -85,12 +86,18 @@ export default function Patients() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [clinicDocumentModal, setClinicDocumentModal] = useState<{
+    type: OpdClinicDocumentType;
+    patient: Patient;
+  } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Only receptionist can add/edit/delete patients
   const canManagePatients = role === 'receptionist';
   // Desk roles that can create a card-to-OPD dispatch (receptionist only now)
   const canDispatch = role === 'receptionist';
+  // OPD and Admin clinicians can issue sick leave and special meal orders
+  const canIssueClinicDocuments = role === 'opd' || role === 'admin';
 
   const filtered = patients.filter(p => {
     const matchType = filterType === 'All' || p.patientType === filterType;
@@ -313,6 +320,26 @@ export default function Patients() {
                 <td>
                   <div className="action-btns">
                     <button type="button" className="btn btn-secondary btn-sm btn-icon" title={t('View Patient Card & History')} onClick={() => openView(p)}><Eye size={15} /></button>
+                    {canIssueClinicDocuments && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm btn-icon"
+                          title={t('Sick Leave')}
+                          onClick={() => setClinicDocumentModal({ patient: p, type: 'sick-leave' })}
+                        >
+                          <FileText size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm btn-icon"
+                          title={t('Special Meal')}
+                          onClick={() => setClinicDocumentModal({ patient: p, type: 'special-meal' })}
+                        >
+                          <Utensils size={15} />
+                        </button>
+                      </>
+                    )}
                     {canManagePatients && (
                       <>
                         <button type="button" className="btn btn-secondary btn-sm btn-icon" title={t('Edit Patient Details')} onClick={() => openEdit(p)}><Edit2 size={15} /></button>
@@ -353,6 +380,8 @@ export default function Patients() {
                     records={records.filter(r => r.patientId === modal.patient?.id)}
                     queue={queue.filter(q => q.patientId === modal.patient?.id)}
                     labOrders={labOrders.filter(l => l.patientId === modal.patient?.id)}
+                    canIssueClinicDocuments={canIssueClinicDocuments}
+                    onIssueClinicDocument={type => modal.patient && setClinicDocumentModal({ patient: modal.patient, type })}
                   />
                 </div>
                 <div className="modal-footer">
@@ -639,6 +668,24 @@ export default function Patients() {
           }
         }}
       />
+
+      {clinicDocumentModal && (
+        <OpdClinicDocumentModal
+          key={`${clinicDocumentModal.type}-${clinicDocumentModal.patient.id}`}
+          type={clinicDocumentModal.type}
+          patientId={clinicDocumentModal.patient.id}
+          queueItemId={queue.find(q => q.patientId === clinicDocumentModal.patient.id)?.id}
+          patientName={patientFullName(clinicDocumentModal.patient)}
+          patientCode={patientCode(clinicDocumentModal.patient)}
+          patientAge={calculatePatientAge(clinicDocumentModal.patient.dateOfBirth)}
+          patientGender={clinicDocumentModal.patient.gender}
+          doctorName={currentUser?.name || 'Physician'}
+          profession={currentUser?.roleTitle || (role === 'admin' ? 'Medical Director' : 'OPD Clinician')}
+          treatmentDate={records.filter(r => r.patientId === clinicDocumentModal.patient.id)[0]?.visitDate}
+          diagnosis={records.filter(r => r.patientId === clinicDocumentModal.patient.id)[0]?.diagnosis}
+          onClose={() => setClinicDocumentModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -648,9 +695,18 @@ interface PatientViewProps {
   records: MedicalRecord[];
   queue: ClinicQueueItem[];
   labOrders: LabOrder[];
+  canIssueClinicDocuments?: boolean;
+  onIssueClinicDocument?: (type: OpdClinicDocumentType) => void;
 }
 
-function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps) {
+function PatientView({
+  patient: p,
+  records,
+  queue,
+  labOrders,
+  canIssueClinicDocuments,
+  onIssueClinicDocument,
+}: PatientViewProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'profile' | 'records' | 'labs' | 'visits'>('records');
 
@@ -673,6 +729,29 @@ function PatientView({ patient: p, records, queue, labOrders }: PatientViewProps
           <div><strong>{labOrders.length}</strong><span>{t('Lab tests')}</span></div>
         </div>
       </div>
+
+      {canIssueClinicDocuments && onIssueClinicDocument && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.85rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => onIssueClinicDocument('sick-leave')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem' }}
+            title={t('Sick Leave')}
+          >
+            <FileText size={14} /> {t('Sick Leave')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => onIssueClinicDocument('special-meal')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem' }}
+            title={t('Special Meal')}
+          >
+            <Utensils size={14} /> {t('Special Meal')}
+          </button>
+        </div>
+      )}
 
       <div className="pill-tabs view-tabs">
         <button type="button" className={`pill-tab ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setActiveTab('records')}>
