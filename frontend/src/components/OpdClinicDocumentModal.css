@@ -25,7 +25,7 @@
 .opd-doc-history-item .btn { flex: 0 0 auto; }
 .opd-doc-preview { align-self: start; min-height: 640px; padding: 1.25rem 1.35rem; border: 1px solid #cbd5e1; background: #fff; box-shadow: 0 5px 18px rgba(15, 23, 42, 0.09); color: #151515; font: 13px/1.5 'Times New Roman', serif; }
 .opd-doc-preview > header { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.2rem 0 1.1rem; border-bottom: 1px solid #555; text-align: center; }
-.opd-doc-preview > header img { width: 56px; height: 56px; object-fit: contain; }
+.opd-doc-preview > header img { width: 56px; height: 56px; object-fit: cover; border-radius: 50%; border: none; }
 .opd-doc-preview h3 { margin: 0; font: 600 1.05rem/1.3 'Times New Roman', serif; }
 .opd-doc-preview h2 { margin: 0.8rem 0 0; font: 700 1.25rem/1.25 'Times New Roman', serif; }
 .opd-doc-preview-date { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.5rem; margin: 1rem 0 0.75rem; }
