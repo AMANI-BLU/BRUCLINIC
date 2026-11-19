@@ -395,10 +395,11 @@ export async function authHandler(request, response, segments) {
       eventType: SECURITY_EVENT.ACCOUNT_CREATED,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `New staff account created: ${cleanName} (${role}) by ${request.user.username}`,
-      metadata: { newUserId: id, newRole: role },
+      description: `New staff account created: ${cleanName} (${role}) by ${request.user.username} (${request.user.role})`,
+      metadata: { newUserId: id, newRole: role, actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -431,10 +432,11 @@ export async function authHandler(request, response, segments) {
       eventType,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `Account ${isActive ? 'activated' : 'deactivated'}: ID=${targetId} by ${request.user.username}`,
-      metadata: { targetId, isActive: Boolean(isActive) },
+      description: `Account ${isActive ? 'activated' : 'deactivated'}: ID=${targetId} by ${request.user.username} (${request.user.role})`,
+      metadata: { targetId, isActive: Boolean(isActive), actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -464,10 +466,11 @@ export async function authHandler(request, response, segments) {
       eventType: SECURITY_EVENT.ACCOUNT_UNLOCKED,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `Sign-in lock cleared for ${targetUser.username} by ${request.user.username}`,
-      metadata: { targetId, targetUsername: targetUser.username, clearedBuckets },
+      description: `Sign-in lock cleared for ${targetUser.username} by ${request.user.username} (${request.user.role})`,
+      metadata: { targetId, targetUsername: targetUser.username, clearedBuckets, actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -519,10 +522,11 @@ export async function authHandler(request, response, segments) {
       eventType: SECURITY_EVENT.PASSWORD_RESET,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `Password reset for account ID=${targetId} by ${request.user.username}`,
-      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual', clearedBuckets },
+      description: `Password reset for account ID=${targetId} by ${request.user.username} (${request.user.role})`,
+      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual', clearedBuckets, actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -623,9 +627,11 @@ export async function authHandler(request, response, segments) {
       eventType: SECURITY_EVENT.PROFILE_UPDATED,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `Profile updated for account ID=${targetId} by ${request.user.username}`,
+      description: `Profile updated for account ID=${targetId} by ${request.user.username} (${request.user.role})`,
+      metadata: { targetId, actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,
@@ -657,10 +663,11 @@ export async function authHandler(request, response, segments) {
       eventType: SECURITY_EVENT.ACCOUNT_DELETED,
       userId: request.user.id,
       username: request.user.username,
+      userRole: request.user.role,
       ipAddress: ip,
       requestId: request.requestId,
-      description: `Staff account deleted: ${target.rows[0]?.name} (${target.rows[0]?.role}) by ${request.user.username}`,
-      metadata: { deletedId: targetId, deletedUsername: target.rows[0]?.username },
+      description: `Staff account deleted: ${target.rows[0]?.name} (${target.rows[0]?.role}) by ${request.user.username} (${request.user.role})`,
+      metadata: { deletedId: targetId, deletedUsername: target.rows[0]?.username, actorRole: request.user.role },
     });
     writeAuditLog({
       requestId: request.requestId,

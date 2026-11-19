@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import AdminDashboard from './dashboards/AdminDashboard';
+import IctDashboard from './dashboards/IctDashboard';
 import ReceptionDashboard from './dashboards/ReceptionDashboard';
 import OpdDashboard from './dashboards/OpdDashboard';
 import EmergencyDashboard from './dashboards/EmergencyDashboard';
@@ -12,7 +13,8 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      {(role === 'admin' || role === 'ict') && <AdminDashboard />}
+      {role === 'admin' && <AdminDashboard />}
+      {role === 'ict' && <IctDashboard />}
       {role === 'receptionist' && <ReceptionDashboard />}
       {role === 'opd' && <OpdDashboard />}
       {role === 'emergency' && <EmergencyDashboard />}

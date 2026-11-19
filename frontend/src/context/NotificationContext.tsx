@@ -1,16 +1,17 @@
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
-  HeartPulse, Pill, FlaskConical, AlertTriangle, Users, Stethoscope, type LucideIcon
+  HeartPulse, Pill, FlaskConical, AlertTriangle, Users, Stethoscope, Lock, ShieldAlert, type LucideIcon
 } from 'lucide-react';
 import { useClinic } from './ClinicContext';
 import { useAuth } from './AuthContext';
 import { formatTime12 } from '../utils/date';
-import type { LabOrder } from '../types';
+import { apiGet } from '../api/client';
+import type { LabOrder, SecurityEvent } from '../types';
 import { normalizeDoctorName } from '../utils/doctorName';
 
 export interface ClinicAlert {
   id: string;
-  category: 'er' | 'pharmacy' | 'lab' | 'queue' | 'stock';
+  category: 'er' | 'pharmacy' | 'lab' | 'queue' | 'stock' | 'security';
   categoryLabel: string;
   priority: 'critical' | 'urgent' | 'normal';
   title: string;
@@ -71,8 +72,18 @@ function groupLabOrders(orders: LabOrder[]) {
   }));
 }
 
+function formatSecurityTitle(e: SecurityEvent): string {
+  switch (e.event_type) {
+    case 'AUTH_LOGIN_LOCKED':     return `Account Locked: ${e.username ?? 'unknown user'}`;
+    case 'ACCOUNT_DELETED':       return `Account Deleted: ${e.username ?? 'unknown user'}`;
+    case 'ACCOUNT_DEACTIVATED':   return `Account Deactivated: ${e.username ?? 'unknown user'}`;
+    case 'AUTHZ_ROLE_ESCALATION': return 'Role Escalation Attempt Blocked';
+    default: return e.event_type?.replace(/_/g, ' ') ?? 'Security Event';
+  }
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { currentUser, role } = useAuth();
+  const { currentUser, role, token } = useAuth();
   const { erCases, labOrders, medicines, pharmacyOrders, queue, refresh, loading } = useClinic();
 
   const dismissedStorageKey = `bruclinic:dismissed_alerts_${currentUser?.id || 'guest'}`;
@@ -93,6 +104,43 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey),
   );
   const [pendingMarkRead, setPendingMarkRead] = useState(false);
+
+  // ── ICT / Admin: security event alerts fetched from API ──────────────────
+  const [securityAlerts, setSecurityAlerts] = useState<ClinicAlert[]>([]);
+
+  useEffect(() => {
+    if (role !== 'ict' && role !== 'admin') { setSecurityAlerts([]); return; }
+    if (!token) return;
+
+    const WATCHED_EVENTS = ['AUTH_LOGIN_LOCKED', 'ACCOUNT_DELETED', 'AUTHZ_ROLE_ESCALATION', 'ACCOUNT_DEACTIVATED'];
+
+    const fetchSecurityAlerts = async () => {
+      try {
+        const data = await apiGet<{ events?: SecurityEvent[] } | SecurityEvent[]>('/admin/security-events?limit=50', token);
+        const events: SecurityEvent[] = Array.isArray(data) ? data : ((data as { events?: SecurityEvent[] }).events ?? []);
+        const newAlerts: ClinicAlert[] = events
+          .filter(e => WATCHED_EVENTS.includes(e.event_type ?? ''))
+          .map(e => ({
+            id: `sec-${e.id ?? e.event_type}-${e.created_at ?? ''}`,
+            category: 'security' as const,
+            categoryLabel: 'Security',
+            priority: (e.severity === 'critical' ? 'critical' : e.severity === 'warning' ? 'urgent' : 'normal') as 'critical' | 'urgent' | 'normal',
+            title: formatSecurityTitle(e),
+            message: e.description ?? e.event_type ?? 'Security event',
+            time: e.created_at ? new Date(e.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : undefined,
+            link: '/security',
+            icon: e.event_type === 'AUTH_LOGIN_LOCKED' ? Lock : ShieldAlert,
+          }));
+        setSecurityAlerts(newAlerts);
+      } catch {
+        // Silently ignore — security events are supplementary
+      }
+    };
+
+    fetchSecurityAlerts();
+    const id = window.setInterval(fetchSecurityAlerts, 90_000);
+    return () => clearInterval(id);
+  }, [role, token]);
 
   // Re-sync storage keys if user account changes
   useEffect(() => {
@@ -311,9 +359,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return alerts;
   }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id, currentUser?.name]);
 
+  // Merge clinic alerts + security alerts (security alerts come from API fetch above)
+  const allRoleNotifications = useMemo(
+    () => [...roleNotifications, ...securityAlerts],
+    [roleNotifications, securityAlerts],
+  );
+
   const visibleNotifications = useMemo(() => {
-    return roleNotifications.filter(item => !dismissedAlertIds.includes(item.id));
-  }, [roleNotifications, dismissedAlertIds]);
+    return allRoleNotifications.filter(item => !dismissedAlertIds.includes(item.id));
+  }, [allRoleNotifications, dismissedAlertIds]);
 
   const totalAlerts = visibleNotifications.length;
   const unreadAlerts = visibleNotifications.filter(item => !readAlertIds.includes(item.id)).length;
@@ -363,7 +417,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const clearAllAlerts = () => {
-    const allIds = roleNotifications.map(n => n.id);
+    const allIds = allRoleNotifications.map(n => n.id);
     setDismissedAlertIds(prev => {
       const next = Array.from(new Set([...prev, ...allIds]));
       try {
@@ -398,7 +452,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationContext.Provider
       value={{
-        roleNotifications,
+        roleNotifications: allRoleNotifications,
         visibleNotifications,
         dismissedAlertIds,
         totalAlerts,

@@ -387,6 +387,7 @@ export interface SecurityEvent {
   severity: SecuritySeverity;
   user_id: string | null;
   username: string | null;
+  user_role?: string | null;
   ip_address: string | null;
   request_id: string | null;
   description: string | null;

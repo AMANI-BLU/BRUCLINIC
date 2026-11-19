@@ -48,10 +48,10 @@ const ROLE = {
   EMERGENCY_ONLY:  ['emergency'],
   PHARMACY_ONLY:   ['pharmacy'],
   LAB_ONLY:        ['laboratory'],
-  PATIENTS:        ['admin', 'ict', 'receptionist', 'opd', 'emergency'],
-  APPOINTMENTS:    ['admin', 'ict', 'receptionist', 'opd'],
-  RECORDS:         ['admin', 'ict', 'receptionist', 'opd', 'emergency', 'laboratory'],
-  DOCTORS:         ['admin', 'ict', 'opd'],
+  PATIENTS:        ['admin', 'receptionist', 'opd', 'emergency'],
+  APPOINTMENTS:    ['admin', 'receptionist', 'opd'],
+  RECORDS:         ['admin', 'receptionist', 'opd', 'emergency', 'laboratory'],
+  DOCTORS:         ['admin', 'opd'],
   ALL:             ['admin', 'ict', 'receptionist', 'opd', 'emergency', 'pharmacy', 'laboratory'],
 } as const;
 

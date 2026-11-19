@@ -186,10 +186,11 @@ export async function adminHandler(request, response, segments, url) {
         eventType: SECURITY_EVENT.BACKUP_CREATED,
         userId: request.user.id,
         username: request.user.username,
+        userRole: request.user.role,
         ipAddress: ip,
         requestId: request.requestId,
-        description: `Data backup downloaded by ${request.user.username}`,
-        metadata: { counts: backup.counts, includeUsers, includeAudit, checksum: backup.checksum },
+        description: `Data backup downloaded by ${request.user.username} (${request.user.role})`,
+        metadata: { counts: backup.counts, includeUsers, includeAudit, checksum: backup.checksum, actorRole: request.user.role },
       });
       await recordBackupRun({
         kind: 'export', actorId: request.user.id, actor: request.user.username,
@@ -250,10 +251,11 @@ export async function adminHandler(request, response, segments, url) {
           eventType: SECURITY_EVENT.BACKUP_IMPORTED,
           userId: request.user.id,
           username: request.user.username,
+          userRole: request.user.role,
           ipAddress: ip,
           requestId: request.requestId,
-          description: `Database restored from backup by ${request.user.username} (${restoreMode} mode)`,
-          metadata: { counts: validated.counts, checksum: validated.checksum },
+          description: `Database restored from backup by ${request.user.username} (${request.user.role}) (${restoreMode} mode)`,
+          metadata: { counts: validated.counts, checksum: validated.checksum, actorRole: request.user.role },
         });
       }
 
@@ -329,7 +331,9 @@ export async function adminHandler(request, response, segments, url) {
     const limitParam = param(limit);
     const offsetParam = param(offset);
     const rows = await query(
-      `SELECT se.* FROM security_events se ${where} ORDER BY se.created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      `SELECT se.*, COALESCE(u.role, se.metadata->>'userRole') AS user_role FROM security_events se
+       LEFT JOIN users u ON se.user_id = u.id
+       ${where} ORDER BY se.created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values,
     );
     const countResult = await query(`SELECT COUNT(*) AS total FROM security_events se ${where}`, whereValues);

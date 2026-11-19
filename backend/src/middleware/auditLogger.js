@@ -80,12 +80,16 @@ export async function writeAuditLog(opts) {
  */
 export async function writeSecurityEvent(opts) {
   const {
-    eventType, userId = null, username = null,
+    eventType, userId = null, username = null, userRole = null,
     ipAddress = null, requestId = null,
     description = null, metadata = null,
   } = opts;
   const severity = opts.severity || EVENT_SEVERITY[eventType] || 'info';
   const id = `SE-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const finalMeta = {
+    ...(userRole ? { userRole } : {}),
+    ...(metadata || {}),
+  };
   await dbQuery(
     `INSERT INTO security_events
       (id, event_type, severity, user_id, username, ip_address, request_id, description, metadata)
@@ -93,7 +97,7 @@ export async function writeSecurityEvent(opts) {
     [
       id, eventType, severity, userId, username,
       ipAddress, requestId, description,
-      metadata ? JSON.stringify(metadata) : null,
+      Object.keys(finalMeta).length > 0 ? JSON.stringify(finalMeta) : null,
     ],
   );
 }

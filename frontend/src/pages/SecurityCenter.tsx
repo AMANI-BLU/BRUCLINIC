@@ -88,6 +88,39 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <span className={`sc-badge ${map[severity] || 'sc-badge-info'}`}>{severity}</span>;
 }
 
+const ROLE_BADGE_STYLE: Record<string, { bg: string; color: string }> = {
+  admin: { bg: '#007bff20', color: '#007bff' },
+  ict: { bg: '#6f42c120', color: '#6f42c1' },
+  receptionist: { bg: '#17a2b820', color: '#17a2b8' },
+  opd: { bg: '#28a74520', color: '#28a745' },
+  emergency: { bg: '#dc354520', color: '#dc3545' },
+  pharmacy: { bg: '#fd7e1420', color: '#fd7e14' },
+  laboratory: { bg: '#20c99720', color: '#20c997' },
+};
+
+function ActorBadge({ role }: { role?: string | null }) {
+  if (!role) return null;
+  const style = ROLE_BADGE_STYLE[role.toLowerCase()] || { bg: '#6c757d20', color: '#6c757d' };
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        fontSize: '0.68rem',
+        fontWeight: 600,
+        padding: '0.1rem 0.4rem',
+        borderRadius: '3px',
+        backgroundColor: style.bg,
+        color: style.color,
+        border: `1px solid ${style.color}40`,
+        textTransform: 'uppercase',
+        letterSpacing: '0.02em',
+      }}
+    >
+      {role}
+    </span>
+  );
+}
+
 function ActionBadge({ action }: { action: string }) {
   return (
     <span className="sc-action-badge" style={{ color: AUDIT_ACTION_COLORS[action] || 'inherit' }}>
@@ -394,7 +427,12 @@ export default function SecurityCenter() {
                       ? <tr><td colSpan={3} className="sc-empty">No recent lockouts</td></tr>
                       : stats!.recentLockouts.map(ev => (
                         <tr key={ev.id}>
-                          <td>{ev.username || '—'}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span>{ev.username || '—'}</span>
+                              <ActorBadge role={ev.user_role || ((ev.metadata as Record<string, unknown> | null)?.userRole as string)} />
+                            </div>
+                          </td>
                           <td><code>{ev.ip_address || '—'}</code></td>
                           <td className="sc-time">{formatTime(ev.created_at)}</td>
                         </tr>
@@ -450,8 +488,11 @@ export default function SecurityCenter() {
                             <td className="sc-time">{formatTime(log.created_at)}</td>
                             <td>
                               <div className="sc-user-cell">
-                                <strong>{log.username || '—'}</strong>
-                                {log.user_role && <small>{log.user_role}</small>}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <strong>{log.username || '—'}</strong>
+                                  <ActorBadge role={log.user_role} />
+                                </div>
+                                {log.user_display_name && <small>{log.user_display_name}</small>}
                               </div>
                             </td>
                             <td><ActionBadge action={log.action} /></td>
@@ -523,7 +564,14 @@ export default function SecurityCenter() {
                                 <span>{eventTypeLabel(ev.event_type)}</span>
                               </div>
                             </td>
-                            <td>{ev.username || '—'}</td>
+                            <td>
+                              <div className="sc-user-cell">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <strong>{ev.username || '—'}</strong>
+                                  <ActorBadge role={ev.user_role || ((ev.metadata as Record<string, unknown> | null)?.userRole as string) || ((ev.metadata as Record<string, unknown> | null)?.actorRole as string)} />
+                                </div>
+                              </div>
+                            </td>
                             <td><code className="sc-ip">{ev.ip_address || '—'}</code></td>
                             <td className="sc-summary">{ev.description || '—'}</td>
                           </tr>
