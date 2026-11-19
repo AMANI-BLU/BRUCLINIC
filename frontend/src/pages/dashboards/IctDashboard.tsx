@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
+import { useLanguage } from '../../context/LanguageContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { apiGet } from '../../api/client';
 import type { SecurityEvent, SecurityStats, UserProfile } from '../../types';
@@ -98,6 +99,7 @@ interface BackupMeta {
 
 export default function IctDashboard() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { token } = useAuth();
   const { patients, doctors } = useClinic();
 
@@ -182,56 +184,56 @@ export default function IctDashboard() {
     {
       tone: 'info' as const,
       icon: <Users size={36} />,
-      label: 'Total Patients',
+      label: t('Total Patients'),
       value: patients.length,
-      detail: 'registered in system',
+      detail: t('registered in system'),
     },
     {
       tone: 'primary' as const,
       icon: <ShieldCheck size={36} />,
-      label: 'Staff Accounts',
+      label: t('Staff Accounts'),
       value: staffCount ?? '—',
-      detail: 'active staff users',
+      detail: t('active staff users'),
       to: '/staff-accounts',
-      footerText: 'Manage accounts',
+      footerText: t('Manage accounts'),
     },
     {
       tone: 'success' as const,
       icon: <Activity size={36} />,
-      label: 'Available Doctors',
+      label: t('Available Doctors'),
       value: activeDocs,
-      detail: `of ${doctors.length} total`,
+      detail: `${t('of')} ${doctors.length} ${t('total')}`,
     },
     {
       tone: 'danger' as const,
       icon: <ShieldAlert size={36} />,
-      label: 'Security Alerts',
+      label: t('Security Alerts'),
       value: criticalEvts,
-      detail: 'in recent events',
+      detail: t('in recent events'),
       to: '/security',
-      footerText: 'View Security Center',
+      footerText: t('View Security Center'),
     },
     {
       tone: 'warning' as const,
       icon: <Lock size={36} />,
-      label: 'Locked Accounts',
+      label: t('Locked Accounts'),
       value: lockedCount,
-      detail: 'from failed logins',
+      detail: t('from failed logins'),
       to: '/staff-accounts',
-      footerText: 'Manage accounts',
+      footerText: t('Manage accounts'),
     },
     {
       tone: 'secondary' as const,
       icon: <Database size={36} />,
-      label: 'Last Backup',
+      label: t('Last Backup'),
       value: backupMeta.lastBackupAt
         ? new Date(backupMeta.lastBackupAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })
         : '—',
       detail: backupMeta.lastBackupAt
         ? new Date(backupMeta.lastBackupAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })
-        : 'No backup yet',
+        : t('No backup yet'),
       to: '/backup',
-      footerText: 'Backup & Restore',
+      footerText: t('Backup & Restore'),
     },
   ];
 
@@ -241,21 +243,21 @@ export default function IctDashboard() {
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div>
           <h4 className="mb-0 fw-semibold" style={{ color: 'var(--clr-text-primary, #333)' }}>
-            ICT Dashboard
+            {t('ICT Dashboard')}
           </h4>
           <small style={{ color: 'var(--clr-text-muted, #888)' }}>
-            System &amp; accounts overview
-            {lastRefresh && ` · Updated ${lastRefresh.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`}
+            {t('System & accounts overview')}
+            {lastRefresh && ` · ${t('Updated')} ${lastRefresh.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`}
           </small>
         </div>
         <button
           className="btn btn-sm btn-outline-secondary"
           onClick={loadData}
           disabled={loading}
-          title="Refresh"
+          title={t('Refresh')}
         >
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          <span className="ms-1 d-none d-sm-inline">Refresh</span>
+          <span className="ms-1 d-none d-sm-inline">{t('Refresh')}</span>
         </button>
       </div>
 
@@ -270,7 +272,7 @@ export default function IctDashboard() {
               value={loading && typeof kpi.value === 'number' ? '…' : kpi.value}
               detail={kpi.detail}
               to={kpi.to}
-              footerText={kpi.footerText ?? 'Info'}
+              footerText={kpi.footerText ?? t('More info')}
             />
           </div>
         ))}
@@ -281,31 +283,31 @@ export default function IctDashboard() {
         <div className="card-header d-flex align-items-center justify-content-between">
           <h3 className="card-title mb-0">
             <ShieldAlert size={16} className="me-2" />
-            Recent Security Events
+            {t('Recent Security Events')}
           </h3>
           <button
             className="btn btn-sm btn-outline-danger"
             onClick={() => navigate('/security')}
           >
             <ExternalLink size={13} className="me-1" />
-            Full Log
+            {t('Full Log')}
           </button>
         </div>
         <div className="card-body p-0">
           {loading ? (
-            <div className="p-3 text-center text-muted small">Loading events…</div>
+            <div className="p-3 text-center text-muted small">{t('Loading events…')}</div>
           ) : securityEvents.length === 0 ? (
-            <div className="p-3 text-center text-muted small">No recent security events.</div>
+            <div className="p-3 text-center text-muted small">{t('No recent security events.')}</div>
           ) : (
             <div className="table-responsive">
               <table className="table table-sm table-hover mb-0">
                 <thead style={{ background: 'var(--admin-card-header-bg, #f8f9fa)' }}>
                   <tr>
-                    <th className="ps-3" style={{ width: 140 }}>Time</th>
-                    <th>Event</th>
-                    <th>Actor</th>
-                    <th style={{ width: 90 }}>Severity</th>
-                    <th className="pe-3" style={{ width: 130 }}>IP</th>
+                    <th className="ps-3" style={{ width: 140 }}>{t('Time')}</th>
+                    <th>{t('Event')}</th>
+                    <th>{t('Actor')}</th>
+                    <th style={{ width: 90 }}>{t('Severity')}</th>
+                    <th className="pe-3" style={{ width: 130 }}>{t('IP')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -344,9 +346,9 @@ export default function IctDashboard() {
       {/* ── Quick Links ── */}
       <div className="row g-3">
         {[
-          { label: 'Security Center', to: '/security', icon: ShieldAlert, color: '#dc3545' },
-          { label: 'Staff Accounts',  to: '/staff-accounts', icon: ShieldCheck, color: '#007bff' },
-          { label: 'Backup & Restore', to: '/backup', icon: Database, color: '#6c757d' },
+          { label: t('Security Center'), to: '/security', icon: ShieldAlert, color: '#dc3545' },
+          { label: t('Staff Accounts'),  to: '/staff-accounts', icon: ShieldCheck, color: '#007bff' },
+          { label: t('Backup & Restore'), to: '/backup', icon: Database, color: '#6c757d' },
         ].map(({ label, to, icon: Icon, color }) => (
           <div className="col-12 col-md-4" key={to}>
             <div
