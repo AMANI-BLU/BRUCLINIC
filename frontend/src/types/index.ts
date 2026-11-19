@@ -156,7 +156,7 @@ export interface DashboardStats {
 }
 
 // ── 6 Actor Roles & Auth Types ──
-export type UserRole = 'admin' | 'receptionist' | 'opd' | 'emergency' | 'pharmacy' | 'laboratory';
+export type UserRole = 'admin' | 'ict' | 'receptionist' | 'opd' | 'emergency' | 'pharmacy' | 'laboratory';
 
 export interface UserProfile {
   id: string;
@@ -352,6 +352,7 @@ export interface PharmacyOrder {
   dispensedBy?: string;
   notes?: string;
   queueItemId?: string;
+  pregnancyStatus?: 'Pregnant' | 'Non-Pregnant';
 }
 
 // ── Security Center Types ──────────────────────────────────────────

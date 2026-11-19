@@ -33,17 +33,17 @@ interface NavItemDef {
 
 const ALL_NAV_ITEMS: NavItemDef[] = [
   { to: '/',               icon: LayoutDashboard, label: 'Dashboard',       end: true },
-  { to: '/staff-accounts', icon: ShieldCheck,     label: 'Staff Accounts',  roles: ['admin'] },
-  { to: '/patients',       icon: Users,           label: 'Patients',        roles: ['admin', 'receptionist', 'opd', 'emergency'] },
-  { to: '/appointments',   icon: CalendarDays,    label: 'Appointments',    roles: ['admin', 'receptionist', 'opd'] },
-  { to: '/records',        icon: ClipboardList,   label: 'Medical Records', roles: ['admin', 'receptionist', 'opd', 'emergency', 'laboratory'] },
+  { to: '/staff-accounts', icon: ShieldCheck,     label: 'Staff Accounts',  roles: ['admin', 'ict'] },
+  { to: '/patients',       icon: Users,           label: 'Patients',        roles: ['admin', 'ict', 'receptionist', 'opd', 'emergency'] },
+  { to: '/appointments',   icon: CalendarDays,    label: 'Appointments',    roles: ['admin', 'ict', 'receptionist', 'opd'] },
+  { to: '/records',        icon: ClipboardList,   label: 'Medical Records', roles: ['admin', 'ict', 'receptionist', 'opd', 'emergency', 'laboratory'] },
   { to: '/messages',       icon: MessageSquare,   label: 'Messages' },
   { to: '/notifications',  icon: Bell,            label: 'Notifications' },
   { to: '/pharmacy',       icon: Pill,            label: 'Pharmacy & Inventory', roles: ['admin', 'pharmacy'] },
-  { to: '/doctors',        icon: Stethoscope,     label: 'Doctors',         roles: ['admin', 'opd'] },
-  { to: '/reports',        icon: BarChart2,       label: 'Reports',         roles: ['admin'] },
-  { to: '/security',       icon: ShieldAlert,     label: 'Security Center', roles: ['admin'] },
-  { to: '/backup',         icon: Database,        label: 'Backup & Restore', roles: ['admin'] },
+  { to: '/doctors',        icon: Stethoscope,     label: 'Doctors',         roles: ['admin', 'ict', 'opd'] },
+  { to: '/reports',        icon: BarChart2,       label: 'Reports',         roles: ['admin', 'ict'] },
+  { to: '/security',       icon: ShieldAlert,     label: 'Security Center', roles: ['admin', 'ict'] },
+  { to: '/backup',         icon: Database,        label: 'Backup & Restore', roles: ['admin', 'ict'] },
 ];
 
 interface LayoutProps { children: React.ReactNode }

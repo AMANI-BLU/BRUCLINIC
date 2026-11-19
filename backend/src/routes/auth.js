@@ -89,7 +89,7 @@ function validateAvatarUrl(value) {
 }
 
 function requireAdmin(request, response) {
-  if (!request.user || request.user.role !== 'admin') {
+  if (!request.user || (request.user.role !== 'admin' && request.user.role !== 'ict')) {
     // Record the attempt
     writeSecurityEvent({
       eventType: SECURITY_EVENT.ACCESS_DENIED,

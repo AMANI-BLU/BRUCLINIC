@@ -35,7 +35,7 @@ const EDITABLE_CONFIG_KEYS = new Set([
 ]);
 
 function requireAdmin(request, response) {
-  if (!request.user || request.user.role !== 'admin') {
+  if (!request.user || (request.user.role !== 'admin' && request.user.role !== 'ict')) {
     sendError(response, 403, 'Administrator access required');
     return false;
   }

@@ -1,3 +1,78 @@
+export const COMMON_CLINIC_DIAGNOSES: string[] = [
+  'Acute Upper Respiratory Tract Infection (URTI)',
+  'Acute Bronchitis',
+  'Pneumonia',
+  'Malaria (P. falciparum)',
+  'Malaria (P. vivax)',
+  'Typhoid Fever',
+  'Acute Gastroenteritis (AGE)',
+  'Urinary Tract Infection (UTI)',
+  'Peptic Ulcer Disease (PUD)',
+  'Acute Gastritis / Dyspepsia',
+  'Acute Tonsillitis / Pharyngitis',
+  'Essential Hypertension',
+  'Type 2 Diabetes Mellitus',
+  'Type 1 Diabetes Mellitus',
+  'Bronchial Asthma',
+  'Acute Allergic Rhinitis',
+  'Amebiasis / Giardiasis',
+  'Intestinal Helminthiasis',
+  'Contact Dermatitis / Eczema',
+  'Fungal Skin Infection (Tinea)',
+  'Scabies',
+  'Acute Otitis Media',
+  'Acute Bacterial Conjunctivitis',
+  'Tension Headache',
+  'Migraine without Aura',
+  'Musculoskeletal Lower Back Pain',
+  'Iron Deficiency Anemia',
+  'Skin Abscess / Furunculosis',
+  'Cellulitis',
+  'Soft Tissue Injury / Sprain',
+];
+
+export function searchDiagnoses(query: string, candidates: string[] = []): string[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  const seen = new Set<string>();
+  const combined: string[] = [];
+
+  // Merge custom candidates first, then standard formulary
+  for (const item of [...candidates, ...COMMON_CLINIC_DIAGNOSES]) {
+    const clean = normalizeDiagnosis(item);
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(clean);
+    }
+  }
+
+  if (!normalizedQuery) {
+    return combined.slice(0, 10);
+  }
+
+  // Rank: exact match, starts-with, word-starts-with, contains
+  const exact: string[] = [];
+  const startsWith: string[] = [];
+  const wordStarts: string[] = [];
+  const contains: string[] = [];
+
+  for (const item of combined) {
+    const lower = item.toLowerCase();
+    if (lower === normalizedQuery) {
+      exact.push(item);
+    } else if (lower.startsWith(normalizedQuery)) {
+      startsWith.push(item);
+    } else if (lower.split(/[\s(/]+/).some(word => word.startsWith(normalizedQuery))) {
+      wordStarts.push(item);
+    } else if (lower.includes(normalizedQuery)) {
+      contains.push(item);
+    }
+  }
+
+  return [...exact, ...startsWith, ...wordStarts, ...contains].slice(0, 12);
+}
+
 export function diagnosisKey(value: string): string {
   return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }

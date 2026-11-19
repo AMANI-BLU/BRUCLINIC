@@ -24,6 +24,7 @@ interface ProtectedRouteProps {
 export function roleLandingPage(role: UserRole | undefined): string {
   switch (role) {
     case 'admin':        return '/admin';
+    case 'ict':          return '/staff-accounts';
     case 'receptionist': return '/reception';
     case 'opd':          return '/opd';
     case 'emergency':    return '/emergency';

@@ -108,7 +108,7 @@ const common = {
     fields: {
       id: 'id', patientId: 'patient_id', patientName: 'patient_name', doctorId: 'doctor_id', doctorName: 'doctor_name', prescribedAt: 'prescribed_at',
       medicines: 'medicines', status: 'status', dispensedAt: 'dispensed_at', dispensedBy: 'dispensed_by', notes: 'notes', createdAt: 'created_at',
-      queueItemId: 'queue_item_id',
+      queueItemId: 'queue_item_id', pregnancyStatus: 'pregnancy_status',
     },
     json: ['medicines'], search: ['patient_name', 'patient_id', 'doctor_name', 'status'], order: 'created_at DESC',
   },

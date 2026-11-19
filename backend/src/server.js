@@ -149,7 +149,7 @@ const server = http.createServer(async (request, response) => {
 
     // 8c-bis. Maintenance mode: administrators keep access so they can
     // finish the work and turn it off; clinical staff receive a clear 503.
-    if (request.user.role !== 'admin' && (await isMaintenanceMode())) {
+    if (request.user.role !== 'admin' && request.user.role !== 'ict' && (await isMaintenanceMode())) {
       response.setHeader('Retry-After', '300');
       const message = await getSystemConfig(
         'maintenance_message',

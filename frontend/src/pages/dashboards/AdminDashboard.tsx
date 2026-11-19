@@ -25,9 +25,11 @@ export default function AdminDashboard() {
   const { patients, doctors, records, medicines, queue, erCases, labOrders, pharmacyOrders } = useClinic();
 
   const activeDocs = doctors.filter(d => d.available).length;
-  const criticalER = erCases.filter(c => c.acuity === 'Red').length;
+  const activeERCases = erCases.filter(c => c.status !== 'Discharged' && c.status !== 'Transferred');
+  const criticalER = activeERCases.filter(c => c.acuity === 'Red').length;
+  const activeQueue = queue.filter(q => q.stage !== 'Completed');
   const pendingRx = pharmacyOrders.filter(o => o.status === 'Pending').length;
-  const pendingLab = labOrders.filter(o => o.status !== 'Completed').length;
+  const pendingLab = labOrders.filter(o => o.status === 'Requested').length;
   const lowStock = medicines.filter(m => m.stock <= m.minStock).length;
 
   const monthlyVisits = Array.from({ length: 6 }, (_, i) => {
@@ -58,22 +60,22 @@ export default function AdminDashboard() {
   const kpis = [
     { label: 'Patients', value: patients.length, detail: t('Database total'), icon: Users, tone: 'info' as const, to: '/patients' },
     { label: 'Staff on Duty', value: `${activeDocs}/${doctors.length}`, detail: t('Coverage today'), icon: Stethoscope, tone: 'success' as const, to: '/doctors' },
-    { label: 'Emergency Cases', value: erCases.length, detail: `${criticalER} ${t('red priority')}`, icon: HeartPulse, tone: 'danger' as const, to: '/records' },
+    { label: 'Active Emergency', value: activeERCases.length, detail: `${criticalER} ${t('critical red')}`, icon: HeartPulse, tone: 'danger' as const, to: '/emergency' },
     { label: 'Prescriptions', value: pendingRx, detail: t('Pharmacy queue'), icon: Pill, tone: 'warning' as const, to: '/pharmacy' },
-    { label: 'Lab Tests', value: pendingLab, detail: t('Open orders'), icon: FlaskConical, tone: 'primary' as const, to: '/records' },
-    { label: 'Queue Tokens', value: queue.length, detail: t('Real-time tokens'), icon: CreditCard, tone: 'secondary' as const, to: '/' },
+    { label: 'Pending Lab', value: pendingLab, detail: t('Active orders'), icon: FlaskConical, tone: 'primary' as const, to: '/laboratory' },
+    { label: 'Active Queue', value: activeQueue.length, detail: `${queue.length} ${t('total registered')}`, icon: CreditCard, tone: 'secondary' as const, to: '/queue' },
   ];
 
   const departments: Array<{
     name: string; status: string; metric: string; value: string | number;
     secondary: string; secondaryValue: string | number; icon: typeof Users; tone: DepartmentTone;
   }> = [
-    { name: 'Reception & Cards', status: t('Normal'), metric: 'Checked-in patients', value: queue.length, secondary: 'Registered cards', secondaryValue: patients.length, icon: CreditCard, tone: 'info' },
-    { name: 'OPD & Triage', status: t('Active'), metric: 'Doctor consultation', value: queue.filter(i => i.stage === 'Doctor Consultation').length, secondary: 'Nurse triage queue', secondaryValue: queue.filter(i => i.stage === 'Nurse Triage').length, icon: Stethoscope, tone: 'success' },
-    { name: 'Emergency (ER)', status: criticalER > 0 ? t('High Acuity') : t('Normal'), metric: 'Active cases', value: erCases.length, secondary: 'Red priority cases', secondaryValue: criticalER, icon: HeartPulse, tone: 'danger' },
-    { name: 'Pharmacy', status: lowStock > 0 ? `${lowStock} ${t('low stock')}` : t('Stock OK'), metric: 'Pending prescriptions', value: pendingRx, secondary: 'Tracked medicines', secondaryValue: medicines.length, icon: Pill, tone: 'warning' },
-    { name: 'Laboratory', status: t('Active'), metric: 'Diagnostic orders', value: labOrders.length, secondary: 'Pending verification', secondaryValue: pendingLab, icon: FlaskConical, tone: 'primary' },
-    { name: 'Administration', status: t('Normal'), metric: 'Medical professionals', value: doctors.length, secondary: 'On-duty doctors', secondaryValue: activeDocs, icon: Building2, tone: 'secondary' },
+    { name: 'Reception & Cards', status: activeQueue.length > 0 ? t('Active') : t('Normal'), metric: 'Active waiting queue', value: activeQueue.length, secondary: 'Total visits logged', secondaryValue: queue.length, icon: CreditCard, tone: 'info' },
+    { name: 'OPD & Triage', status: t('Active'), metric: 'Doctor consultation', value: activeQueue.filter(i => i.stage === 'Doctor Consultation').length, secondary: 'Nurse triage queue', secondaryValue: activeQueue.filter(i => i.stage === 'Nurse Triage').length, icon: Stethoscope, tone: 'success' },
+    { name: 'Emergency (ER)', status: criticalER > 0 ? t('High Acuity') : activeERCases.length > 0 ? t('Active') : t('Normal'), metric: 'Active ER admissions', value: activeERCases.length, secondary: 'Critical red acuity', secondaryValue: criticalER, icon: HeartPulse, tone: 'danger' },
+    { name: 'Pharmacy', status: pendingRx > 0 ? `${pendingRx} ${t('pending')}` : lowStock > 0 ? `${lowStock} ${t('low stock')}` : t('Stock OK'), metric: 'Pending prescriptions', value: pendingRx, secondary: 'Low stock alerts', secondaryValue: lowStock, icon: Pill, tone: 'warning' },
+    { name: 'Laboratory', status: pendingLab > 0 ? `${pendingLab} ${t('in progress')}` : t('Normal'), metric: 'Pending diagnostic tests', value: pendingLab, secondary: 'Completed orders', secondaryValue: labOrders.filter(o => o.status === 'Completed').length, icon: FlaskConical, tone: 'primary' },
+    { name: 'Administration & Staff', status: t('Normal'), metric: 'On-duty doctors', value: `${activeDocs}/${doctors.length}`, secondary: 'Registered medical staff', secondaryValue: doctors.length, icon: Building2, tone: 'secondary' },
   ];
 
   return (

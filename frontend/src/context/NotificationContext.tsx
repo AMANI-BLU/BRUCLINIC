@@ -120,7 +120,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return clean(value) === clean(currentUser.name);
     };
     const emergencyCaseBelongsToUser = (caseItem: { attendingDoctorId?: string; attendingDoctor?: string }) =>
-      role === 'admin' || caseItem.attendingDoctorId === currentUser?.id || sameStaffName(caseItem.attendingDoctor);
+      role === 'admin' || role === 'ict' || caseItem.attendingDoctorId === currentUser?.id || sameStaffName(caseItem.attendingDoctor);
     const labOrderBelongsToUser = (order: { doctorId?: string; doctorName?: string }) =>
       role !== 'opd' || order.doctorId === currentUser?.id || sameStaffName(order.doctorName);
 
@@ -176,7 +176,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           icon: Stethoscope,
         });
       });
-    } else if (role === 'admin') {
+    } else if (role === 'admin' || role === 'ict') {
       const urgentQueue = queue.filter(q => q.priority === 'Emergency' || q.priority === 'Urgent');
       urgentQueue.forEach(q => {
         alerts.push({

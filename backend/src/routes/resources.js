@@ -217,7 +217,7 @@ function databaseError(error) {
 
 async function notifyAdminsOnDeletion({ resource, id, item, user }) {
   try {
-    const adminUsers = await query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE");
+    const adminUsers = await query("SELECT id FROM users WHERE role IN ('admin', 'ict') AND is_active = TRUE");
     if (!adminUsers.rows.length) return;
 
     let itemDesc = id;

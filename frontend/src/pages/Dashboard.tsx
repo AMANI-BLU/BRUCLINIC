@@ -12,7 +12,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      {role === 'admin' && <AdminDashboard />}
+      {(role === 'admin' || role === 'ict') && <AdminDashboard />}
       {role === 'receptionist' && <ReceptionDashboard />}
       {role === 'opd' && <OpdDashboard />}
       {role === 'emergency' && <EmergencyDashboard />}

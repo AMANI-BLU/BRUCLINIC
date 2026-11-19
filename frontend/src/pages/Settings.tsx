@@ -51,6 +51,17 @@ const ROLE_SETTINGS: Record<UserRole, RoleSetting> = {
       { label: 'Pharmacy & inventory', to: '/pharmacy' },
     ],
   },
+  ict: {
+    label: 'ICT & Systems workspace',
+    description: 'System accounts, security center, database backups, and clinic platform config.',
+    icon: ShieldCheck,
+    items: [
+      { label: 'Staff accounts', to: '/staff-accounts' },
+      { label: 'Security center', to: '/security' },
+      { label: 'Backup & restore', to: '/backup' },
+      { label: 'Clinic reports', to: '/reports' },
+    ],
+  },
   receptionist: {
     label: 'Reception workspace',
     description: 'Keep patient registration and OPD requests moving quickly.',
@@ -218,7 +229,7 @@ export default function Settings() {
   const [loginBackgroundError, setLoginBackgroundError] = useState('');
 
   useEffect(() => {
-    if (role !== 'admin') return;
+    if (role !== 'admin' && role !== 'ict') return;
     apiGet<{ configured: boolean; password?: string | null }>('/admin/default-password', token)
       .then(result => {
         setDefaultPasswordConfigured(result.configured);
@@ -228,7 +239,7 @@ export default function Settings() {
   }, [role, token]);
 
   useEffect(() => {
-    if (role !== 'admin') return;
+    if (role !== 'admin' && role !== 'ict') return;
     apiGet<{ data?: { image?: string | null } }>('/admin/login-background', token)
       .then(result => setLoginBackground(result.data?.image || null))
       .catch(error => setLoginBackgroundError(error instanceof Error ? error.message : 'Could not load the login background.'));
@@ -433,7 +444,7 @@ export default function Settings() {
 
         <PasswordChangeForm />
 
-        {role === 'admin' && (
+        {(role === 'admin' || role === 'ict') && (
           <section className="card card-outline card-primary settings-card settings-login-background-card">
             <div className="settings-card-heading">
               <div className="settings-icon settings-icon-blue"><Camera size={18} /></div>
@@ -466,7 +477,7 @@ export default function Settings() {
           </section>
         )}
 
-        {role === 'admin' && (
+        {(role === 'admin' || role === 'ict') && (
           <section className="card card-outline card-warning settings-card">
             <div className="settings-card-heading">
               <div className="settings-icon settings-icon-orange"><KeyRound size={18} /></div>

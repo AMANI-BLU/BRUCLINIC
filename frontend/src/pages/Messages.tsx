@@ -209,7 +209,7 @@ export default function Messages() {
       if (activeTab === 'reception') return contact.role === 'receptionist';
       if (activeTab === 'pharmacy') return contact.role === 'pharmacy';
       if (activeTab === 'lab') return contact.role === 'laboratory';
-      if (activeTab === 'admin') return contact.role === 'admin';
+      if (activeTab === 'admin') return contact.role === 'admin' || contact.role === 'ict';
 
       return true;
     }).sort((a, b) => {

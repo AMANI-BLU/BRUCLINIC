@@ -558,7 +558,7 @@ export async function sendOpdToPharmacyRequest(queueItemId, data) {
     }
 
     const medicineNames = canonicalMedicines.map(item => item.name).filter(Boolean).join(', ');
-    await client.query(`INSERT INTO pharmacy_orders (id, patient_id, patient_name, doctor_id, doctor_name, prescribed_at, medicines, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending', $8)`, [orderId, queueItem.patient_id, queueItem.patient_name, doctorId, doctorName, new Date().toISOString(), JSON.stringify(canonicalMedicines), data.notes || null]);
+    await client.query(`INSERT INTO pharmacy_orders (id, patient_id, patient_name, doctor_id, doctor_name, prescribed_at, medicines, status, notes, pregnancy_status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending', $8, $9)`, [orderId, queueItem.patient_id, queueItem.patient_name, doctorId, doctorName, new Date().toISOString(), JSON.stringify(canonicalMedicines), data.notes || null, data.pregnancyStatus || null]);
     await client.query(`UPDATE queue_items SET pharmacy_order_id = $1, prescribed_medicines = $2, pharmacy_status = 'Pending', doctor_diagnosis = COALESCE(NULLIF($3, ''), doctor_diagnosis), consultation_notes = COALESCE(NULLIF($4, ''), consultation_notes), request_source = 'OPD Consultation', request_destination = 'Pharmacy', request_notes = $5, updated_at = NOW() WHERE id = $6`, [orderId, JSON.stringify(canonicalMedicines), data.doctorDiagnosis || '', data.notes || '', `E-prescription sent to Pharmacy (${medicineNames || 'medicines'})`, queueItemId]);
 
     const prescriptionList = canonicalMedicines.map(m => ({

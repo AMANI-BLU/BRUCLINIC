@@ -523,6 +523,7 @@ export default function ConfirmDispenseModal({
           patientAge={patientAge}
           patientGender={patientGender}
           patientWeight={patientWeight}
+          pregnancyStatus={order.pregnancyStatus}
           doctorName={order.doctorName}
           medicines={itemsWithStock.map((item) => ({
             name: item.name,

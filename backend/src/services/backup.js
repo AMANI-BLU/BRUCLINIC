@@ -267,7 +267,7 @@ export async function restoreBackup(payload, { mode = 'merge', dryRun = false, a
 
     // Safety: never leave the clinic without an administrator.
     const admins = await client.query(
-      "SELECT COUNT(*)::int AS total FROM users WHERE role = 'admin' AND is_active = TRUE",
+      "SELECT COUNT(*)::int AS total FROM users WHERE role IN ('admin', 'ict') AND is_active = TRUE",
     );
     if (!admins.rows[0]?.total) {
       throw httpError(422, 'Restore rejected: it would leave the clinic with no active administrator.');
@@ -276,7 +276,7 @@ export async function restoreBackup(payload, { mode = 'merge', dryRun = false, a
     // Safety: do not silently delete the administrator performing the restore.
     if (actor?.id) {
       const actingAdmin = await client.query(
-        "SELECT 1 FROM users WHERE id = $1 AND role = 'admin' AND is_active = TRUE LIMIT 1",
+        "SELECT 1 FROM users WHERE id = $1 AND role IN ('admin', 'ict') AND is_active = TRUE LIMIT 1",
         [actor.id],
       );
       if (!actingAdmin.rows.length) {

@@ -42,17 +42,17 @@ import { NotificationProvider } from './context/NotificationContext';
 // belongs to that department only; typing its URL must not grant another role
 // access to it.
 const ROLE = {
-  ADMIN_ONLY:      ['admin'],
+  ADMIN_ONLY:      ['admin', 'ict'],
   RECEPTION_ONLY:  ['receptionist'],
   OPD_ONLY:        ['opd'],
   EMERGENCY_ONLY:  ['emergency'],
   PHARMACY_ONLY:   ['pharmacy'],
   LAB_ONLY:        ['laboratory'],
-  PATIENTS:        ['admin', 'receptionist', 'opd', 'emergency'],
-  APPOINTMENTS:    ['admin', 'receptionist', 'opd'],
-  RECORDS:         ['admin', 'receptionist', 'opd', 'emergency', 'laboratory'],
-  DOCTORS:         ['admin', 'opd'],
-  ALL:             ['admin', 'receptionist', 'opd', 'emergency', 'pharmacy', 'laboratory'],
+  PATIENTS:        ['admin', 'ict', 'receptionist', 'opd', 'emergency'],
+  APPOINTMENTS:    ['admin', 'ict', 'receptionist', 'opd'],
+  RECORDS:         ['admin', 'ict', 'receptionist', 'opd', 'emergency', 'laboratory'],
+  DOCTORS:         ['admin', 'ict', 'opd'],
+  ALL:             ['admin', 'ict', 'receptionist', 'opd', 'emergency', 'pharmacy', 'laboratory'],
 } as const;
 
 // ─────────────────────────────────────────────────────────────────
@@ -83,8 +83,8 @@ function AppRoutes() {
   }
 
   // Maintenance mode is a full stop for staff: no routes, data or actions.
-  // Administrators keep access so they can finish the work and switch it off.
-  if (maintenance && currentUser?.role !== 'admin') {
+  // Administrators and ICT keep access so they can finish the work and switch it off.
+  if (maintenance && currentUser?.role !== 'admin' && currentUser?.role !== 'ict') {
     if (adminSignIn && !isAuthenticated) return <Login />;
     return (
       <MaintenancePage

@@ -28,6 +28,7 @@ import { formatTime12 } from '../../utils/date';
 interface PrescriptionLine {
   medicineId?: string;
   name: string;
+  duration?: string;
   instructions?: string;
   stockAvailable?: number;
   unit?: string;
@@ -168,6 +169,7 @@ export default function OpdDashboard() {
 
   // OPD to Pharmacy multi-item prescription state
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionLine[]>([]);
+  const [isPregnant, setIsPregnant] = useState(false);
 
   // Check if a queue item was assigned by the receptionist to this OPD clinician
   const isAssignedToCurrentDoctor = useCallback((q: ClinicQueueItem) => {
@@ -328,6 +330,7 @@ export default function OpdDashboard() {
       clinicalNotes: item.consultationNotes || '',
     });
     setPrescriptionItems([]);
+    setIsPregnant(false);
     setLabTestName('');
     setLabSpecimenType('');
     setLabCustomUnit('');
@@ -424,7 +427,8 @@ export default function OpdDashboard() {
         medicineId: !isExternal ? (matchedMed?.id || item.medicineId) : undefined,
         name: matchedMed?.name || item.name.trim(),
         quantity: 0,
-        instructions: isExternal ? 'Purchase from outside retail pharmacy' : '',
+        duration: item.duration || '',
+        instructions: item.instructions || (isExternal ? 'Purchase from outside retail pharmacy' : ''),
         isExternal,
       };
     });
@@ -437,6 +441,7 @@ export default function OpdDashboard() {
         doctorName: stripDoctorTitle(selectedQueueItem.assignedDoctorName || currentUser?.name) || 'OPD clinician',
         doctorDiagnosis: primaryDiagnosis,
         notes: consultation.clinicalNotes,
+        pregnancyStatus: isPregnant ? 'Pregnant' : 'Non-Pregnant',
       });
       setFormError(null);
       setSelectedQueueItem(null);
@@ -1190,6 +1195,33 @@ export default function OpdDashboard() {
                         </button>
                       </div>
 
+                      {/* Pregnancy status banner (Ethio Rx standard) */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.65rem',
+                        padding: '0.6rem 0.85rem',
+                        backgroundColor: isPregnant ? '#fffbeb' : 'var(--clr-bg-subtle, #f8f9fa)',
+                        border: isPregnant ? '1px solid #f59e0b' : '1px solid var(--clr-border, #dee2e6)',
+                        borderRadius: 6,
+                        margin: '0.5rem 0 0.85rem',
+                      }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer', fontWeight: 600, fontSize: '0.84rem', color: isPregnant ? '#b45309' : 'inherit' }}>
+                          <input
+                            type="checkbox"
+                            checked={isPregnant}
+                            onChange={e => setIsPregnant(e.target.checked)}
+                            style={{ width: 17, height: 17, cursor: 'pointer' }}
+                          />
+                          <span>Patient is Pregnant (Tick on Rx paper)</span>
+                        </label>
+                        <span style={{ fontSize: '0.74rem', color: isPregnant ? '#d97706' : 'var(--clr-text-secondary)' }}>
+                          {isPregnant ? '⚠️ Pregnancy indication will be marked on the Rx paper' : 'Tick if patient is pregnant (Ethiopian Rx paper standard)'}
+                        </span>
+                      </div>
+
                       {/* Prescription Rows */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', margin: '0.75rem 0 1rem' }}>
                         {prescriptionItems.map((item, index) => (
@@ -1297,20 +1329,37 @@ export default function OpdDashboard() {
                                 </fieldset>
                               )}
 
-                              <div>
-                                <label className="form-label" style={{ fontSize: '0.72rem', marginBottom: 3, display: 'block', fontWeight: 600 }}>
-                                  Instructions for Patient (optional)
-                                </label>
-                                <input
-                                  value={item.instructions || ''}
-                                  onChange={(e) => {
-                                    const next = [...prescriptionItems];
-                                    next[index].instructions = e.target.value;
-                                    setPrescriptionItems(next);
-                                  }}
-                                  placeholder="e.g. Take orally after meals, or apply twice daily. (Pharmacist will define quantity)"
-                                  style={{ fontSize: '0.82rem' }}
-                                />
+                              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) 2fr', gap: '0.75rem' }}>
+                                <div>
+                                  <label className="form-label" style={{ fontSize: '0.72rem', marginBottom: 3, display: 'block', fontWeight: 600 }}>
+                                    Duration (e.g. Days ordered)
+                                  </label>
+                                  <input
+                                    value={item.duration || ''}
+                                    onChange={(e) => {
+                                      const next = [...prescriptionItems];
+                                      next[index].duration = e.target.value;
+                                      setPrescriptionItems(next);
+                                    }}
+                                    placeholder="e.g. 5 days, 7 days"
+                                    style={{ fontSize: '0.82rem' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="form-label" style={{ fontSize: '0.72rem', marginBottom: 3, display: 'block', fontWeight: 600 }}>
+                                    Instructions for Patient (optional)
+                                  </label>
+                                  <input
+                                    value={item.instructions || ''}
+                                    onChange={(e) => {
+                                      const next = [...prescriptionItems];
+                                      next[index].instructions = e.target.value;
+                                      setPrescriptionItems(next);
+                                    }}
+                                    placeholder="e.g. 1 tab PO TID after meals. (Pharmacist will define quantity)"
+                                    style={{ fontSize: '0.82rem' }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>

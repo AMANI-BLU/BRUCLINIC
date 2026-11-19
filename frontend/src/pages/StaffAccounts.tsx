@@ -28,6 +28,7 @@ import './StaffAccounts.css';
 
 const ROLE_PRESETS: Record<UserRole, { title: string; dept: string; tone: string }> = {
   admin: { title: 'Administrator', dept: 'Administration', tone: 'primary' },
+  ict: { title: 'ICT Administrator', dept: 'Information & Communications Technology (ICT)', tone: 'info' },
   receptionist: { title: 'Receptionist', dept: 'Admissions & Records', tone: 'info' },
   opd: { title: 'OPD Physician', dept: 'Outpatient (OPD)', tone: 'success' },
   emergency: { title: 'Emergency Specialist', dept: 'Emergency (ER)', tone: 'danger' },
@@ -487,6 +488,7 @@ export default function StaffAccounts() {
           {[
             { id: 'all', label: 'All Roles' },
             { id: 'admin', label: 'Admin' },
+            { id: 'ict', label: 'ICT' },
             { id: 'receptionist', label: 'Receptionist' },
             { id: 'opd', label: 'OPD' },
             { id: 'emergency', label: 'Emergency' },
@@ -762,6 +764,7 @@ export default function StaffAccounts() {
                     <option value="emergency">Emergency Specialist</option>
                     <option value="pharmacy">Pharmacist</option>
                     <option value="laboratory">Lab Technologist</option>
+                    <option value="ict">ICT Administrator (System & Accounts)</option>
                     <option value="admin">Administrator</option>
                   </select>
                 </div>

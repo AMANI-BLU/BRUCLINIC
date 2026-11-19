@@ -476,6 +476,7 @@ export default function PharmacyDashboard() {
           patientAge={calculatePatientAge(singlePrintPatient?.dateOfBirth)}
           patientGender={singlePrintPatient?.gender}
           patientWeight={singlePrintWeight}
+          pregnancyStatus={singlePrint.order.pregnancyStatus}
           doctorName={singlePrint.order.doctorName}
           medicines={[{
             name: singlePrint.medicine.name,
