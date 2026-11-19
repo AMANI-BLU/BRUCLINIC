@@ -155,6 +155,10 @@ export default function StaffAccounts() {
       setCreateError(validationError);
       return;
     }
+    if (currentUser?.role === 'ict' && formRole === 'admin') {
+      setCreateError('ICT personnel are not permitted to create Administrator accounts.');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -192,6 +196,10 @@ export default function StaffAccounts() {
   };
 
   const handleOpenEdit = (user: UserProfile) => {
+    if (currentUser?.role === 'ict' && user.role === 'admin') {
+      setToastMessage({ text: 'ICT personnel cannot modify Administrator accounts.', type: 'error' });
+      return;
+    }
     setEditTargetUser(user);
     setEditForm({
       name: user.name,
@@ -229,6 +237,10 @@ export default function StaffAccounts() {
       return;
     }
 
+    if (currentUser?.role === 'ict' && (editTargetUser.role === 'admin' || editForm.role === 'admin')) {
+      setEditError('ICT personnel are not permitted to modify Administrator accounts or assign the Administrator role.');
+      return;
+    }
     setSavingEdit(true);
     try {
       const result = await updateStaffAccount(editTargetUser.id, {
@@ -361,6 +373,10 @@ export default function StaffAccounts() {
   const handleDeleteStaff = (user: UserProfile) => {
     if (user.id === currentUser?.id) {
       setToastMessage({ text: 'You cannot delete your own account', type: 'error' });
+      return;
+    }
+    if (currentUser?.role === 'ict' && user.role === 'admin') {
+      setToastMessage({ text: 'ICT personnel cannot delete Administrator accounts', type: 'error' });
       return;
     }
     setDeleteTargetUser(user);
@@ -674,7 +690,7 @@ export default function StaffAccounts() {
                           {isActive ? <UserX size={14} /> : <UserCheck size={14} />}
                         </LoadingButton>
 
-                        {!isSelf && (
+                        {!isSelf && !(currentUser?.role === 'ict' && user.role === 'admin') && (
                           <button
                             type="button"
                             className="btn btn-danger btn-sm btn-icon"
@@ -765,7 +781,7 @@ export default function StaffAccounts() {
                     <option value="pharmacy">Pharmacist</option>
                     <option value="laboratory">Lab Technologist</option>
                     <option value="ict">ICT Administrator (System & Accounts)</option>
-                    <option value="admin">Administrator</option>
+                    {currentUser?.role !== 'ict' && <option value="admin">Administrator</option>}
                   </select>
                 </div>
 
@@ -912,9 +928,11 @@ export default function StaffAccounts() {
                         }));
                       }}
                     >
-                      {Object.entries(ROLE_PRESETS).map(([role, preset]) => (
-                        <option key={role} value={role}>{preset.title}</option>
-                      ))}
+                      {Object.entries(ROLE_PRESETS)
+                        .filter(([role]) => currentUser?.role !== 'ict' || role !== 'admin')
+                        .map(([role, preset]) => (
+                          <option key={role} value={role}>{preset.title}</option>
+                        ))}
                     </select>
                   </div>
                   <div className="form-group">

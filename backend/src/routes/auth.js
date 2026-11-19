@@ -344,6 +344,18 @@ export async function authHandler(request, response, segments) {
     if (!ALL_ROLES.includes(role)) {
       return sendError(response, 422, `Invalid role. Allowed: ${ALL_ROLES.join(', ')}`);
     }
+    if (request.user.role === 'ict' && role === 'admin') {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        ipAddress: ip,
+        requestId: request.requestId,
+        description: `ICT user ${request.user.username} attempted to create an Administrator account (blocked)`,
+      });
+      return sendError(response, 403, 'ICT personnel are not permitted to create Administrator accounts');
+    }
     const normalizedUsername = String(username).trim().toLowerCase();
     const existing = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1', [normalizedUsername]);
     if (existing.rows.length) return sendError(response, 409, `An account with username '${username}' already exists`);
@@ -567,6 +579,19 @@ export async function authHandler(request, response, segments) {
     const currentAccount = currentAccountResult.rows[0];
     if (!currentAccount) return sendError(response, 404, 'Staff account not found');
 
+    if (request.user.role === 'ict' && (currentAccount.role === 'admin' || role === 'admin')) {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        ipAddress: ip,
+        requestId: request.requestId,
+        description: `ICT user ${request.user.username} attempted unauthorized modification of Administrator account/role (blocked)`,
+      });
+      return sendError(response, 403, 'ICT personnel are not permitted to modify Administrator accounts or assign the Administrator role');
+    }
+
     const normalizedUsername = username === undefined ? undefined : String(username).trim().toLowerCase();
     const normalizedEmail = email === undefined ? undefined : String(email).trim().toLowerCase();
     if (normalizedUsername !== undefined) {
@@ -654,6 +679,18 @@ export async function authHandler(request, response, segments) {
     if (!requireAdmin(request, response)) return;
     if (targetId === request.user.id) return sendError(response, 400, 'You cannot delete your own administrative account');
     const target = await query('SELECT username, name, role FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    if (request.user.role === 'ict' && target.rows[0]?.role === 'admin') {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        ipAddress: ip,
+        requestId: request.requestId,
+        description: `ICT user ${request.user.username} attempted to delete Administrator account ${target.rows[0]?.username} (blocked)`,
+      });
+      return sendError(response, 403, 'ICT personnel cannot delete Administrator accounts');
+    }
     await query('UPDATE queue_items SET assigned_doctor_id = NULL WHERE assigned_doctor_id = $1', [targetId]);
     await query('DELETE FROM doctors WHERE id = $1', [targetId]);
     const result = await query('DELETE FROM users WHERE id = $1', [targetId]);

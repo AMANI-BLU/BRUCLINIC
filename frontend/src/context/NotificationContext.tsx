@@ -74,10 +74,13 @@ function groupLabOrders(orders: LabOrder[]) {
 
 function formatSecurityTitle(e: SecurityEvent): string {
   switch (e.event_type) {
-    case 'AUTH_LOGIN_LOCKED':     return `Account Locked: ${e.username ?? 'unknown user'}`;
-    case 'ACCOUNT_DELETED':       return `Account Deleted: ${e.username ?? 'unknown user'}`;
-    case 'ACCOUNT_DEACTIVATED':   return `Account Deactivated: ${e.username ?? 'unknown user'}`;
-    case 'AUTHZ_ROLE_ESCALATION': return 'Role Escalation Attempt Blocked';
+    case 'AUTH_LOGIN_LOCKED':     return `Account Locked: ${e.username ?? 'user'}`;
+    case 'ACCOUNT_DELETED':       return `Account Deleted: ${e.username ?? 'user'}`;
+    case 'ACCOUNT_DEACTIVATED':   return `Account Deactivated: ${e.username ?? 'user'}`;
+    case 'ACCOUNT_UNLOCKED':      return `Account Unlocked: ${e.username ?? 'user'}`;
+    case 'ACCOUNT_CREATED':       return `Account Created: ${e.username ?? 'user'}`;
+    case 'AUTHZ_ROLE_ESCALATION':
+    case 'AUTHZ_ACCESS_DENIED':   return `Access Denied: ${e.username ?? 'user'}`;
     default: return e.event_type?.replace(/_/g, ' ') ?? 'Security Event';
   }
 }
@@ -112,12 +115,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (role !== 'ict' && role !== 'admin') { setSecurityAlerts([]); return; }
     if (!token) return;
 
-    const WATCHED_EVENTS = ['AUTH_LOGIN_LOCKED', 'ACCOUNT_DELETED', 'AUTHZ_ROLE_ESCALATION', 'ACCOUNT_DEACTIVATED'];
+    const WATCHED_EVENTS = [
+      'AUTH_LOGIN_LOCKED',
+      'ACCOUNT_DELETED',
+      'ACCOUNT_DEACTIVATED',
+      'ACCOUNT_UNLOCKED',
+      'ACCOUNT_CREATED',
+      'AUTHZ_ROLE_ESCALATION',
+      'AUTHZ_ACCESS_DENIED',
+    ];
 
     const fetchSecurityAlerts = async () => {
       try {
-        const data = await apiGet<{ events?: SecurityEvent[] } | SecurityEvent[]>('/admin/security-events?limit=50', token);
-        const events: SecurityEvent[] = Array.isArray(data) ? data : ((data as { events?: SecurityEvent[] }).events ?? []);
+        const res = await apiGet<{ data?: SecurityEvent[]; events?: SecurityEvent[] } | SecurityEvent[]>('/admin/security-events?limit=50', token);
+        const events: SecurityEvent[] = Array.isArray(res)
+          ? res
+          : (res?.data ?? res?.events ?? []);
         const newAlerts: ClinicAlert[] = events
           .filter(e => WATCHED_EVENTS.includes(e.event_type ?? ''))
           .map(e => ({
@@ -168,7 +181,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return clean(value) === clean(currentUser.name);
     };
     const emergencyCaseBelongsToUser = (caseItem: { attendingDoctorId?: string; attendingDoctor?: string }) =>
-      role === 'admin' || role === 'ict' || caseItem.attendingDoctorId === currentUser?.id || sameStaffName(caseItem.attendingDoctor);
+      role === 'admin' || caseItem.attendingDoctorId === currentUser?.id || sameStaffName(caseItem.attendingDoctor);
     const labOrderBelongsToUser = (order: { doctorId?: string; doctorName?: string }) =>
       role !== 'opd' || order.doctorId === currentUser?.id || sameStaffName(order.doctorName);
 
@@ -224,7 +237,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           icon: Stethoscope,
         });
       });
-    } else if (role === 'admin' || role === 'ict') {
+    } else if (role === 'admin') {
       const urgentQueue = queue.filter(q => q.priority === 'Emergency' || q.priority === 'Urgent');
       urgentQueue.forEach(q => {
         alerts.push({
@@ -360,10 +373,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [erCases, labOrders, medicines, pharmacyOrders, queue, role, currentUser?.id, currentUser?.name]);
 
   // Merge clinic alerts + security alerts (security alerts come from API fetch above)
-  const allRoleNotifications = useMemo(
-    () => [...roleNotifications, ...securityAlerts],
-    [roleNotifications, securityAlerts],
-  );
+  const allRoleNotifications = useMemo(() => {
+    if (role === 'ict') {
+      return securityAlerts;
+    }
+    return [...roleNotifications, ...securityAlerts];
+  }, [role, roleNotifications, securityAlerts]);
 
   const visibleNotifications = useMemo(() => {
     return allRoleNotifications.filter(item => !dismissedAlertIds.includes(item.id));

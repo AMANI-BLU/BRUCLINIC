@@ -58,7 +58,7 @@ export default function Login() {
   const getRoleLandingPage = (role?: UserRole): string => {
     switch (role) {
       case 'admin': return '/admin';
-      case 'ict': return '/staff-accounts';
+      case 'ict': return '/';
       case 'receptionist': return '/reception';
       case 'opd': return '/opd';
       case 'emergency': return '/emergency';

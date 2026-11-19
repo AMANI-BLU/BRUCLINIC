@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useClinic } from '../../context/ClinicContext';
 import InfoBox from '../../components/AdminLTE/InfoBox';
 import { apiGet } from '../../api/client';
-import type { SecurityEvent } from '../../types';
+import type { SecurityEvent, SecurityStats, UserProfile } from '../../types';
 import './AdminDashboard.css'; // reuse AdminDashboard base styles
 
 // ── Role badge colours (matches backend constants/roles.js) ─────────────────
@@ -79,9 +79,16 @@ function fmt(dateStr?: string) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-interface SecurityEventsResponse {
-  events?: SecurityEvent[];
+interface ApiResponse<T> {
+  data?: T;
   total?: number;
+}
+
+interface BackupHistoryItem {
+  id: string;
+  kind?: string;
+  status?: string;
+  created_at?: string;
 }
 
 interface BackupMeta {
@@ -97,6 +104,7 @@ export default function IctDashboard() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [backupMeta, setBackupMeta] = useState<BackupMeta>({});
   const [staffCount, setStaffCount] = useState<number | null>(null);
+  const [recentLockoutsCount, setRecentLockoutsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
@@ -104,31 +112,58 @@ export default function IctDashboard() {
     if (!token) return;
     setLoading(true);
     try {
-      const [evtsRes, staffRes, backupRes] = await Promise.allSettled([
-        apiGet<SecurityEventsResponse>('/admin/security-events?limit=15&page=1', token),
-        apiGet<{ staff?: unknown[] }>('/admin/staff', token),
-        apiGet<{ backups?: { createdAt?: string }[] }>('/admin/backups', token),
+      const [evtsRes, statsRes, usersRes, backupRes] = await Promise.allSettled([
+        apiGet<ApiResponse<SecurityEvent[]> | SecurityEvent[]>('/admin/security-events?limit=25', token),
+        apiGet<ApiResponse<SecurityStats>>('/admin/stats', token),
+        apiGet<ApiResponse<UserProfile[]> | UserProfile[]>('/auth/users', token),
+        apiGet<ApiResponse<BackupHistoryItem[]> | BackupHistoryItem[]>('/admin/backup/history?limit=5', token),
       ]);
 
       if (evtsRes.status === 'fulfilled') {
-        const data = evtsRes.value as SecurityEventsResponse;
-        setSecurityEvents((data.events ?? (Array.isArray(data) ? data as unknown as SecurityEvent[] : [])).slice(0, 15));
+        const val = evtsRes.value;
+        const evts: SecurityEvent[] = Array.isArray(val)
+          ? val
+          : ((val as ApiResponse<SecurityEvent[]>)?.data ?? []);
+        setSecurityEvents(evts.slice(0, 15));
       }
-      if (staffRes.status === 'fulfilled') {
-        const data = staffRes.value as { staff?: unknown[] };
-        setStaffCount(Array.isArray(data.staff) ? data.staff.length : (Array.isArray(data) ? (data as unknown[]).length : null));
+
+      if (usersRes.status === 'fulfilled') {
+        const val = usersRes.value;
+        const users = Array.isArray(val)
+          ? val
+          : ((val as ApiResponse<UserProfile[]>)?.data ?? []);
+        setStaffCount(users.length);
       }
+
+      if (statsRes.status === 'fulfilled') {
+        const stats = statsRes.value?.data;
+        if (stats) {
+          if (typeof stats.activeStaffCount === 'number' && staffCount === null) {
+            setStaffCount(stats.activeStaffCount);
+          }
+          if (Array.isArray(stats.recentLockouts)) {
+            setRecentLockoutsCount(stats.recentLockouts.length);
+          }
+        }
+      }
+
       if (backupRes.status === 'fulfilled') {
-        const data = backupRes.value as { backups?: { createdAt?: string }[] };
-        const backups = data.backups ?? (Array.isArray(data) ? data as unknown as { createdAt?: string }[] : []);
+        const val = backupRes.value;
+        const backups = Array.isArray(val)
+          ? val
+          : ((val as ApiResponse<BackupHistoryItem[]>)?.data ?? []);
         const last = backups[0];
-        setBackupMeta({ lastBackupAt: last?.createdAt, status: 'ok' });
+        if (last?.created_at) {
+          setBackupMeta({ lastBackupAt: last.created_at, status: last.status || 'ok' });
+        } else {
+          setBackupMeta({});
+        }
       }
     } finally {
       setLoading(false);
       setLastRefresh(new Date());
     }
-  }, [token]);
+  }, [token, staffCount]);
 
   useEffect(() => {
     loadData();
@@ -138,7 +173,7 @@ export default function IctDashboard() {
 
   // ── Derived KPIs ──────────────────────────────────────────────────────────
   const activeDocs   = doctors.filter(d => d.available).length;
-  const lockedCount  = securityEvents.filter(e => e.event_type === 'AUTH_LOGIN_LOCKED').length;
+  const lockedCount  = Math.max(recentLockoutsCount, securityEvents.filter(e => e.event_type === 'AUTH_LOGIN_LOCKED').length);
   const criticalEvts = securityEvents.filter(
     e => e.severity === 'critical' || e.severity === 'warning'
   ).length;
