@@ -122,6 +122,7 @@ export default function Layout({ children }: LayoutProps) {
     dismissAlert,
     clearAllAlerts,
     markAlertsRead,
+    markAlertRead,
   } = useNotifications();
 
   useEffect(() => {
@@ -372,6 +373,7 @@ export default function Layout({ children }: LayoutProps) {
                           key={alert.id}
                           className="app-notification-item"
                           onClick={() => {
+                            markAlertRead(alert.id);
                             setShowNotifications(false);
                             navigate(alert.link);
                           }}

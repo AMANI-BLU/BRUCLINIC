@@ -32,27 +32,44 @@ interface NotificationContextType {
   restoreAlert: (id: string) => void;
   restoreAllAlerts: () => void;
   markAlertsRead: () => void;
+  markAlertRead: (id: string) => void;
   refreshClinicData: () => Promise<void>;
   loading: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-function readStoredAlertIds(storageKey: string, fallbackKey?: string): string[] {
+const GLOBAL_DISMISSED_KEY = 'bruclinic:dismissed_alerts_shared';
+const GLOBAL_READ_KEY = 'bruclinic:read_alert_ids_shared';
+
+function readStoredAlertIds(storageKey: string, fallbackKey?: string, sharedKey?: string): string[] {
   if (typeof window === 'undefined') return [];
   try {
-    const stored = localStorage.getItem(storageKey) || (fallbackKey ? localStorage.getItem(fallbackKey) : null);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
+    const userStored = localStorage.getItem(storageKey) || (fallbackKey ? localStorage.getItem(fallbackKey) : null);
+    const sharedStored = sharedKey ? localStorage.getItem(sharedKey) : null;
+    const userIds = userStored ? JSON.parse(userStored) : [];
+    const sharedIds = sharedStored ? JSON.parse(sharedStored) : [];
+    const set = new Set<string>();
+    if (Array.isArray(userIds)) userIds.forEach(id => set.add(String(id)));
+    if (Array.isArray(sharedIds)) sharedIds.forEach(id => set.add(String(id)));
+    return Array.from(set);
   } catch {
     return [];
   }
 }
 
-function saveReadAlertIds(storageKey: string, ids: string[]) {
+function saveAlertIds(storageKey: string, ids: string[], sharedKey?: string) {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(ids));
+    const trimmed = ids.slice(-500);
+    localStorage.setItem(storageKey, JSON.stringify(trimmed));
+    if (sharedKey) {
+      const sharedStored = localStorage.getItem(sharedKey);
+      const sharedParsed = sharedStored ? JSON.parse(sharedStored) : [];
+      const set = new Set<string>();
+      if (Array.isArray(sharedParsed)) sharedParsed.forEach(id => set.add(String(id)));
+      trimmed.forEach(id => set.add(String(id)));
+      localStorage.setItem(sharedKey, JSON.stringify(Array.from(set).slice(-500)));
+    }
   } catch {}
 }
 
@@ -93,18 +110,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const readAlertStorageKey = `bruclinic:read_alert_ids_${currentUser?.id || 'guest'}`;
   const legacyReadAlertStorageKey = `bruclinic:read_alert_key_${currentUser?.id || 'guest'}`;
 
-  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(dismissedStorageKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(() =>
+    readStoredAlertIds(dismissedStorageKey, undefined, GLOBAL_DISMISSED_KEY),
+  );
 
   const [readAlertIds, setReadAlertIds] = useState<string[]>(() =>
-    readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey),
+    readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey, GLOBAL_READ_KEY),
   );
   const [pendingMarkRead, setPendingMarkRead] = useState(false);
 
@@ -131,10 +142,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const events: SecurityEvent[] = Array.isArray(res)
           ? res
           : (res?.data ?? res?.events ?? []);
+
+        const now = Date.now();
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+        const userCreatedTime = currentUser?.createdAt ? new Date(currentUser.createdAt).getTime() : 0;
+
         const newAlerts: ClinicAlert[] = events
-          .filter(e => WATCHED_EVENTS.includes(e.event_type ?? ''))
+          .filter(e => {
+            if (!WATCHED_EVENTS.includes(e.event_type ?? '')) return false;
+            if (e.created_at) {
+              const eventTime = new Date(e.created_at).getTime();
+              // Live alerts are strictly for recent events within 24 hours
+              if (!isNaN(eventTime) && now - eventTime > ONE_DAY_MS) return false;
+              // If account was created within the last 24h, do not backfill events that occurred prior to creation
+              if (userCreatedTime && !isNaN(userCreatedTime) && eventTime < userCreatedTime - 30_000) {
+                return false;
+              }
+            }
+            return true;
+          })
           .map(e => ({
-            id: `sec-${e.id ?? e.event_type}-${e.created_at ?? ''}`,
+            id: `sec-${e.id || e.event_type || 'event'}`,
             category: 'security' as const,
             categoryLabel: 'Security',
             priority: (e.severity === 'critical' ? 'critical' : e.severity === 'warning' ? 'urgent' : 'normal') as 'critical' | 'urgent' | 'normal',
@@ -153,20 +181,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     fetchSecurityAlerts();
     const id = window.setInterval(fetchSecurityAlerts, 90_000);
     return () => clearInterval(id);
-  }, [role, token]);
+  }, [role, token, currentUser?.createdAt]);
 
-  // Re-sync storage keys if user account changes
+  // Re-sync storage keys if user account changes or signs in
   useEffect(() => {
     try {
-      const storedDismissed = localStorage.getItem(dismissedStorageKey);
-      setDismissedAlertIds(storedDismissed ? JSON.parse(storedDismissed) : []);
+      setDismissedAlertIds(readStoredAlertIds(dismissedStorageKey, undefined, GLOBAL_DISMISSED_KEY));
+      setReadAlertIds(readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey, GLOBAL_READ_KEY));
     } catch {
       setDismissedAlertIds([]);
-    }
-
-    try {
-      setReadAlertIds(readStoredAlertIds(readAlertStorageKey, legacyReadAlertStorageKey));
-    } catch {
       setReadAlertIds([]);
     }
   }, [dismissedStorageKey, readAlertStorageKey, legacyReadAlertStorageKey]);
@@ -399,10 +422,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!visibleIds.length) return;
     setReadAlertIds(previous => {
       const next = Array.from(new Set([...previous, ...visibleIds]));
-      saveReadAlertIds(readAlertStorageKey, next);
+      saveAlertIds(readAlertStorageKey, next, GLOBAL_READ_KEY);
       return next;
     });
     setPendingMarkRead(false);
+  };
+
+  const markAlertRead = (id: string) => {
+    if (!id) return;
+    setReadAlertIds(previous => {
+      if (previous.includes(id)) return previous;
+      const next = [...previous, id];
+      saveAlertIds(readAlertStorageKey, next, GLOBAL_READ_KEY);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -414,7 +447,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const visibleIds = visibleNotifications.map(item => item.id);
     setReadAlertIds(previous => {
       const next = Array.from(new Set([...previous, ...visibleIds]));
-      saveReadAlertIds(readAlertStorageKey, next);
+      saveAlertIds(readAlertStorageKey, next, GLOBAL_READ_KEY);
       return next;
     });
     setPendingMarkRead(false);
@@ -424,9 +457,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setDismissedAlertIds(prev => {
       if (prev.includes(id)) return prev;
       const next = [...prev, id];
-      try {
-        localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
-      } catch {}
+      saveAlertIds(dismissedStorageKey, next, GLOBAL_DISMISSED_KEY);
       return next;
     });
   };
@@ -435,12 +466,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const allIds = allRoleNotifications.map(n => n.id);
     setDismissedAlertIds(prev => {
       const next = Array.from(new Set([...prev, ...allIds]));
-      try {
-        localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
-      } catch {}
+      saveAlertIds(dismissedStorageKey, next, GLOBAL_DISMISSED_KEY);
       return next;
     });
-    markAlertsRead();
+    setReadAlertIds(previous => {
+      const next = Array.from(new Set([...previous, ...allIds]));
+      saveAlertIds(readAlertStorageKey, next, GLOBAL_READ_KEY);
+      return next;
+    });
   };
 
   const restoreAlert = (id: string) => {
@@ -448,6 +481,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const next = prev.filter(x => x !== id);
       try {
         localStorage.setItem(dismissedStorageKey, JSON.stringify(next));
+        const shared = localStorage.getItem(GLOBAL_DISMISSED_KEY);
+        if (shared) {
+          const parsed = JSON.parse(shared);
+          if (Array.isArray(parsed)) {
+            localStorage.setItem(GLOBAL_DISMISSED_KEY, JSON.stringify(parsed.filter((x: string) => x !== id)));
+          }
+        }
       } catch {}
       return next;
     });
@@ -457,6 +497,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setDismissedAlertIds([]);
     try {
       localStorage.removeItem(dismissedStorageKey);
+      localStorage.removeItem(GLOBAL_DISMISSED_KEY);
     } catch {}
   };
 
@@ -477,6 +518,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         restoreAlert,
         restoreAllAlerts,
         markAlertsRead,
+        markAlertRead,
         refreshClinicData,
         loading,
       }}

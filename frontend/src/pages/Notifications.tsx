@@ -19,6 +19,7 @@ export default function Notifications() {
     clearAllAlerts,
     restoreAllAlerts,
     markAlertsRead,
+    markAlertRead,
     refreshClinicData,
     loading
   } = useNotifications();
@@ -351,7 +352,10 @@ export default function Notifications() {
                       <button
                         type="button"
                         className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 shadow-sm"
-                        onClick={() => navigate(alert.link)}
+                        onClick={() => {
+                          markAlertRead(alert.id);
+                          navigate(alert.link);
+                        }}
                         title={`Go to ${alert.categoryLabel}`}
                       >
                         <span>View</span>
