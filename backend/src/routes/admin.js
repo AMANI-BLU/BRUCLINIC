@@ -32,6 +32,7 @@ import { invalidateSystemConfig } from '../services/systemConfig.js';
 import {
   createBackup, getTableStats, listBackupRuns, recordBackupRun, restoreBackup, validateBackup,
 } from '../services/backup.js';
+import { getBannedIps, banIp, unbanIp } from '../services/ipBan.js';
 
 /** Allowed keys for system_config PATCH — prevents arbitrary key injection. */
 const EDITABLE_CONFIG_KEYS = new Set([
@@ -465,15 +466,23 @@ router.get('/stats', async (req, res, next) => {
   try {
     const [
       totalLogins, failedLogins24h, criticalEvents24h, auditActions24h,
-      topFailedIps, recentLockouts, activeUsers,
+      topFailedIps, recentLockouts, activeUsers, bannedCount,
     ] = await Promise.all([
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_SUCCESS' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE severity = 'critical' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM audit_logs WHERE created_at >= NOW() - INTERVAL '24 hours'`),
-      query(`SELECT ip_address, COUNT(*) AS count FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY ip_address ORDER BY count DESC LIMIT 5`),
-      query(`SELECT * FROM security_events WHERE event_type = 'AUTH_LOGIN_LOCKED' ORDER BY created_at DESC LIMIT 10`),
+      query(`SELECT se.ip_address, COUNT(*) AS count,
+                    EXISTS(SELECT 1 FROM banned_ips bi WHERE bi.ip_address = se.ip_address AND (bi.expires_at IS NULL OR bi.expires_at > NOW())) AS is_banned
+             FROM security_events se
+             WHERE se.event_type = 'AUTH_LOGIN_FAILURE' AND se.created_at >= NOW() - INTERVAL '24 hours'
+             GROUP BY se.ip_address ORDER BY count DESC LIMIT 5`),
+      query(`SELECT se.*,
+                    EXISTS(SELECT 1 FROM banned_ips bi WHERE bi.ip_address = se.ip_address AND (bi.expires_at IS NULL OR bi.expires_at > NOW())) AS is_banned
+             FROM security_events se
+             WHERE se.event_type = 'AUTH_LOGIN_LOCKED' ORDER BY se.created_at DESC LIMIT 10`),
       query(`SELECT COUNT(*) AS total FROM users WHERE is_active = TRUE`),
+      query(`SELECT COUNT(*) AS total FROM banned_ips WHERE expires_at IS NULL OR expires_at > NOW()`),
     ]);
 
     return sendJson(res, 200, {
@@ -485,9 +494,112 @@ router.get('/stats', async (req, res, next) => {
           auditActions: Number(auditActions24h.rows[0]?.total || 0),
         },
         activeStaffCount: Number(activeUsers.rows[0]?.total || 0),
+        bannedIpCount: Number(bannedCount.rows[0]?.total || 0),
         topFailedLoginIps: topFailedIps.rows,
         recentLockouts: recentLockouts.rows,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── IP Banning & Access Control ──────────────────────────────────
+router.get('/ip-bans', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const bans = await getBannedIps();
+    return sendJson(res, 200, { data: bans });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/ip-bans', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    assertPlainObject(req.body);
+    const { ipAddress, reason, expiresAt } = req.body;
+    if (!ipAddress || typeof ipAddress !== 'string' || !ipAddress.trim()) {
+      return sendError(res, 422, 'IP address is required');
+    }
+
+    const saved = await banIp({
+      ipAddress: ipAddress.trim(),
+      reason: reason ? String(reason).trim() : 'Banned by administrator',
+      bannedBy: req.user.username,
+      expiresAt: expiresAt || null,
+    });
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.IP_BANNED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `IP address ${saved.ipAddress} banned by ${req.user.username} (${req.user.role}). Reason: ${saved.reason}`,
+      metadata: { bannedIp: saved.ipAddress, reason: saved.reason, expiresAt: saved.expiresAt },
+    });
+
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.CREATE,
+      resource: 'banned_ips',
+      resourceId: saved.ipAddress,
+      summary: `Banned IP ${saved.ipAddress}: ${saved.reason}`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 201, {
+      success: true,
+      message: `IP ${saved.ipAddress} has been banned`,
+      data: saved,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/ip-bans/:ip', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetIp = decodeURIComponent(req.params.ip || '').trim();
+    if (!targetIp) return sendError(res, 422, 'IP address is required');
+
+    await unbanIp(targetIp);
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.IP_UNBANNED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `IP address ${targetIp} unbanned by ${req.user.username} (${req.user.role})`,
+      metadata: { unbannedIp: targetIp },
+    });
+
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.DELETE,
+      resource: 'banned_ips',
+      resourceId: targetIp,
+      summary: `Unbanned IP ${targetIp}`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, {
+      success: true,
+      message: `IP ${targetIp} has been unbanned`,
     });
   } catch (err) {
     next(err);
@@ -847,15 +959,23 @@ export async function adminHandler(request, response, segments, url) {
   if (request.method === 'GET' && section === 'stats') {
     const [
       totalLogins, failedLogins24h, criticalEvents24h, auditActions24h,
-      topFailedIps, recentLockouts, activeUsers,
+      topFailedIps, recentLockouts, activeUsers, bannedCount,
     ] = await Promise.all([
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_SUCCESS' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE severity = 'critical' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM audit_logs WHERE created_at >= NOW() - INTERVAL '24 hours'`),
-      query(`SELECT ip_address, COUNT(*) AS count FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY ip_address ORDER BY count DESC LIMIT 5`),
-      query(`SELECT * FROM security_events WHERE event_type = 'AUTH_LOGIN_LOCKED' ORDER BY created_at DESC LIMIT 10`),
+      query(`SELECT se.ip_address, COUNT(*) AS count,
+                    EXISTS(SELECT 1 FROM banned_ips bi WHERE bi.ip_address = se.ip_address AND (bi.expires_at IS NULL OR bi.expires_at > NOW())) AS is_banned
+             FROM security_events se
+             WHERE se.event_type = 'AUTH_LOGIN_FAILURE' AND se.created_at >= NOW() - INTERVAL '24 hours'
+             GROUP BY se.ip_address ORDER BY count DESC LIMIT 5`),
+      query(`SELECT se.*,
+                    EXISTS(SELECT 1 FROM banned_ips bi WHERE bi.ip_address = se.ip_address AND (bi.expires_at IS NULL OR bi.expires_at > NOW())) AS is_banned
+             FROM security_events se
+             WHERE se.event_type = 'AUTH_LOGIN_LOCKED' ORDER BY se.created_at DESC LIMIT 10`),
       query(`SELECT COUNT(*) AS total FROM users WHERE is_active = TRUE`),
+      query(`SELECT COUNT(*) AS total FROM banned_ips WHERE expires_at IS NULL OR expires_at > NOW()`),
     ]);
 
     return sendJson(response, 200, {
@@ -867,10 +987,100 @@ export async function adminHandler(request, response, segments, url) {
           auditActions: Number(auditActions24h.rows[0]?.total || 0),
         },
         activeStaffCount: Number(activeUsers.rows[0]?.total || 0),
+        bannedIpCount: Number(bannedCount.rows[0]?.total || 0),
         topFailedLoginIps: topFailedIps.rows,
         recentLockouts: recentLockouts.rows,
       },
     });
+  }
+
+  if (section === 'ip-bans') {
+    const ip = getClientIp(request);
+    if (request.method === 'GET') {
+      const bans = await getBannedIps();
+      return sendJson(response, 200, { data: bans });
+    }
+
+    if (request.method === 'POST') {
+      assertPlainObject(request.body);
+      const { ipAddress, reason, expiresAt } = request.body;
+      if (!ipAddress || typeof ipAddress !== 'string' || !ipAddress.trim()) {
+        return sendError(response, 422, 'IP address is required');
+      }
+
+      const saved = await banIp({
+        ipAddress: ipAddress.trim(),
+        reason: reason ? String(reason).trim() : 'Banned by administrator',
+        bannedBy: request.user.username,
+        expiresAt: expiresAt || null,
+      });
+
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.IP_BANNED,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        ipAddress: ip,
+        requestId: request.requestId,
+        description: `IP address ${saved.ipAddress} banned by ${request.user.username} (${request.user.role}). Reason: ${saved.reason}`,
+        metadata: { bannedIp: saved.ipAddress, reason: saved.reason, expiresAt: saved.expiresAt },
+      });
+
+      writeAuditLog({
+        requestId: request.requestId,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        action: AUDIT_ACTION.CREATE,
+        resource: 'banned_ips',
+        resourceId: saved.ipAddress,
+        summary: `Banned IP ${saved.ipAddress}: ${saved.reason}`,
+        ipAddress: ip,
+      });
+
+      return sendJson(response, 201, {
+        success: true,
+        message: `IP ${saved.ipAddress} has been banned`,
+        data: saved,
+      });
+    }
+
+    if (request.method === 'DELETE') {
+      const targetIp = decodeURIComponent(segments[3] || '').trim();
+      if (!targetIp) return sendError(response, 422, 'IP address is required');
+
+      await unbanIp(targetIp);
+
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.IP_UNBANNED,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        ipAddress: ip,
+        requestId: request.requestId,
+        description: `IP address ${targetIp} unbanned by ${request.user.username} (${request.user.role})`,
+        metadata: { unbannedIp: targetIp },
+      });
+
+      writeAuditLog({
+        requestId: request.requestId,
+        userId: request.user.id,
+        username: request.user.username,
+        userRole: request.user.role,
+        action: AUDIT_ACTION.DELETE,
+        resource: 'banned_ips',
+        resourceId: targetIp,
+        summary: `Unbanned IP ${targetIp}`,
+        ipAddress: ip,
+      });
+
+      return sendJson(response, 200, {
+        success: true,
+        message: `IP ${targetIp} has been unbanned`,
+      });
+    }
+
+    return sendError(response, 405, 'Method not allowed');
   }
 
   if (section === 'clinic-profile') {

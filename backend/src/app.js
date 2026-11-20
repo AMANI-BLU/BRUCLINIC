@@ -8,7 +8,8 @@ import express from 'express';
 import { env } from './config/env.js';
 import { attachRequestId } from './middleware/requestId.js';
 import { setSecurityHeaders, setCors, sendError } from './utils/http.js';
-import { checkGlobalRateLimit } from './middleware/rateLimiter.js';
+import { checkGlobalRateLimit, getClientIp } from './middleware/rateLimiter.js';
+import { isIpBanned } from './services/ipBan.js';
 import { writeSecurityEvent } from './middleware/auditLogger.js';
 import { SECURITY_EVENT } from './constants/events.js';
 import { verifyToken } from './utils/auth.js';
@@ -60,6 +61,23 @@ export function createApp() {
       });
       return;
     }
+    next();
+  });
+
+  // 4b. Global IP ban check (blocks banned IPs across all incoming requests)
+  app.use(async (req, res, next) => {
+    try {
+      const ip = getClientIp(req);
+      if (await isIpBanned(ip)) {
+        writeSecurityEvent({
+          eventType: SECURITY_EVENT.ACCESS_DENIED,
+          ipAddress: ip,
+          requestId: req.requestId,
+          description: `Blocked request from banned IP: ${ip} on ${req.method} ${req.originalUrl || req.url}`,
+        });
+        return sendError(res, 403, 'Your IP address has been banned by clinic security administration.');
+      }
+    } catch (_) {}
     next();
   });
 

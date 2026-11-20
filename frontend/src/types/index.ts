@@ -476,6 +476,15 @@ export interface SecurityStats {
     auditActions: number;
   };
   activeStaffCount: number;
-  topFailedLoginIps: Array<{ ip_address: string; count: number }>;
-  recentLockouts: SecurityEvent[];
+  bannedIpCount?: number;
+  topFailedLoginIps: Array<{ ip_address: string; count: number; is_banned?: boolean }>;
+  recentLockouts: Array<SecurityEvent & { is_banned?: boolean }>;
+}
+
+export interface BannedIp {
+  ip_address: string;
+  reason: string;
+  banned_by: string;
+  created_at: string;
+  expires_at: string | null;
 }
