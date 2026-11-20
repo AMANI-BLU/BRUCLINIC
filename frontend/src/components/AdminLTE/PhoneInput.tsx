@@ -17,6 +17,13 @@ interface PhoneInputProps {
   disabled?: boolean;
 }
 
+/** Keys that are always allowed regardless of character filtering */
+const ALLOWED_KEYS = new Set([
+  'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+  'Home', 'End',
+]);
+
 export default function PhoneInput({
   value,
   onChange,
@@ -35,10 +42,64 @@ export default function PhoneInput({
 
   const trimmed = (value || '').trim();
   const isComplete = ETHIOPIAN_PHONE_REGEX.test(trimmed);
+
+  /** Compute max length from the CURRENT value so the counter tracks correctly */
   const maxLength = trimmed.startsWith('+') ? 13 : 10;
 
+  /**
+   * Block any character that is:
+   *  - not a digit
+   *  - not '+' typed at position 0 when the field is empty / starts with 0
+   *  - would exceed the allowed length after insertion
+   */
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Always pass through keyboard shortcuts and navigation
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (ALLOWED_KEYS.has(e.key)) return;
+
+    const input = e.currentTarget;
+    const curVal = input.value;
+    const selStart = input.selectionStart ?? curVal.length;
+    const selEnd   = input.selectionEnd   ?? curVal.length;
+    const selectedLen = selEnd - selStart;
+    // Length after inserting this character (replacing selection)
+    const nextLen = curVal.length - selectedLen + 1;
+
+    // Only allow '+' at position 0 when there's no existing '+' and the field is empty
+    if (e.key === '+') {
+      if (selStart === 0 && !curVal.includes('+')) return; // allowed
+      e.preventDefault();
+      return;
+    }
+
+    // Block all non-digit characters
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+
+    // Enforce max length: determine what max would be for the NEXT value
+    const nextStartsWith = e.key === '+' ? '+' : (selStart === 0 && !curVal ? e.key : curVal[0] ?? e.key);
+    const nextMax = nextStartsWith === '+' ? 13 : 10;
+    if (nextLen > nextMax) {
+      e.preventDefault();
+    }
+  };
+
+  /** Strip non-phone characters and enforce length on change (covers paste, autofill, IME) */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatEthiopianPhoneInput(e.target.value);
+    onChange(formatted);
+  };
+
+  /** Handle paste: strip non-digits/plus and enforce max length */
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const input = e.currentTarget;
+    const before = input.value.slice(0, input.selectionStart ?? 0);
+    const after  = input.value.slice(input.selectionEnd   ?? input.value.length);
+    const formatted = formatEthiopianPhoneInput(before + pasted + after);
     onChange(formatted);
   };
 
@@ -72,10 +133,13 @@ export default function PhoneInput({
         <input
           id={id}
           name={name}
-          type="tel"
+          type="text"
+          inputMode="tel"
           className={inputClass}
           value={value}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           onBlur={handleBlur}
           placeholder={placeholder}
           maxLength={maxLength}
