@@ -17,7 +17,8 @@ import {
   Unlock,
   Pencil,
 } from 'lucide-react';
-import { firstError, validateEmail, validatePassword, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { firstError, validateEmail, validateName, validateUsername, validatePassword, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import PhoneInput from '../components/AdminLTE/PhoneInput';
 import { apiGet } from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import ModalPortal from '../components/ModalPortal';
@@ -66,6 +67,8 @@ export default function StaffAccounts() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({});
+  const [createTouched, setCreateTouched] = useState<Record<string, boolean>>({});
 
   const [formName, setFormName] = useState('');
   const [formUsername, setFormUsername] = useState('');
@@ -83,6 +86,8 @@ export default function StaffAccounts() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [editTouched, setEditTouched] = useState<Record<string, boolean>>({});
 
   // Password Reset Modal State
   const [showResetModal, setShowResetModal] = useState(false);
@@ -133,12 +138,44 @@ export default function StaffAccounts() {
     if (cleaned) {
       setFormEmail(`${cleaned}@bru.edu.et`);
     }
+    if (createTouched['formUsername']) validateCreateField('formUsername', val);
+  };
+
+  // Per-field validation helpers
+  const validateCreateField = (name: string, value: string) => {
+    let err: string | undefined;
+    if (name === 'formName') err = validateName(value, 'Full Name');
+    else if (name === 'formUsername') err = validateUsername(value, 'Username');
+    else if (name === 'formEmail') err = value ? validateEmail(value, 'Email') : undefined;
+    else if (name === 'formPhone') err = !value.trim() ? 'Phone number is required.' : validatePhone(value, 'Phone number');
+    setCreateFieldErrors(prev => ({ ...prev, [name]: err ?? '' }));
+  };
+
+  const validateEditField = (name: string, value: string) => {
+    let err: string | undefined;
+    if (name === 'name') err = validateName(value, 'Full Name');
+    else if (name === 'username') err = validateUsername(value, 'Username');
+    else if (name === 'email') err = !value.trim() ? 'Email is required.' : validateEmail(value, 'Email');
+    else if (name === 'phone') err = !value.trim() ? 'Phone number is required.' : validatePhone(value, 'Phone number');
+    setEditFieldErrors(prev => ({ ...prev, [name]: err ?? '' }));
+  };
+
+  const createFieldClass = (name: string) => {
+    if (!createTouched[name]) return '';
+    return createFieldErrors[name] ? 'is-invalid' : 'is-valid';
+  };
+
+  const editFieldClass = (name: string) => {
+    if (!editTouched[name]) return '';
+    return editFieldErrors[name] ? 'is-invalid' : 'is-valid';
   };
 
   const handleCreateSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setCreateError(null);
+    // Mark all fields touched on submit
+    setCreateTouched({ formName: true, formUsername: true, formEmail: true, formPhone: true });
     const validationErrors = validateRequired(
       { name: formName, username: formUsername, role: formRole },
       { name: 'Name', username: 'Username', role: 'Role' },
@@ -212,12 +249,16 @@ export default function StaffAccounts() {
       gender: user.gender || 'Male',
     });
     setEditError(null);
+    setEditFieldErrors({});
+    setEditTouched({});
   };
 
   const handleEditSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!editTargetUser || savingEdit) return;
     setEditError(null);
+    // Mark all validated fields as touched on submit
+    setEditTouched({ name: true, username: true, email: true, phone: true });
     const validationError = firstError(
       ...Object.values(validateRequired(
         { name: editForm.name, username: editForm.username, role: editForm.role, email: editForm.email, phone: editForm.phone },
@@ -437,6 +478,8 @@ export default function StaffAccounts() {
           id="add-staff-btn"
           onClick={() => {
             setCreateError(null);
+            setCreateFieldErrors({});
+            setCreateTouched({});
             setShowCreateModal(true);
           }}
         >
@@ -750,9 +793,17 @@ export default function StaffAccounts() {
                     required
                     placeholder="e.g. Dr. Amanuel Wario"
                     value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
+                    className={createFieldClass('formName')}
+                    onChange={(e) => {
+                      setFormName(e.target.value);
+                      if (createTouched['formName']) validateCreateField('formName', e.target.value);
+                    }}
+                    onBlur={(e) => { setCreateTouched(p => ({ ...p, formName: true })); validateCreateField('formName', e.target.value); }}
                     style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
+                  {createTouched['formName'] && createFieldErrors['formName'] && (
+                    <div className="invalid-feedback">{createFieldErrors['formName']}</div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -762,9 +813,14 @@ export default function StaffAccounts() {
                     required
                     placeholder="e.g. drbikila"
                     value={formUsername}
+                    className={createFieldClass('formUsername')}
                     onChange={(e) => handleUsernameChange(e.target.value)}
+                    onBlur={(e) => { setCreateTouched(p => ({ ...p, formUsername: true })); validateCreateField('formUsername', e.target.value); }}
                     style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
+                  {createTouched['formUsername'] && createFieldErrors['formUsername'] && (
+                    <div className="invalid-feedback">{createFieldErrors['formUsername']}</div>
+                  )}
                 </div>
                 <div className="alert alert-info py-2 mb-0">The configured default staff password will be assigned. The user must change it at first sign-in.</div>
 
@@ -813,21 +869,32 @@ export default function StaffAccounts() {
                     type="email"
                     placeholder="staff@bru.edu.et"
                     value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
+                    className={createFieldClass('formEmail')}
+                    onChange={(e) => {
+                      setFormEmail(e.target.value);
+                      if (createTouched['formEmail']) validateCreateField('formEmail', e.target.value);
+                    }}
+                    onBlur={(e) => { setCreateTouched(p => ({ ...p, formEmail: true })); validateCreateField('formEmail', e.target.value); }}
                     style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
+                  {createTouched['formEmail'] && createFieldErrors['formEmail'] && (
+                    <div className="invalid-feedback">{createFieldErrors['formEmail']}</div>
+                  )}
                 </div>
 
                 <div className="form-grid-2">
                   <div className="form-group">
                     <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 2 }}>Phone number *</label>
-                    <input
-                      type="tel"
+                    <PhoneInput
+                      id="create-staff-phone"
                       required
-                      placeholder="e.g. +251 911 223 344"
                       value={formPhone}
-                      onChange={(e) => setFormPhone(e.target.value)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
+                      onChange={(val) => {
+                        setFormPhone(val);
+                        if (createTouched['formPhone']) validateCreateField('formPhone', val);
+                      }}
+                      onBlur={() => { setCreateTouched(p => ({ ...p, formPhone: true })); validateCreateField('formPhone', formPhone); }}
+                      error={createTouched['formPhone'] ? createFieldErrors['formPhone'] : undefined}
                     />
                   </div>
                   <div className="form-group">
@@ -906,11 +973,36 @@ export default function StaffAccounts() {
                 <div className="form-grid-2">
                   <div className="form-group">
                     <label className="form-label">Full name *</label>
-                    <input required value={editForm.name} onChange={event => setEditForm(form => ({ ...form, name: event.target.value }))} />
+                    <input
+                      required
+                      value={editForm.name}
+                      className={editFieldClass('name')}
+                      onChange={event => {
+                        setEditForm(form => ({ ...form, name: event.target.value }));
+                        if (editTouched['name']) validateEditField('name', event.target.value);
+                      }}
+                      onBlur={event => { setEditTouched(p => ({ ...p, name: true })); validateEditField('name', event.target.value); }}
+                    />
+                    {editTouched['name'] && editFieldErrors['name'] && (
+                      <div className="invalid-feedback">{editFieldErrors['name']}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Username *</label>
-                    <input required autoComplete="off" value={editForm.username} onChange={event => setEditForm(form => ({ ...form, username: event.target.value }))} />
+                    <input
+                      required
+                      autoComplete="off"
+                      value={editForm.username}
+                      className={editFieldClass('username')}
+                      onChange={event => {
+                        setEditForm(form => ({ ...form, username: event.target.value }));
+                        if (editTouched['username']) validateEditField('username', event.target.value);
+                      }}
+                      onBlur={event => { setEditTouched(p => ({ ...p, username: true })); validateEditField('username', event.target.value); }}
+                    />
+                    {editTouched['username'] && editFieldErrors['username'] && (
+                      <div className="invalid-feedback">{editFieldErrors['username']}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Role *</label>
@@ -945,11 +1037,34 @@ export default function StaffAccounts() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Email *</label>
-                    <input type="email" required value={editForm.email} onChange={event => setEditForm(form => ({ ...form, email: event.target.value }))} />
+                    <input
+                      type="email"
+                      required
+                      value={editForm.email}
+                      className={editFieldClass('email')}
+                      onChange={event => {
+                        setEditForm(form => ({ ...form, email: event.target.value }));
+                        if (editTouched['email']) validateEditField('email', event.target.value);
+                      }}
+                      onBlur={event => { setEditTouched(p => ({ ...p, email: true })); validateEditField('email', event.target.value); }}
+                    />
+                    {editTouched['email'] && editFieldErrors['email'] && (
+                      <div className="invalid-feedback">{editFieldErrors['email']}</div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Phone number *</label>
-                    <input type="tel" required value={editForm.phone} onChange={event => setEditForm(form => ({ ...form, phone: event.target.value }))} />
+                    <PhoneInput
+                      id="edit-staff-phone"
+                      required
+                      value={editForm.phone}
+                      onChange={val => {
+                        setEditForm(form => ({ ...form, phone: val }));
+                        if (editTouched['phone']) validateEditField('phone', val);
+                      }}
+                      onBlur={() => { setEditTouched(p => ({ ...p, phone: true })); validateEditField('phone', editForm.phone); }}
+                      error={editTouched['phone'] ? editFieldErrors['phone'] : undefined}
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Gender *</label>

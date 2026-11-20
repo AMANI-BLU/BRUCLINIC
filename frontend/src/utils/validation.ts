@@ -1,9 +1,11 @@
 export type FormErrors = Record<string, string>;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const PHONE_PATTERN = /^[+\d][\d\s().-]{6,29}$/;
+export const ETHIOPIAN_PHONE_REGEX = /^(?:\+251[79]\d{8}|0[79]\d{8})$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BP_PATTERN = /^\d{2,3}\/\d{2,3}$/;
+const NAME_PATTERN = /^[A-Za-z\s'.-]+$/;
+const USERNAME_PATTERN = /^[a-zA-Z0-9_.-]+$/;
 
 export function sanitizeInput(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -13,6 +15,41 @@ export function sanitizeInput(value: unknown): string {
     .replace(/javascript:/gi, '')
     .replace(/on\w+=/gi, '')
     .trim();
+}
+
+/**
+ * Filter and format Ethiopian phone numbers while typing.
+ * Accepts:
+ *   +2519xxxxxxxx (max 13 chars)
+ *   +2517xxxxxxxx (max 13 chars)
+ *   09xxxxxxxx    (max 10 chars)
+ *   07xxxxxxxx    (max 10 chars)
+ */
+export function formatEthiopianPhoneInput(raw: string): string {
+  if (!raw) return '';
+  // Strip non-digits and non-plus
+  let cleaned = raw.replace(/[^\d+]/g, '');
+
+  // Only allow a single '+' at the beginning
+  if (cleaned.includes('+')) {
+    cleaned = '+' + cleaned.replace(/\+/g, '');
+  }
+
+  // If user typed 9 or 7 directly without 0, prepend 0
+  if ((cleaned.startsWith('9') || cleaned.startsWith('7')) && !cleaned.startsWith('0')) {
+    cleaned = '0' + cleaned;
+  } else if (cleaned.startsWith('251')) {
+    cleaned = '+' + cleaned;
+  }
+
+  // Length enforcement based on prefix
+  if (cleaned.startsWith('+')) {
+    return cleaned.slice(0, 13);
+  }
+  if (cleaned.startsWith('0')) {
+    return cleaned.slice(0, 10);
+  }
+  return cleaned.slice(0, 13);
 }
 
 export function validateRequired(values: Record<string, unknown>, labels: Record<string, string>): FormErrors {
@@ -44,6 +81,62 @@ export function validateTextLength(
   return undefined;
 }
 
+export function validateName(
+  value: string,
+  label = 'Name',
+  { min = 2, max = 100, required = true }: { min?: number; max?: number; required?: boolean } = {},
+): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return required ? `${label} is required.` : undefined;
+  }
+  if (trimmed.length < min) {
+    return `${label} must be at least ${min} characters.`;
+  }
+  if (trimmed.length > max) {
+    return `${label} must not exceed ${max} characters.`;
+  }
+  if (!NAME_PATTERN.test(trimmed)) {
+    return `${label} can only contain letters, spaces, hyphens, and apostrophes.`;
+  }
+  return undefined;
+}
+
+export function validateUsername(
+  value: string,
+  label = 'Username',
+  { min = 3, max = 30, required = true }: { min?: number; max?: number; required?: boolean } = {},
+): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return required ? `${label} is required.` : undefined;
+  }
+  if (trimmed.length < min) {
+    return `${label} must be at least ${min} characters.`;
+  }
+  if (trimmed.length > max) {
+    return `${label} must not exceed ${max} characters.`;
+  }
+  if (!USERNAME_PATTERN.test(trimmed)) {
+    return `${label} can only contain letters, numbers, underscores, and hyphens.`;
+  }
+  return undefined;
+}
+
+export function validateAge(value: unknown, label = 'Age'): string | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return `${label} is required.`;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num) || !Number.isInteger(num)) {
+    return `${label} must be a whole number.`;
+  }
+  if (num < 0 || num > 130) {
+    return `${label} must be between 0 and 130 years.`;
+  }
+  return undefined;
+}
+
 export function validateEmail(value: string, label = 'Email'): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -56,8 +149,8 @@ export function validateEmail(value: string, label = 'Email'): string | undefine
 export function validatePhone(value: string, label = 'Phone'): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  if (!PHONE_PATTERN.test(trimmed) || trimmed.replace(/\D/g, '').length < 8) {
-    return `${label} must be a valid phone number with at least 8 digits (e.g. +251911223344).`;
+  if (!ETHIOPIAN_PHONE_REGEX.test(trimmed)) {
+    return `${label} must be in format +2519xxxxxxxx, +2517xxxxxxxx, 09xxxxxxxx, or 07xxxxxxxx.`;
   }
   return undefined;
 }

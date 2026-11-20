@@ -8,7 +8,8 @@ import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
   Activity, HeartPulse, FileText, Utensils
 } from 'lucide-react';
-import { firstError, validateEmail, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { firstError, validateEmail, validateName, validateAge, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import PhoneInput from '../components/AdminLTE/PhoneInput';
 import { calculatePatientAge, dateOfBirthForAge, patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
 import { diagnosisLabel } from '../utils/diagnosis';
 import ConfirmModal from '../components/ConfirmModal';
@@ -82,8 +83,41 @@ export default function Patients() {
   const [filterType, setFilterType] = useState<PatientType | 'All'>('All');
   const [modal, setModal] = useState<{ mode: ModalMode; patient?: Patient }>({ mode: null });
   const [form, setForm] = useState<PatientFormData>(EMPTY_PATIENT_FORM);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [requestDetails, setRequestDetails] = useState<RequestDetails>(EMPTY_REQUEST);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const validateField = (name: string, value: string) => {
+    let err: string | undefined;
+    if (name === 'firstName') err = validateName(value, t('First name'));
+    else if (name === 'lastName') err = validateName(value, t('Last name'));
+    else if (name === 'age') err = typeof value === 'string' && value === '' ? t('Age is required.') : validateNumber(value, t('Age'), { min: 0, max: 130, integer: true, required: true });
+    else if (name === 'phone') err = !value.trim() ? t('Phone is required.') : validatePhone(value, t('Phone'));
+    else if (name === 'email') err = value ? validateEmail(value, t('Email')) : undefined;
+    else if (name === 'emergencyContactPhone') err = value ? validatePhone(value, t('Emergency contact phone')) : undefined;
+    setFieldErrors(prev => ({ ...prev, [name]: err ?? '' }));
+  };
+
+  const handleFieldBlur = (name: string, value: string) => {
+    setTouched(prev => ({ ...prev, [name]: true }));
+    validateField(name, value);
+  };
+
+  const patchForm = (patch: Partial<PatientFormData>) => {
+    setForm(f => {
+      const next = { ...f, ...patch };
+      Object.keys(patch).forEach(k => {
+        if (touched[k]) validateField(k, String(patch[k as keyof PatientFormData] ?? ''));
+      });
+      return next;
+    });
+  };
+
+  const fieldClass = (name: string) => {
+    if (!touched[name]) return '';
+    return fieldErrors[name] ? 'is-invalid' : 'is-valid';
+  };
   const [saving, setSaving] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [clinicDocumentModal, setClinicDocumentModal] = useState<{
@@ -106,6 +140,8 @@ export default function Patients() {
 
   const openAdd = useCallback(() => {
     setForm(EMPTY_PATIENT_FORM);
+    setFieldErrors({});
+    setTouched({});
     setRequestDetails({ ...EMPTY_REQUEST, doctorId: doctors[0]?.id || '' });
     setFormError(null);
     setModal({ mode: 'add' });
@@ -136,6 +172,8 @@ export default function Patients() {
       emergencyContactName: p.emergencyContactName || '',
       emergencyContactPhone: p.emergencyContactPhone || '',
     });
+    setFieldErrors({});
+    setTouched({});
     setFormError(null);
     setModal({ mode: 'edit', patient: p });
   };
@@ -152,6 +190,9 @@ export default function Patients() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+    // Mark all relevant fields touched on submit
+    const fields = ['firstName', 'lastName', 'age', 'phone', 'email', 'emergencyContactPhone'];
+    setTouched(prev => Object.fromEntries(fields.map(f => [f, true])));
     const requiredErrors = validateRequired(form as unknown as Record<string, unknown>, {
       firstName: 'First name',
       lastName: 'Last name',
@@ -408,24 +449,34 @@ export default function Patients() {
                       <input
                         required
                         value={form.firstName}
-                        onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+                        className={fieldClass('firstName')}
+                        onChange={e => patchForm({ firstName: e.target.value })}
+                        onBlur={e => handleFieldBlur('firstName', e.target.value)}
                         placeholder={t('First name')}
                       />
+                      {touched['firstName'] && fieldErrors['firstName'] && (
+                        <div className="invalid-feedback">{fieldErrors['firstName']}</div>
+                      )}
                     </div>
                     <div className="form-group">
                       <label className="form-label">{t('Last name')} *</label>
                       <input
                         required
                         value={form.lastName}
-                        onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+                        className={fieldClass('lastName')}
+                        onChange={e => patchForm({ lastName: e.target.value })}
+                        onBlur={e => handleFieldBlur('lastName', e.target.value)}
                         placeholder={t('Last name')}
                       />
+                      {touched['lastName'] && fieldErrors['lastName'] && (
+                        <div className="invalid-feedback">{fieldErrors['lastName']}</div>
+                      )}
                     </div>
                     <div className="form-group">
                       <label className="form-label">{t('Gender')} *</label>
                       <select
                         value={form.gender}
-                        onChange={e => setForm(f => ({ ...f, gender: e.target.value as Gender }))}
+                        onChange={e => patchForm({ gender: e.target.value as Gender })}
                       >
                         <option value="Male">{t('Male')}</option>
                         <option value="Female">{t('Female')}</option>
@@ -440,17 +491,24 @@ export default function Patients() {
                         max="130"
                         step="1"
                         value={form.age}
-                        onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
+                        className={fieldClass('age')}
+                        onChange={e => patchForm({ age: e.target.value })}
+                        onBlur={e => handleFieldBlur('age', e.target.value)}
                         placeholder={t('Age in years')}
                       />
+                      {touched['age'] && fieldErrors['age'] && (
+                        <div className="invalid-feedback">{fieldErrors['age']}</div>
+                      )}
                     </div>
                     <div className="form-group">
                       <label className="form-label">{t('Phone')} *</label>
-                      <input
+                      <PhoneInput
+                        id="patient-phone"
                         required
                         value={form.phone}
-                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                        placeholder="+251-9..."
+                        onChange={val => patchForm({ phone: val })}
+                        onBlur={() => handleFieldBlur('phone', form.phone)}
+                        error={touched['phone'] ? fieldErrors['phone'] : undefined}
                       />
                     </div>
                     <div className="form-group">
@@ -458,15 +516,20 @@ export default function Patients() {
                       <input
                         type="email"
                         value={form.email}
-                        onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                        className={fieldClass('email')}
+                        onChange={e => patchForm({ email: e.target.value })}
+                        onBlur={e => handleFieldBlur('email', e.target.value)}
                         placeholder="patient@bru.edu.et"
                       />
+                      {touched['email'] && fieldErrors['email'] && (
+                        <div className="invalid-feedback">{fieldErrors['email']}</div>
+                      )}
                     </div>
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                       <label className="form-label">{t('Residential Address')}</label>
                       <input
                         value={form.address}
-                        onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                        onChange={e => patchForm({ address: e.target.value })}
                         placeholder={t('Campus Dormitory / Residence Zone, Town')}
                       />
                     </div>
@@ -544,16 +607,18 @@ export default function Patients() {
                       <label className="form-label">{t('Emergency Contact Name')}</label>
                       <input
                         value={form.emergencyContactName}
-                        onChange={e => setForm(f => ({ ...f, emergencyContactName: e.target.value }))}
+                        onChange={e => patchForm({ emergencyContactName: e.target.value })}
                         placeholder={t('Guardian / Family contact full name')}
                       />
                     </div>
                     <div className="form-group">
                       <label className="form-label">{t('Emergency Contact Phone')}</label>
-                      <input
+                      <PhoneInput
+                        id="emergency-phone"
                         value={form.emergencyContactPhone}
-                        onChange={e => setForm(f => ({ ...f, emergencyContactPhone: e.target.value }))}
-                        placeholder="+251-9..."
+                        onChange={val => patchForm({ emergencyContactPhone: val })}
+                        onBlur={() => handleFieldBlur('emergencyContactPhone', form.emergencyContactPhone)}
+                        error={touched['emergencyContactPhone'] ? fieldErrors['emergencyContactPhone'] : undefined}
                       />
                     </div>
                   </div>

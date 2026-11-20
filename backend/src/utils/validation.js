@@ -1,6 +1,6 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const PHONE_PATTERN = /^[+\d][\d\s().-]{6,29}$/;
+const PHONE_PATTERN = /^(?:\+251[79]\d{8}|0[79]\d{8})$/;
 
 function validationError(message) {
   const error = new Error(message);
@@ -45,7 +45,7 @@ export function validateEmail(value, field = 'Email') {
 export function validatePhone(value, field = 'Phone') {
   if (isBlank(value)) return;
   if (typeof value !== 'string' || !PHONE_PATTERN.test(value.trim())) {
-    throw validationError(`${field} must be a valid phone number`);
+    throw validationError(`${field} must be in format +2519xxxxxxxx, +2517xxxxxxxx, 09xxxxxxxx, or 07xxxxxxxx`);
   }
 }
 
