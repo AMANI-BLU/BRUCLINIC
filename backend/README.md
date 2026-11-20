@@ -1,6 +1,6 @@
 # BruClinic Backend
 
-PostgreSQL-backed REST API for the BruClinic clinic management system. It uses Node.js HTTP primitives (no web framework), a repository layer, and transaction-based clinical workflows.
+PostgreSQL-backed REST API for the BruClinic clinic management system. It uses Express.js, a repository layer, and transaction-based clinical workflows.
 
 ## Quick start
 

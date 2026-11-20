@@ -56,6 +56,9 @@ export function setSecurityHeaders(response) {
 }
 
 export async function readJson(request, { maxBytes = env.bodyLimitBytes } = {}) {
+  if (request.body && typeof request.body === 'object') {
+    return request.body;
+  }
   const contentType = String(request.headers['content-type'] || '').toLowerCase();
   if (request.method !== 'GET' && request.method !== 'HEAD' && contentType && !contentType.includes('application/json')) {
     const error = new Error('Content-Type must be application/json');
