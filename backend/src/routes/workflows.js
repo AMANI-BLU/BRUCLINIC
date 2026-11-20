@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import {
   completeEmergencyCase, completeOpdConsultation, createCardToOpdRequest, dispensePharmacyOrder,
   completeLabRequest, referOutside, saveOpdAssessment, sendEmergencyToLabRequest, sendOpdToLabRequest, sendOpdToPharmacyRequest,
@@ -5,6 +6,8 @@ import {
 } from '../services/clinicWorkflows.js';
 import { sendError, sendJson } from '../utils/http.js';
 import { assertPlainObject, validateEnum, validateText } from '../utils/validation.js';
+
+const router = Router();
 
 const queueStages = ['Reception', 'Nurse Triage', 'Doctor Consultation', 'Pharmacy', 'Laboratory', 'Emergency', 'Completed'];
 const queuePriorities = ['Normal', 'Urgent', 'Emergency'];
@@ -24,9 +27,7 @@ const handlers = {
   'dispense-pharmacy': { roles: ['admin', 'pharmacy'], run: request => dispensePharmacyOrder(request.body.orderId, request.body.dispensedBy, request.body.overrides, request.body.externalItems, request.body.quantities) },
 };
 
-export async function workflowHandler(request, response, segments) {
-  const action = segments[2];
-  if (request.method !== 'POST') return sendError(response, 405, 'Method not allowed');
+async function executeWorkflow(action, request, response) {
   const handler = handlers[action];
   if (!handler) return sendError(response, 404, 'Workflow not found');
   if (!handler.roles.includes(request.user?.role)) return sendError(response, 403, 'This staff role cannot perform that workflow');
@@ -160,3 +161,22 @@ export async function workflowHandler(request, response, segments) {
   const result = await handler.run(request);
   return sendJson(response, 200, { data: result });
 }
+
+// Express Router: POST /api/workflows/:action
+router.post('/:action', async (req, res, next) => {
+  try {
+    await executeWorkflow(req.params.action, req, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Legacy handler export for backward compatibility
+export async function workflowHandler(request, response, segments) {
+  const action = segments[2];
+  if (request.method !== 'POST') return sendError(response, 405, 'Method not allowed');
+  return executeWorkflow(action, request, response);
+}
+
+export default router;
+export { router as workflowsRouter };

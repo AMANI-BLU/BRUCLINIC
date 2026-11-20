@@ -1,5 +1,8 @@
+import { Router } from 'express';
 import { query } from '../db/pool.js';
 import { sendError, sendJson } from '../utils/http.js';
+
+const router = Router();
 
 export async function dashboardSummaryHandler(request, response) {
   if (request.method !== 'GET') return sendError(response, 405, 'Method not allowed');
@@ -14,3 +17,14 @@ export async function dashboardSummaryHandler(request, response) {
   `);
   return sendJson(response, 200, { data: result.rows[0] || {} });
 }
+
+router.get('/summary', async (req, res, next) => {
+  try {
+    await dashboardSummaryHandler(req, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
+export { router as dashboardRouter };

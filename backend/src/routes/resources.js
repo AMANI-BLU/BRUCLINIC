@@ -9,6 +9,7 @@
  *   - Doctor record auto-sync when listing doctors
  */
 
+import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import {
   deleteResource, findResource, insertResource, listClinicDocumentsForPatient, listResource, resourceDefinitions, updateResource,
@@ -541,3 +542,58 @@ export function createResourceHandler(resource) {
     return sendError(response, 405, 'Method not allowed');
   };
 }
+
+const resourceMap = new Map(
+  Object.keys(resourceDefinitions).map(k => [
+    k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`),
+    k,
+  ]),
+);
+
+function getResourceName(param) {
+  return resourceMap.get(param) || (resourceDefinitions[param] ? param : null);
+}
+
+const router = Router();
+
+router.all('/:resource', async (req, res, next) => {
+  try {
+    const resKey = getResourceName(req.params.resource);
+    if (!resKey) return sendError(res, 404, 'Route not found');
+    const handler = createResourceHandler(resKey);
+    const url = new URL(req.originalUrl || req.url, 'http://localhost');
+    const segments = ['api', req.params.resource];
+    await handler(req, res, segments, url);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.all('/:resource/:id', async (req, res, next) => {
+  try {
+    const resKey = getResourceName(req.params.resource);
+    if (!resKey) return sendError(res, 404, 'Route not found');
+    const handler = createResourceHandler(resKey);
+    const url = new URL(req.originalUrl || req.url, 'http://localhost');
+    const segments = ['api', req.params.resource, req.params.id];
+    await handler(req, res, segments, url);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.all('/:resource/:id/:subResource', async (req, res, next) => {
+  try {
+    const resKey = getResourceName(req.params.resource);
+    if (!resKey) return sendError(res, 404, 'Route not found');
+    const handler = createResourceHandler(resKey);
+    const url = new URL(req.originalUrl || req.url, 'http://localhost');
+    const segments = ['api', req.params.resource, req.params.id, req.params.subResource];
+    await handler(req, res, segments, url);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
+export { router as resourcesRouter };

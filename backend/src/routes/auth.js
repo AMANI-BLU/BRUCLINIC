@@ -2,22 +2,24 @@
  * BruClinic — Authentication Routes
  *
  * Handles all /api/auth/* endpoints:
+ *   GET    /api/auth/login-background            — get custom login background
  *   POST   /api/auth/login                       — credential login
  *   GET    /api/auth/me                          — validate session
- *   GET    /api/auth/users                       — list staff (admin)
- *   POST   /api/auth/create-user                 — create staff account (admin)
- *   PATCH  /api/auth/users/:id                   — update staff profile (admin)
- *   PATCH  /api/auth/users/:id/status            — activate/deactivate (admin)
- *   POST   /api/auth/users/:id/reset-password    — reset password (admin)
- *   DELETE /api/auth/users/:id                   — delete account (admin)
- *
- * Security features:
- *   - Per-IP + per-username auth rate limiting (via rateLimiter middleware)
- *   - All significant actions are recorded to security_events and audit_logs
- *   - Timing-safe password comparison
- *   - JWT tokens with issuer/audience claims
+ *   POST   /api/auth/change-password             — user password change
+ *   POST   /api/auth/unlock                      — re-verify password to unlock screen
+ *   POST   /api/auth/presence                    — presence heartbeat
+ *   PATCH  /api/auth/profile                     — user updates own phone/gender/avatar
+ *   GET    /api/auth/directory                   — active staff directory
+ *   GET    /api/auth/users                       — list staff (admin/ict)
+ *   POST   /api/auth/create-user                 — create staff account (admin/ict)
+ *   PATCH  /api/auth/users/:id/status            — activate/deactivate (admin/ict)
+ *   POST   /api/auth/users/:id/unlock            — clear rate-limit lockout (admin/ict)
+ *   POST   /api/auth/users/:id/reset-password    — reset password (admin/ict)
+ *   PATCH  /api/auth/users/:id                   — update staff profile (admin/ict)
+ *   DELETE /api/auth/users/:id                   — delete account (admin/ict)
  */
 
+import { Router } from 'express';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { query } from '../db/pool.js';
 import { generateToken, hashPassword, verifyPassword } from '../utils/auth.js';
@@ -33,10 +35,6 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/**
- * Temporary passwords must satisfy validatePassword (uppercase, lowercase and
- * a digit), so they are assembled from explicit character pools.
- */
 function generateTemporaryPassword() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnopqrstuvwxyz';
@@ -90,14 +88,13 @@ function validateAvatarUrl(value) {
 
 function requireAdmin(request, response) {
   if (!request.user || (request.user.role !== 'admin' && request.user.role !== 'ict')) {
-    // Record the attempt
     writeSecurityEvent({
       eventType: SECURITY_EVENT.ACCESS_DENIED,
       userId: request.user?.id,
       username: request.user?.username,
       ipAddress: getClientIp(request),
       requestId: request.requestId,
-      description: `Non-admin tried to access admin auth route: ${request.url}`,
+      description: `Non-admin tried to access admin auth route: ${request.originalUrl || request.url}`,
       metadata: { role: request.user?.role },
     });
     sendError(response, 403, 'Permission denied: administrator access is required');
@@ -106,29 +103,707 @@ function requireAdmin(request, response) {
   return true;
 }
 
-// ── Route Handler ─────────────────────────────────────────────────
+const router = Router();
 
+// ── GET /api/auth/login-background ────────────────────────────────
+router.get('/login-background', async (req, res, next) => {
+  try {
+    const result = await query("SELECT value FROM system_config WHERE key = 'login_background_image' LIMIT 1");
+    return sendJson(res, 200, { data: { image: result.rows[0]?.value || null } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/auth/login ──────────────────────────────────────────
+router.post('/login', async (req, res, next) => {
+  try {
+    const ip = getClientIp(req);
+    assertPlainObject(req.body);
+    const { username, password } = req.body || {};
+    validateText(username, 'Username', { required: true, max: 60 });
+    validateText(password, 'Password', { required: true, max: 128 });
+
+    const maxAttempts = await getConfigNumber('max_login_attempts', 8, { min: 3, max: 20 });
+    const lockoutMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
+    const rateCheck = checkAuthRateLimit(ip, username, { max: maxAttempts, windowMs: lockoutMinutes * 60 * 1000 });
+    if (!rateCheck.allowed) {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.LOGIN_LOCKED,
+        username: String(username).trim().toLowerCase(),
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: `Login locked out for ${lockoutMinutes} minutes after ${maxAttempts} attempts: ${String(username).trim()}`,
+        metadata: { maxAttempts, lockoutMinutes, retryAfterSeconds: rateCheck.retryAfterSeconds },
+      });
+      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
+      return sendError(res, 429, 'Too many sign-in attempts. Try again later.');
+    }
+
+    const result = await query('SELECT * FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1', [String(username).trim()]);
+    const user = result.rows[0];
+
+    if (!user || !user.is_active || !verifyPassword(String(password), user.password_hash)) {
+      const isDeactivated = user && !user.is_active;
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.LOGIN_FAILURE,
+        username: String(username).trim().toLowerCase(),
+        userId: user?.id || null,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: isDeactivated
+          ? `Login attempt on deactivated account: ${String(username).trim()}`
+          : `Invalid credentials for: ${String(username).trim()}`,
+        metadata: { deactivated: isDeactivated },
+      });
+
+      return sendError(
+        res,
+        isDeactivated ? 403 : 401,
+        isDeactivated ? 'This staff account has been deactivated.' : 'Invalid username or password',
+      );
+    }
+
+    clearAuthRateLimit(ip, username);
+    let mustChangePassword = Boolean(user.must_change_password);
+    if (!mustChangePassword) {
+      const defaultPassword = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+      if (defaultPassword.rows[0]?.value && verifyPassword(String(password), defaultPassword.rows[0].value)) {
+        mustChangePassword = true;
+        await query('UPDATE users SET must_change_password = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
+      }
+    }
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [user.id]);
+    const profile = toProfile({ ...user, last_seen_at: new Date().toISOString(), must_change_password: mustChangePassword });
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.LOGIN_SUCCESS,
+      userId: user.id,
+      username: user.username,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Successful login: ${user.username} (${user.role})`,
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: user.id,
+      username: user.username,
+      userRole: user.role,
+      action: AUDIT_ACTION.LOGIN,
+      resource: 'users',
+      resourceId: user.id,
+      summary: `Staff login: ${user.name} (${user.role})`,
+      ipAddress: ip,
+    });
+
+    const sessionHours = await getConfigNumber('session_timeout_hours', 8, { min: 1, max: 72 });
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
+    return sendJson(res, 200, {
+      message: 'Login successful',
+      token: generateToken(profile, { ttlSeconds: sessionHours * 60 * 60 }),
+      user: profile,
+      expiresInSeconds: sessionHours * 60 * 60,
+      idleLockMinutes,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/auth/me ──────────────────────────────────────────────
+router.get('/me', async (req, res, next) => {
+  try {
+    const ip = getClientIp(req);
+    if (!req.user) {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.INVALID_TOKEN,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: 'Unauthenticated /me request',
+      });
+      return sendError(res, 401, 'Authentication required');
+    }
+    const result = await query('SELECT * FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
+    if (!result.rows[0] || !result.rows[0].is_active) {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.SESSION_EXPIRED,
+        userId: req.user.id,
+        username: req.user.username,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: `Session invalidated — account deactivated or deleted: ${req.user.username}`,
+      });
+      return sendError(res, 401, 'Session is no longer valid');
+    }
+    const idleLockMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [req.user.id]);
+    return sendJson(res, 200, { user: toProfile({ ...result.rows[0], last_seen_at: new Date().toISOString() }), idleLockMinutes });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/auth/change-password ────────────────────────────────
+router.post('/change-password', async (req, res, next) => {
+  try {
+    const ip = getClientIp(req);
+    if (!req.user) return sendError(res, 401, 'Authentication required');
+    assertPlainObject(req.body);
+    const { currentPassword, newPassword } = req.body || {};
+    validateText(currentPassword, 'Current password', { required: true, max: 128 });
+    validatePassword(newPassword, 'New password');
+    const result = await query('SELECT password_hash FROM users WHERE id = $1 AND is_active = TRUE LIMIT 1', [req.user.id]);
+    if (!result.rows[0] || !verifyPassword(String(currentPassword), result.rows[0].password_hash)) {
+      return sendError(res, 401, 'Current password is incorrect');
+    }
+    if (verifyPassword(String(newPassword), result.rows[0].password_hash)) {
+      return sendError(res, 422, 'Choose a password different from your current password');
+    }
+    await query(
+      'UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = NOW() WHERE id = $2',
+      [hashPassword(String(newPassword)), req.user.id],
+    );
+    writeAuditLog({
+      requestId: req.requestId, userId: req.user.id, username: req.user.username,
+      userRole: req.user.role, action: AUDIT_ACTION.UPDATE, resource: 'users',
+      resourceId: req.user.id, summary: 'User changed their password', ipAddress: ip,
+    });
+    return sendJson(res, 200, { message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/auth/unlock ─────────────────────────────────────────
+router.post('/unlock', async (req, res, next) => {
+  try {
+    if (!req.user) return sendError(res, 401, 'Authentication required');
+    assertPlainObject(req.body);
+    validateText(req.body.password, 'Password', { required: true, max: 128 });
+    const result = await query('SELECT password_hash, is_active FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
+    if (!result.rows[0]?.is_active || !verifyPassword(String(req.body.password), result.rows[0].password_hash)) {
+      return sendError(res, 401, 'Incorrect password');
+    }
+    return sendJson(res, 200, { message: 'Session unlocked' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/auth/presence ───────────────────────────────────────
+router.post('/presence', async (req, res, next) => {
+  try {
+    if (!req.user) return sendError(res, 401, 'Authentication required');
+    const seenAt = new Date().toISOString();
+    await query('UPDATE users SET last_seen_at = NOW() WHERE id = $1 AND is_active = TRUE', [req.user.id]);
+    return sendJson(res, 200, { lastSeenAt: seenAt });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── PATCH /api/auth/profile ───────────────────────────────────────
+router.patch('/profile', async (req, res, next) => {
+  try {
+    if (!req.user) return sendError(res, 401, 'Authentication required');
+    assertPlainObject(req.body);
+    const { avatarUrl, phone, gender } = req.body || {};
+    validateAvatarUrl(avatarUrl);
+    if (phone !== undefined) {
+      validateText(phone, 'Phone', { required: true, max: 40 });
+      validatePhone(phone);
+    }
+    if (gender !== undefined) validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
+    const updates = []; const values = [];
+    if (avatarUrl !== undefined) { values.push(avatarUrl || null); updates.push(`avatar_url = $${values.length}`); }
+    if (phone !== undefined) { values.push(String(phone).trim()); updates.push(`phone = $${values.length}`); }
+    if (gender !== undefined) { values.push(gender); updates.push(`gender = $${values.length}`); }
+    if (!updates.length) return sendError(res, 422, 'No profile changes were provided');
+    values.push(req.user.id);
+    const updated = await query(`UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`, values);
+    if (!updated.rows[0]) return sendError(res, 404, 'Staff account not found');
+    return sendJson(res, 200, { message: 'Profile updated', user: toProfile(updated.rows[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/auth/directory ───────────────────────────────────────
+router.get('/directory', async (req, res, next) => {
+  try {
+    if (!req.user) return sendError(res, 401, 'Authentication required');
+    await query(
+      'UPDATE users SET last_seen_at = NOW() WHERE id = $1 AND is_active = TRUE',
+      [req.user.id],
+    );
+    const result = await query(
+      'SELECT id, name, username, role, role_title, department, avatar_url, last_seen_at FROM users WHERE is_active = TRUE AND id <> $1 ORDER BY name ASC',
+      [req.user.id],
+    );
+    return sendJson(res, 200, { data: result.rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Staff Management (Requires admin or ict) ──────────────────────
+
+// GET /api/auth/users
+router.get('/users', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const result = await query('SELECT * FROM users ORDER BY created_at ASC');
+    return sendJson(res, 200, { data: result.rows.map(toProfile), total: result.rows.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/create-user
+router.post('/create-user', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    assertPlainObject(req.body);
+    const { name, username, role, roleTitle, department, email, phone, gender } = req.body || {};
+    validateText(name, 'Name', { required: true, max: 150 });
+    validateText(username, 'Username', { required: true, max: 60 });
+    validateText(role, 'Role', { required: true, max: 20 });
+    validateText(roleTitle, 'Role title', { max: 100 });
+    validateText(department, 'Department', { max: 150 });
+    validateEmail(email);
+    validateText(phone, 'Phone', { required: true, max: 40 });
+    validatePhone(phone);
+    validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
+    if (!ALL_ROLES.includes(role)) {
+      return sendError(res, 422, `Invalid role. Allowed: ${ALL_ROLES.join(', ')}`);
+    }
+    if (req.user.role === 'ict' && role === 'admin') {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: req.user.id,
+        username: req.user.username,
+        userRole: req.user.role,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: `ICT user ${req.user.username} attempted to create an Administrator account (blocked)`,
+      });
+      return sendError(res, 403, 'ICT personnel are not permitted to create Administrator accounts');
+    }
+    const normalizedUsername = String(username).trim().toLowerCase();
+    const existing = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1', [normalizedUsername]);
+    if (existing.rows.length) return sendError(res, 409, `An account with username '${username}' already exists`);
+
+    const id = `USR-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const defaultPassword = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+    const defaultPasswordHash = defaultPassword.rows[0]?.value;
+    if (!defaultPasswordHash) {
+      return sendError(res, 409, 'Set the default staff password in Settings before creating user accounts');
+    }
+    const cleanName = String(name).trim();
+    const safeEmail = String(email || `${normalizedUsername}@bru.edu.et`).trim().toLowerCase();
+    const existingEmail = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [safeEmail]);
+    if (existingEmail.rows.length) return sendError(res, 409, `An account with email '${safeEmail}' already exists`);
+    const profile = {
+      id, username: normalizedUsername, name: cleanName, role,
+      roleTitle: String(roleTitle || ROLE_LABELS[role] || role).trim(),
+      department: String(department || ROLE_DEPARTMENTS[role] || 'Clinical Services').trim(),
+      email: safeEmail,
+      phone: String(phone).trim(),
+      gender,
+      avatarInitials: getInitials(cleanName),
+      badgeColor: ROLE_BADGE_COLORS[role] || '#2563eb',
+      isActive: true,
+      mustChangePassword: true,
+    };
+    await query(
+      `INSERT INTO users (id, username, password_hash, name, role, role_title, department, email, phone, gender, avatar_initials, badge_color, is_active, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE, TRUE)`,
+      [id, profile.username, defaultPasswordHash, profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.phone, profile.gender, profile.avatarInitials, profile.badgeColor],
+    );
+
+    if (role === 'opd') {
+      const nameParts = cleanName.replace(/^(Dr\.?|Doctor)\s+/i, '').trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts[0] ? `Dr. ${nameParts[0]}` : 'Dr.';
+      const lastName = nameParts.slice(1).join(' ') || 'Clinician';
+      const specialization = profile.roleTitle || profile.department || 'General Practice';
+      const schedule = JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+      await query(
+        `INSERT INTO doctors (id, first_name, last_name, specialization, email, phone, gender, available, schedule)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8)
+         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, phone = EXCLUDED.phone, gender = EXCLUDED.gender, available = TRUE, updated_at = NOW()`,
+        [id, firstName, lastName, specialization, safeEmail, profile.phone, profile.gender, schedule],
+      );
+    }
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.ACCOUNT_CREATED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `New staff account created: ${cleanName} (${role}) by ${req.user.username} (${req.user.role})`,
+      metadata: { newUserId: id, newRole: role, actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.CREATE,
+      resource: 'users',
+      resourceId: id,
+      summary: `Created staff account: ${cleanName} (${role})`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 201, { message: `Staff account created successfully for ${cleanName}`, user: profile });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/auth/users/:id/status
+router.patch('/users/:id/status', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetId = req.params.id;
+    const { isActive } = req.body || {};
+    if (targetId === req.user.id && !isActive) {
+      return sendError(res, 400, 'You cannot deactivate your own administrative account');
+    }
+    const result = await query('UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2', [Boolean(isActive), targetId]);
+    if (!result.affectedRows) return sendError(res, 404, 'Staff account not found');
+    await query('UPDATE doctors SET available = $1, updated_at = NOW() WHERE id = $2', [Boolean(isActive), targetId]);
+
+    const eventType = isActive ? SECURITY_EVENT.ACCOUNT_REACTIVATED : SECURITY_EVENT.ACCOUNT_DEACTIVATED;
+    writeSecurityEvent({
+      eventType,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Account ${isActive ? 'activated' : 'deactivated'}: ID=${targetId} by ${req.user.username} (${req.user.role})`,
+      metadata: { targetId, isActive: Boolean(isActive), actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.UPDATE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Account status changed: ${isActive ? 'ACTIVATED' : 'DEACTIVATED'} (ID: ${targetId})`,
+      changes: { is_active: { from: !isActive, to: Boolean(isActive) } },
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, { message: 'Staff status updated successfully', isActive: Boolean(isActive) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/users/:id/unlock
+router.post('/users/:id/unlock', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetId = req.params.id;
+    const target = await query('SELECT username, name FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const targetUser = target.rows[0];
+    if (!targetUser) return sendError(res, 404, 'Staff account not found');
+
+    const clearedBuckets = clearAuthRateLimitForUsername(targetUser.username);
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.ACCOUNT_UNLOCKED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Sign-in lock cleared for ${targetUser.username} by ${req.user.username} (${req.user.role})`,
+      metadata: { targetId, targetUsername: targetUser.username, clearedBuckets, actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.UPDATE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Cleared sign-in lock for ${targetUser.name} (${targetUser.username})`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, { message: 'Sign-in lock cleared successfully', clearedBuckets });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/users/:id/reset-password
+router.post('/users/:id/reset-password', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetId = req.params.id;
+    assertPlainObject(req.body);
+    const { newPassword, autoGenerate = false, useDefaultPassword = false } = req.body || {};
+    let passwordHash;
+    let generatedPassword = '';
+    let message = 'Password reset successfully';
+
+    if (useDefaultPassword) {
+      const configured = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
+      passwordHash = configured.rows[0]?.value;
+      if (!passwordHash) {
+        return sendError(res, 409, 'Set the clinic default password in Settings before resetting an account to it');
+      }
+      message = 'Password reset to the clinic default. The user must change it at first sign-in.';
+    } else if (autoGenerate) {
+      generatedPassword = generateTemporaryPassword();
+      validatePassword(generatedPassword, 'Generated password');
+      passwordHash = hashPassword(generatedPassword);
+      message = 'Password reset successfully. Share the temporary password securely.';
+    } else {
+      validatePassword(newPassword, 'New password');
+      passwordHash = hashPassword(String(newPassword));
+    }
+
+    const result = await query('UPDATE users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2', [passwordHash, targetId]);
+    if (!result.affectedRows) return sendError(res, 404, 'Staff account not found');
+    const target = await query('SELECT username FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const clearedBuckets = target.rows[0] ? clearAuthRateLimitForUsername(target.rows[0].username) : 0;
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.PASSWORD_RESET,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Password reset for account ID=${targetId} by ${req.user.username} (${req.user.role})`,
+      metadata: { targetId, mode: useDefaultPassword ? 'default' : autoGenerate ? 'generated' : 'manual', clearedBuckets, actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.UPDATE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Password reset for account ID: ${targetId}${useDefaultPassword ? ' (clinic default password)' : ''}`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, {
+      message,
+      ...(generatedPassword ? { generatedPassword } : {}),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/auth/users/:id
+router.patch('/users/:id', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetId = req.params.id;
+    assertPlainObject(req.body);
+    const { name, username, role, roleTitle, department, email, phone, gender } = req.body;
+    if (name !== undefined) validateText(name, 'Name', { required: true, max: 150 });
+    if (username !== undefined) validateText(username, 'Username', { required: true, max: 60 });
+    if (role !== undefined) validateEnum(role, 'Role', ALL_ROLES, { required: true });
+    if (roleTitle !== undefined) validateText(roleTitle, 'Role title', { required: true, max: 100 });
+    if (department !== undefined) validateText(department, 'Department', { required: true, max: 150 });
+    if (email !== undefined) {
+      validateText(email, 'Email', { required: true, max: 180 });
+      validateEmail(email);
+    }
+    if (phone !== undefined) { validateText(phone, 'Phone', { required: true, max: 40 }); validatePhone(phone); }
+    if (gender !== undefined) validateEnum(gender, 'Gender', ['Male', 'Female'], { required: true });
+
+    const currentAccountResult = await query('SELECT id, username, role FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    const currentAccount = currentAccountResult.rows[0];
+    if (!currentAccount) return sendError(res, 404, 'Staff account not found');
+
+    if (req.user.role === 'ict' && (currentAccount.role === 'admin' || role === 'admin')) {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: req.user.id,
+        username: req.user.username,
+        userRole: req.user.role,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: `ICT user ${req.user.username} attempted unauthorized modification of Administrator account/role (blocked)`,
+      });
+      return sendError(res, 403, 'ICT personnel are not permitted to modify Administrator accounts or assign the Administrator role');
+    }
+
+    const normalizedUsername = username === undefined ? undefined : String(username).trim().toLowerCase();
+    const normalizedEmail = email === undefined ? undefined : String(email).trim().toLowerCase();
+    if (normalizedUsername !== undefined) {
+      const duplicate = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1', [normalizedUsername, targetId]);
+      if (duplicate.rows.length) return sendError(res, 409, `An account with username '${normalizedUsername}' already exists`);
+    }
+    if (normalizedEmail !== undefined) {
+      const duplicate = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1', [normalizedEmail, targetId]);
+      if (duplicate.rows.length) return sendError(res, 409, `An account with email '${normalizedEmail}' already exists`);
+    }
+
+    const fields = {
+      name: name === undefined ? undefined : String(name).trim(),
+      username: normalizedUsername,
+      role,
+      role_title: roleTitle === undefined ? undefined : String(roleTitle).trim(),
+      department: department === undefined ? undefined : String(department).trim(),
+      email: normalizedEmail,
+      phone: phone === undefined ? undefined : String(phone).trim(),
+      gender,
+      avatar_initials: name === undefined ? undefined : getInitials(String(name).trim()),
+      badge_color: role === undefined ? undefined : (ROLE_BADGE_COLORS[role] || '#2563eb'),
+    };
+    const updates = []; const values = [];
+    for (const [column, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        values.push(value);
+        updates.push(`${column} = $${values.length}`);
+      }
+    }
+    if (!updates.length) return sendError(res, 422, 'No profile changes were provided');
+    values.push(targetId);
+    const result = await query(`UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    if (!result.affectedRows) return sendError(res, 404, 'Staff account not found');
+    if (normalizedUsername && normalizedUsername !== currentAccount.username) {
+      clearAuthRateLimitForUsername(currentAccount.username);
+    }
+    const updated = await query('SELECT * FROM users WHERE id = $1', [targetId]);
+    const updatedRow = updated.rows[0];
+
+    if (updatedRow?.role === 'opd') {
+      const nameParts = String(updatedRow.name || '').replace(/^(Dr\.?|Doctor)\s+/i, '').trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts[0] ? `Dr. ${nameParts[0]}` : 'Dr.';
+      const lastName = nameParts.slice(1).join(' ') || 'Clinician';
+      const spec = updatedRow.role_title || updatedRow.department || 'General Practice';
+      await query(
+        `INSERT INTO doctors (id, first_name, last_name, specialization, email, phone, gender, available, schedule)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, specialization = EXCLUDED.specialization, email = EXCLUDED.email, phone = EXCLUDED.phone, gender = EXCLUDED.gender, available = EXCLUDED.available, updated_at = NOW()`,
+        [targetId, firstName, lastName, spec, updatedRow.email || '', updatedRow.phone || '', updatedRow.gender || 'Male', Boolean(updatedRow.is_active), JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])],
+      );
+    } else if (currentAccount.role === 'opd') {
+      await query('UPDATE doctors SET available = FALSE, updated_at = NOW() WHERE id = $1', [targetId]);
+    }
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.PROFILE_UPDATED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Profile updated for account ID=${targetId} by ${req.user.username} (${req.user.role})`,
+      metadata: { targetId, actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.UPDATE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Staff profile updated: ID=${targetId}`,
+      changes: Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined && v !== '')),
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, { message: 'Staff profile updated', user: toProfile(updatedRow) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/auth/users/:id
+router.delete('/users/:id', async (req, res, next) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const ip = getClientIp(req);
+    const targetId = req.params.id;
+    if (targetId === req.user.id) return sendError(res, 400, 'You cannot delete your own administrative account');
+    const target = await query('SELECT username, name, role FROM users WHERE id = $1 LIMIT 1', [targetId]);
+    if (req.user.role === 'ict' && target.rows[0]?.role === 'admin') {
+      writeSecurityEvent({
+        eventType: SECURITY_EVENT.ACCESS_DENIED,
+        userId: req.user.id,
+        username: req.user.username,
+        userRole: req.user.role,
+        ipAddress: ip,
+        requestId: req.requestId,
+        description: `ICT user ${req.user.username} attempted to delete Administrator account ${target.rows[0]?.username} (blocked)`,
+      });
+      return sendError(res, 403, 'ICT personnel cannot delete Administrator accounts');
+    }
+    await query('UPDATE queue_items SET assigned_doctor_id = NULL WHERE assigned_doctor_id = $1', [targetId]);
+    await query('DELETE FROM doctors WHERE id = $1', [targetId]);
+    const result = await query('DELETE FROM users WHERE id = $1', [targetId]);
+    if (!result.affectedRows) return sendError(res, 404, 'Staff account not found');
+
+    writeSecurityEvent({
+      eventType: SECURITY_EVENT.ACCOUNT_DELETED,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      ipAddress: ip,
+      requestId: req.requestId,
+      description: `Staff account deleted: ${target.rows[0]?.name} (${target.rows[0]?.role}) by ${req.user.username} (${req.user.role})`,
+      metadata: { deletedId: targetId, deletedUsername: target.rows[0]?.username, actorRole: req.user.role },
+    });
+    writeAuditLog({
+      requestId: req.requestId,
+      userId: req.user.id,
+      username: req.user.username,
+      userRole: req.user.role,
+      action: AUDIT_ACTION.DELETE,
+      resource: 'users',
+      resourceId: targetId,
+      summary: `Staff account deleted: ${target.rows[0]?.name} (ID: ${targetId})`,
+      ipAddress: ip,
+    });
+
+    return sendJson(res, 200, { message: 'Staff account deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Legacy handler export for backward compatibility
 export async function authHandler(request, response, segments) {
   const action = segments[2];
   const targetId = segments[3];
   const subAction = segments[4];
   const ip = getClientIp(request);
 
-  // The selected background is deliberately public so the login page can
-  // display it before a user has authenticated.
   if (request.method === 'GET' && action === 'login-background') {
     const result = await query("SELECT value FROM system_config WHERE key = 'login_background_image' LIMIT 1");
     return sendJson(response, 200, { data: { image: result.rows[0]?.value || null } });
   }
 
-  // ── POST /api/auth/login ──────────────────────────────────────
   if (request.method === 'POST' && action === 'login') {
     assertPlainObject(request.body);
     const { username, password } = request.body || {};
     validateText(username, 'Username', { required: true, max: 60 });
     validateText(password, 'Password', { required: true, max: 128 });
 
-    // Lockout policy is administrator-editable at runtime (system_config).
     const maxAttempts = await getConfigNumber('max_login_attempts', 8, { min: 3, max: 20 });
     const lockoutMinutes = await getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 });
     const rateCheck = checkAuthRateLimit(ip, username, { max: maxAttempts, windowMs: lockoutMinutes * 60 * 1000 });
@@ -169,12 +844,9 @@ export async function authHandler(request, response, segments) {
       );
     }
 
-    // Login successful
     clearAuthRateLimit(ip, username);
     let mustChangePassword = Boolean(user.must_change_password);
     if (!mustChangePassword) {
-      // Safeguard for pre-existing accounts: if the account still uses the
-      // administrator-configured default password, force a change on this login.
       const defaultPassword = await query("SELECT value FROM system_config WHERE key = 'default_user_password_hash' LIMIT 1");
       if (defaultPassword.rows[0]?.value && verifyPassword(String(password), defaultPassword.rows[0].value)) {
         mustChangePassword = true;
@@ -215,7 +887,6 @@ export async function authHandler(request, response, segments) {
     });
   }
 
-  // ── GET /api/auth/me ─────────────────────────────────────────
   if (request.method === 'GET' && action === 'me') {
     if (!request.user) {
       writeSecurityEvent({
@@ -320,14 +991,12 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { data: result.rows });
   }
 
-  // ── GET /api/auth/users ──────────────────────────────────────
   if (request.method === 'GET' && action === 'users' && !targetId) {
     if (!requireAdmin(request, response)) return;
     const result = await query('SELECT * FROM users ORDER BY created_at ASC');
     return sendJson(response, 200, { data: result.rows.map(toProfile), total: result.rows.length });
   }
 
-  // ── POST /api/auth/create-user ───────────────────────────────
   if (request.method === 'POST' && action === 'create-user') {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
@@ -388,7 +1057,6 @@ export async function authHandler(request, response, segments) {
       [id, profile.username, defaultPasswordHash, profile.name, profile.role, profile.roleTitle, profile.department, profile.email, profile.phone, profile.gender, profile.avatarInitials, profile.badgeColor],
     );
 
-    // Auto-create doctor record for OPD physicians
     if (role === 'opd') {
       const nameParts = cleanName.replace(/^(Dr\.?|Doctor)\s+/i, '').trim().split(/\s+/).filter(Boolean);
       const firstName = nameParts[0] ? `Dr. ${nameParts[0]}` : 'Dr.';
@@ -428,7 +1096,6 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 201, { message: `Staff account created successfully for ${cleanName}`, user: profile });
   }
 
-  // ── PATCH /api/auth/users/:id/status ────────────────────────
   if (request.method === 'PATCH' && action === 'users' && targetId && subAction === 'status') {
     if (!requireAdmin(request, response)) return;
     const { isActive } = request.body || {};
@@ -466,7 +1133,6 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { message: 'Staff status updated successfully', isActive: Boolean(isActive) });
   }
 
-  // ── POST /api/auth/users/:id/unlock ──────────────────────────
   if (request.method === 'POST' && action === 'users' && targetId && subAction === 'unlock') {
     if (!requireAdmin(request, response)) return;
     const target = await query('SELECT username, name FROM users WHERE id = $1 LIMIT 1', [targetId]);
@@ -499,7 +1165,6 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { message: 'Sign-in lock cleared successfully', clearedBuckets });
   }
 
-  // ── POST /api/auth/users/:id/reset-password ──────────────────
   if (request.method === 'POST' && action === 'users' && targetId && subAction === 'reset-password') {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
@@ -558,7 +1223,6 @@ export async function authHandler(request, response, segments) {
     });
   }
 
-  // ── PATCH /api/auth/users/:id ────────────────────────────────
   if (request.method === 'PATCH' && action === 'users' && targetId && !subAction) {
     if (!requireAdmin(request, response)) return;
     assertPlainObject(request.body);
@@ -632,7 +1296,6 @@ export async function authHandler(request, response, segments) {
     const updated = await query('SELECT * FROM users WHERE id = $1', [targetId]);
     const updatedRow = updated.rows[0];
 
-    // Sync doctor record for OPD staff
     if (updatedRow?.role === 'opd') {
       const nameParts = String(updatedRow.name || '').replace(/^(Dr\.?|Doctor)\s+/i, '').trim().split(/\s+/).filter(Boolean);
       const firstName = nameParts[0] ? `Dr. ${nameParts[0]}` : 'Dr.';
@@ -674,7 +1337,6 @@ export async function authHandler(request, response, segments) {
     return sendJson(response, 200, { message: 'Staff profile updated', user: toProfile(updatedRow) });
   }
 
-  // ── DELETE /api/auth/users/:id ───────────────────────────────
   if (request.method === 'DELETE' && action === 'users' && targetId) {
     if (!requireAdmin(request, response)) return;
     if (targetId === request.user.id) return sendError(response, 400, 'You cannot delete your own administrative account');
@@ -723,3 +1385,6 @@ export async function authHandler(request, response, segments) {
 
   return sendError(response, 404, 'Auth route not found');
 }
+
+export default router;
+export { router as authRouter };

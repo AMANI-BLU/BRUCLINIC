@@ -1,7 +1,7 @@
 /**
  * BruClinic — Express API Application
  *
- * Configures the Express app with middleware pipeline and route dispatching.
+ * Configures the Express app with middleware pipeline and Express routers.
  */
 
 import express from 'express';
@@ -13,27 +13,18 @@ import { writeSecurityEvent } from './middleware/auditLogger.js';
 import { SECURITY_EVENT } from './constants/events.js';
 import { verifyToken } from './utils/auth.js';
 import { isMaintenanceMode, getSystemConfig } from './services/systemConfig.js';
-import { healthHandler } from './routes/health.js';
-import { authHandler } from './routes/auth.js';
-import { dashboardSummaryHandler } from './routes/dashboard.js';
-import { adminHandler } from './routes/admin.js';
-import { workflowHandler } from './routes/workflows.js';
-import { messagesHandler } from './routes/messages.js';
-import { resourceDefinitions } from './data/resourceRepository.js';
-import { createResourceHandler } from './routes/resources.js';
+import { healthRouter } from './routes/health.js';
+import { authRouter } from './routes/auth.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { adminRouter } from './routes/admin.js';
+import { workflowsRouter } from './routes/workflows.js';
+import { messagesRouter } from './routes/messages.js';
+import { resourcesRouter } from './routes/resources.js';
 import { logger } from './utils/logger.js';
 
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-
-  // Map of URL segment → resource handler, built from resourceDefinitions
-  const resourceRoutes = new Map(
-    Object.keys(resourceDefinitions).map(resource => [
-      resource.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`),
-      createResourceHandler(resource),
-    ]),
-  );
 
   // 1. Correlation ID
   app.use((req, res, next) => {
@@ -133,24 +124,10 @@ export function createApp() {
   });
 
   // Unauthenticated health check
-  app.get('/api/health', async (req, res, next) => {
-    try {
-      await healthHandler(req, res);
-    } catch (err) {
-      next(err);
-    }
-  });
+  app.use('/api/health', healthRouter);
 
   // Auth endpoints (login, me, users, etc.)
-  app.use('/api/auth', async (req, res, next) => {
-    try {
-      const url = new URL(req.originalUrl || req.url, 'http://localhost');
-      const segments = url.pathname.split('/').filter(Boolean);
-      await authHandler(req, res, segments);
-    } catch (err) {
-      next(err);
-    }
-  });
+  app.use('/api/auth', authRouter);
 
   // ── Authentication barrier for all remaining /api/* endpoints ─────
   app.use('/api', (req, res, next) => {
@@ -183,63 +160,20 @@ export function createApp() {
     }
   });
 
-  // Dashboard summary
-  app.get('/api/dashboard/summary', async (req, res, next) => {
-    try {
-      await dashboardSummaryHandler(req, res);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Dashboard summary router
+  app.use('/api/dashboard', dashboardRouter);
 
-  // Admin routes
-  app.use('/api/admin', async (req, res, next) => {
-    try {
-      const url = new URL(req.originalUrl || req.url, 'http://localhost');
-      const segments = url.pathname.split('/').filter(Boolean);
-      await adminHandler(req, res, segments, url);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Admin router
+  app.use('/api/admin', adminRouter);
 
-  // Clinical workflows
-  app.use('/api/workflows', async (req, res, next) => {
-    try {
-      const url = new URL(req.originalUrl || req.url, 'http://localhost');
-      const segments = url.pathname.split('/').filter(Boolean);
-      await workflowHandler(req, res, segments);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Clinical workflows router
+  app.use('/api/workflows', workflowsRouter);
 
-  // Staff messages
-  app.use('/api/messages', async (req, res, next) => {
-    try {
-      const url = new URL(req.originalUrl || req.url, 'http://localhost');
-      const segments = url.pathname.split('/').filter(Boolean);
-      await messagesHandler(req, res, segments);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Staff messages router
+  app.use('/api/messages', messagesRouter);
 
-  // Resource CRUD (patients, doctors, appointments, etc.)
-  app.use('/api/:resource', async (req, res, next) => {
-    try {
-      const url = new URL(req.originalUrl || req.url, 'http://localhost');
-      const segments = url.pathname.split('/').filter(Boolean);
-      const resourceName = req.params.resource;
-      const handler = resourceRoutes.get(resourceName);
-      if (!handler) {
-        return sendError(res, 404, 'Route not found');
-      }
-      await handler(req, res, segments, url);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Resource CRUD router (patients, doctors, appointments, etc.)
+  app.use('/api', resourcesRouter);
 
   // 404 for unmatched routes
   app.use((req, res) => {

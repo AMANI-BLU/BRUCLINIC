@@ -204,11 +204,19 @@ export function cleanPayload(payload, allowedFields) {
 }
 
 export function parsePagination(searchParams) {
-  const limit = Number.parseInt(searchParams.get('limit') || '100', 10);
-  const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
+  const getParam = (name) => {
+    if (!searchParams) return undefined;
+    if (typeof searchParams.get === 'function') return searchParams.get(name);
+    return searchParams[name];
+  };
+  const limitRaw = getParam('limit');
+  const offsetRaw = getParam('offset');
+  const searchRaw = getParam('search');
+  const limit = Number.parseInt(limitRaw || '100', 10);
+  const offset = Number.parseInt(offsetRaw || '0', 10);
   return {
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 500) : 100,
     offset: Number.isFinite(offset) ? Math.min(Math.max(offset, 0), 1000000) : 0,
-    search: (searchParams.get('search') || '').slice(0, 100),
+    search: (searchRaw || '').slice(0, 100),
   };
 }

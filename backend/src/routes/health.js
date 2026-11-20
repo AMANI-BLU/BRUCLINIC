@@ -13,6 +13,7 @@
  * by load balancers, monitoring tools, and the setup wizard.
  */
 
+import { Router } from 'express';
 import { sendJson } from '../utils/http.js';
 import { isDatabaseConfigured, getPool } from '../db/pool.js';
 import { getSystemConfig, isMaintenanceMode } from '../services/systemConfig.js';
@@ -114,6 +115,18 @@ export async function healthHandler(request, response) {
   const httpStatus = status === 'unhealthy' ? 503 : 200;
   return sendJson(response, httpStatus, payload);
 }
+
+const router = Router();
+router.get('/', async (req, res, next) => {
+  try {
+    await healthHandler(req, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
+export { router as healthRouter };
 
 function formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);
