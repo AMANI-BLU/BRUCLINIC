@@ -799,7 +799,6 @@ export default function StaffAccounts() {
                       if (createTouched['formName']) validateCreateField('formName', e.target.value);
                     }}
                     onBlur={(e) => { setCreateTouched(p => ({ ...p, formName: true })); validateCreateField('formName', e.target.value); }}
-                    style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
                   {createTouched['formName'] && createFieldErrors['formName'] && (
                     <div className="invalid-feedback">{createFieldErrors['formName']}</div>
@@ -816,7 +815,6 @@ export default function StaffAccounts() {
                     className={createFieldClass('formUsername')}
                     onChange={(e) => handleUsernameChange(e.target.value)}
                     onBlur={(e) => { setCreateTouched(p => ({ ...p, formUsername: true })); validateCreateField('formUsername', e.target.value); }}
-                    style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
                   {createTouched['formUsername'] && createFieldErrors['formUsername'] && (
                     <div className="invalid-feedback">{createFieldErrors['formUsername']}</div>
@@ -829,14 +827,13 @@ export default function StaffAccounts() {
                   <select
                     value={formRole}
                     onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-                    style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   >
                     <option value="receptionist">Receptionist (Admissions)</option>
                     <option value="opd">OPD Physician</option>
                     <option value="emergency">Emergency Specialist</option>
                     <option value="pharmacy">Pharmacist</option>
                     <option value="laboratory">Lab Technologist</option>
-                    <option value="ict">ICT Administrator (System & Accounts)</option>
+                    <option value="ict">ICT Administrator (System &amp; Accounts)</option>
                     {currentUser?.role !== 'ict' && <option value="admin">Administrator</option>}
                   </select>
                 </div>
@@ -848,7 +845,6 @@ export default function StaffAccounts() {
                       type="text"
                       value={formRoleTitle}
                       onChange={(e) => setFormRoleTitle(e.target.value)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                     />
                   </div>
 
@@ -858,7 +854,6 @@ export default function StaffAccounts() {
                       type="text"
                       value={formDept}
                       onChange={(e) => setFormDept(e.target.value)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                     />
                   </div>
                 </div>
@@ -875,7 +870,6 @@ export default function StaffAccounts() {
                       if (createTouched['formEmail']) validateCreateField('formEmail', e.target.value);
                     }}
                     onBlur={(e) => { setCreateTouched(p => ({ ...p, formEmail: true })); validateCreateField('formEmail', e.target.value); }}
-                    style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                   />
                   {createTouched['formEmail'] && createFieldErrors['formEmail'] && (
                     <div className="invalid-feedback">{createFieldErrors['formEmail']}</div>
@@ -903,7 +897,6 @@ export default function StaffAccounts() {
                       required
                       value={formGender}
                       onChange={(e) => setFormGender(e.target.value as Gender)}
-                      style={{ height: 32, fontSize: '0.8rem', padding: '0 0.55rem' }}
                     >
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>

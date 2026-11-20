@@ -664,14 +664,15 @@ tbody td { padding: 0.875rem 1rem; color: var(--clr-text-primary); vertical-alig
 .input-group-text {
   display: flex;
   align-items: center;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
+  padding: 0.6rem 0.875rem;
+  font-size: 0.875rem;
   font-weight: 400;
   color: var(--clr-text-secondary);
   background-color: var(--clr-bg-surface, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--clr-border);
   border-radius: var(--radius-md) 0 0 var(--radius-md);
   user-select: none;
+  white-space: nowrap;
 }
 .input-group > input,
 .input-group > select {
@@ -679,6 +680,13 @@ tbody td { padding: 0.875rem 1rem; color: var(--clr-text-primary); vertical-alig
   border-bottom-left-radius: 0 !important;
   flex: 1 1 auto;
   width: 1%;
+  /* Ensure same padding as all other inputs */
+  padding: 0.6rem 0.875rem;
+}
+
+/* PhoneInput wrapper: remove extra form-group bottom margin so it sits flush */
+.input-group + .phone-format-hint {
+  margin-top: 0.2rem;
 }
 
 /* AdminLTE Validation States */

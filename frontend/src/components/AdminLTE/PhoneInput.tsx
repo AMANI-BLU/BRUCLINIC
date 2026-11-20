@@ -118,7 +118,7 @@ export default function PhoneInput({
   const inputClass = `${className} ${hasError ? 'is-invalid' : touched && isComplete ? 'is-valid' : ''}`.trim();
 
   return (
-    <div className="form-group" style={style}>
+    <div style={style}>
       {label && (
         <label className="form-label" htmlFor={id}>
           {label} {required && '*'}
