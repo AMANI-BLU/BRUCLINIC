@@ -733,32 +733,9 @@
   text-align: center;
   padding: 2.5rem;
   gap: 2rem;
-  position: relative;
-  overflow: hidden;
   background:
-    linear-gradient(150deg, rgba(20, 30, 50, 0.94), rgba(15, 45, 80, 0.92)),
+    linear-gradient(150deg, rgba(52, 58, 64, 0.92), rgba(24, 61, 95, 0.9)),
     var(--login-background-image, url('../assets/bg.jpg')) center / cover;
-}
-
-/* Graphic pulse line decoration in the login brand panel */
-.login-simple-card .login-brand-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1.2px, transparent 1.2px);
-  background-size: 18px 18px;
-  pointer-events: none;
-  opacity: 0.8;
-}
-
-.login-simple-card .login-brand-panel::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #2563eb, #38bdf8, #10b981);
 }
 
 .login-simple-card .login-brand-header {

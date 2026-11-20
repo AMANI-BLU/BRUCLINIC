@@ -38,50 +38,25 @@
 .hero-banner {
   position: relative;
   background: linear-gradient(135deg,
-    rgba(10, 25, 52, 0.98) 0%,
-    rgba(15, 35, 72, 0.94) 50%,
-    rgba(8, 20, 44, 0.98) 100%
+    rgba(13, 31, 60, 0.95) 0%,
+    rgba(17, 40, 80, 0.9) 50%,
+    rgba(10, 25, 52, 0.95) 100%
   );
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.2);
   border-radius: 20px;
-  padding: 2.25rem 2.25rem 2.25rem 2.5rem;
+  padding: 2rem 2rem 2rem 2.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
   overflow: hidden;
   min-height: 200px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Technical medical dot-grid overlay */
-.hero-banner::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 20px 20px;
-  pointer-events: none;
-  opacity: 0.75;
-}
-
-/* Luminous bottom neon accent line */
-.hero-banner::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.6) 20%, rgba(14, 165, 233, 0.8) 50%, rgba(139, 92, 246, 0.6) 80%, transparent 100%);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
 }
 
 /* Light mode hero */
 [data-theme="light"] .hero-banner {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #172554 100%);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 30px rgba(30, 58, 138, 0.25);
+  background: linear-gradient(135deg, #1a2d5a 0%, #1e3a6e 50%, #152847 100%);
+  border-color: rgba(255,255,255,0.08);
 }
 
 /* Background orbs */

@@ -43,30 +43,11 @@
 }
 
 .patient-register-section {
-  padding: 1rem;
+  padding: 0.9rem;
   border: 1px solid var(--clr-border);
-  border-left: 3.5px solid var(--clr-primary-400);
-  border-radius: 0.35rem;
+  border-radius: 0.25rem;
   background: var(--clr-bg-surface);
   counter-increment: patient-register-section;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.patient-register-section:nth-of-type(2) {
-  border-left-color: #10b981;
-}
-
-.patient-register-section:nth-of-type(3) {
-  border-left-color: #f59e0b;
-}
-
-.patient-register-section:nth-of-type(4) {
-  border-left-color: #8b5cf6;
-}
-
-.patient-register-section:hover {
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
 .patient-register-form { counter-reset: patient-register-section; }
