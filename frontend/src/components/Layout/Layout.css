@@ -43,9 +43,21 @@
   flex: 0 0 34px;
   object-fit: contain;
   margin: 0 !important;
-  border: 0;
-  outline: 0;
-  box-shadow: none;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
+  animation: logoGlowPulse 4s ease-in-out infinite;
+}
+
+@keyframes logoGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.65), 0 0 24px rgba(14, 165, 233, 0.3);
+    border-color: rgba(147, 197, 253, 0.8);
+  }
 }
 
 .app-brand .brand-text {
@@ -114,16 +126,38 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin-bottom: 0.16rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.25rem;
-  color: rgba(255,255,255,0.68);
+  margin-bottom: 0.2rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.35rem;
+  color: rgba(255,255,255,0.72);
   background: transparent;
   text-align: left;
   font-size: 0.86rem;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.app-sidebar .sidebar-menu .nav-link:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.app-sidebar .sidebar-menu .nav-link.active { color: #fff; background: #007bff; box-shadow: 0 2px 6px rgba(0,0,0,0.16); }
+.app-sidebar .sidebar-menu .nav-link:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.09);
+  transform: translateX(3px);
+}
+.app-sidebar .sidebar-menu .nav-link.active {
+  color: #fff;
+  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.38);
+  font-weight: 600;
+}
+.app-sidebar .sidebar-menu .nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 3.5px;
+  border-radius: 0 4px 4px 0;
+  background: #60a5fa;
+  box-shadow: 0 0 8px #93c5fd;
+}
 .app-sidebar .sidebar-menu .nav-link .nav-icon { width: 1.35rem; margin: 0; flex: 0 0 1.35rem; }
 .app-sidebar .sidebar-menu .nav-link p { display: flex; align-items: center; justify-content: space-between; flex: 1; margin: 0; }
 .app-sidebar .sidebar-menu .nav-link .right { margin-left: auto; opacity: 0.55; }
