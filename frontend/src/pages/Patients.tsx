@@ -8,7 +8,7 @@ import {
   Search, Trash2, Edit2, Eye, X, UserPlus, Users, Send,
   Activity, HeartPulse, FileText, Utensils
 } from 'lucide-react';
-import { firstError, validateEmail, validateName, validateAge, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
+import { firstError, validateEmail, validateName, validateNumber, validatePhone, validateRequired, validateTextLength, sanitizeInput } from '../utils/validation';
 import PhoneInput from '../components/AdminLTE/PhoneInput';
 import { calculatePatientAge, dateOfBirthForAge, patientCode, patientFullName, patientInitials, patientMatchesSearch, patientTypeClass } from '../utils/patient';
 import { diagnosisLabel } from '../utils/diagnosis';
@@ -192,7 +192,7 @@ export default function Patients() {
     if (saving) return;
     // Mark all relevant fields touched on submit
     const fields = ['firstName', 'lastName', 'age', 'phone', 'email', 'emergencyContactPhone'];
-    setTouched(prev => Object.fromEntries(fields.map(f => [f, true])));
+    setTouched(Object.fromEntries(fields.map(f => [f, true])));
     const requiredErrors = validateRequired(form as unknown as Record<string, unknown>, {
       firstName: 'First name',
       lastName: 'Last name',
