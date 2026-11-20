@@ -27,6 +27,9 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
 
+  // Trust reverse proxy headers (Cloudflare, Vercel, Render, AWS, Nginx) for real client IPs
+  app.set('trust proxy', true);
+
   // 1. Correlation ID
   app.use((req, res, next) => {
     attachRequestId(req, res);

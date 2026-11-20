@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { isDatabaseConfigured } from '../db/pool.js';
 import { logger } from '../utils/logger.js';
 import { AUDIT_ACTION, EVENT_SEVERITY, SECURITY_EVENT } from '../constants/events.js';
+import { getClientIp } from './rateLimiter.js';
 
 /** Lazy-load the query function to avoid circular dependencies at startup. */
 async function dbQuery(sql, values) {
@@ -132,9 +133,7 @@ export function auditResourceMutation(request, resource, httpMethod, resourceId,
 }
 
 function _getIp(request) {
-  const forwarded = request.headers?.['x-forwarded-for'];
-  if (forwarded) return String(forwarded).split(',')[0].trim();
-  return request.socket?.remoteAddress || null;
+  return getClientIp(request);
 }
 
 export { AUDIT_ACTION, SECURITY_EVENT };

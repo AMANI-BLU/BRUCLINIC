@@ -153,15 +153,77 @@ export function clearAuthRateLimitForUsername(username) {
   return authLimiter.resetMatching(key => key.endsWith(`:${normalized}`));
 }
 
+export function normalizeIp(ip) {
+  if (!ip || typeof ip !== 'string') return '';
+  let clean = ip.trim();
+  // Strip IPv4-mapped IPv6 prefix (e.g. ::ffff:192.168.1.1 -> 192.168.1.1)
+  if (clean.startsWith('::ffff:')) {
+    clean = clean.slice(7);
+  }
+  // Convert standard IPv6 loopback to readable form or leave as 127.0.0.1
+  if (clean === '::1') {
+    clean = '127.0.0.1';
+  }
+  // Strip port if present (e.g. 192.168.1.1:54321)
+  if (/^(\d{1,3}\.){3}\d{1,3}:\d+$/.test(clean)) {
+    clean = clean.split(':')[0];
+  }
+  return clean;
+}
+
 /**
- * Get the real client IP, respecting common proxy headers.
- * Only trust X-Forwarded-For if behind a known proxy setup.
+ * Get the real client IP, respecting common reverse-proxy and CDN headers.
+ * Supports Cloudflare (CF-Connecting-IP), AWS / Nginx (X-Real-IP),
+ * Akamai (True-Client-IP), standard load balancers (X-Forwarded-For),
+ * Express req.ip (when trust proxy is enabled), and fallback socket address.
+ *
  * @param {import('node:http').IncomingMessage} request
  * @returns {string}
  */
 export function getClientIp(request) {
-  // In production behind a trusted reverse proxy, use X-Forwarded-For
-  const forwarded = request.headers['x-forwarded-for'];
-  if (forwarded) return String(forwarded).split(',')[0].trim();
-  return request.socket?.remoteAddress || 'unknown';
+  if (!request) return 'unknown';
+
+  // 1. Cloudflare provides the actual validated connecting client IP
+  const cfIp = request.headers?.['cf-connecting-ip'];
+  if (cfIp) {
+    const clean = normalizeIp(String(cfIp));
+    if (clean) return clean;
+  }
+
+  // 2. Standard X-Real-IP set by Nginx, Caddy, HAProxy, etc.
+  const realIp = request.headers?.['x-real-ip'];
+  if (realIp) {
+    const clean = normalizeIp(String(realIp));
+    if (clean) return clean;
+  }
+
+  // 3. True-Client-IP header (Akamai, Cloudflare Enterprise)
+  const trueClientIp = request.headers?.['true-client-ip'];
+  if (trueClientIp) {
+    const clean = normalizeIp(String(trueClientIp));
+    if (clean) return clean;
+  }
+
+  // 4. Standard X-Forwarded-For header (leftmost IP is the original client)
+  const forwarded = request.headers?.['x-forwarded-for'];
+  if (forwarded) {
+    const first = String(forwarded).split(',')[0].trim();
+    const clean = normalizeIp(first);
+    if (clean) return clean;
+  }
+
+  // 5. Express trusted proxy IP or req.ip
+  if (request.ip) {
+    const clean = normalizeIp(request.ip);
+    if (clean) return clean;
+  }
+
+  // 6. Direct socket remote address
+  const socketIp = request.socket?.remoteAddress || request.connection?.remoteAddress;
+  if (socketIp) {
+    const clean = normalizeIp(socketIp);
+    if (clean) return clean;
+  }
+
+  return 'unknown';
 }

@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useMaintenance } from '../context/MaintenanceContext';
 import { apiGet, apiPatch, apiPost, apiDelete } from '../api/client';
+import ModalPortal from '../components/ModalPortal';
 import type { AuditLog, SecurityEvent, SystemConfig, HealthStatus, SecurityStats, BannedIp } from '../types';
 import { firstError, validateNumber, validateTextLength } from '../utils/validation';
 import './SecurityCenter.css';
@@ -501,112 +502,116 @@ export default function SecurityCenter() {
             <section className="card sc-section sc-table-section">
               <div className="sc-section-header"><h2><AlertTriangle size={16} /> Top Failed Login IPs (24h)</h2></div>
               {statsLoading ? <div className="sc-loading">Loading…</div> : (
-                <table className="sc-table">
-                  <thead>
-                    <tr>
-                      <th>IP Address</th>
-                      <th>Failed Attempts</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(stats?.topFailedLoginIps || []).length === 0
-                      ? <tr><td colSpan={3} className="sc-empty">No failed logins in the last 24 hours</td></tr>
-                      : stats!.topFailedLoginIps.map(ip => {
-                        const isLoop = ip.ip_address === '127.0.0.1' || ip.ip_address === '::1' || ip.ip_address === 'localhost';
-                        return (
-                          <tr key={ip.ip_address}>
-                            <td><code>{ip.ip_address}</code></td>
-                            <td><span className="sc-count">{ip.count}</span></td>
-                            <td style={{ textAlign: 'right' }}>
-                              {isLoop ? (
-                                <span className="sc-tag-pill muted">Loopback</span>
-                              ) : ip.is_banned ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <span className="sc-tag-pill danger">Banned</span>
+                <div className="sc-table-scroll">
+                  <table className="sc-table">
+                    <thead>
+                      <tr>
+                        <th>IP Address</th>
+                        <th>Failed Attempts</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(stats?.topFailedLoginIps || []).length === 0
+                        ? <tr><td colSpan={3} className="sc-empty">No failed logins in the last 24 hours</td></tr>
+                        : stats!.topFailedLoginIps.map(ip => {
+                          const isLoop = ip.ip_address === '127.0.0.1' || ip.ip_address === '::1' || ip.ip_address === 'localhost';
+                          return (
+                            <tr key={ip.ip_address}>
+                              <td><code>{ip.ip_address}</code></td>
+                              <td><span className="sc-count">{ip.count}</span></td>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                {isLoop ? (
+                                  <span className="sc-tag-pill muted">Loopback</span>
+                                ) : ip.is_banned ? (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                                    <span className="sc-tag-pill danger">Banned</span>
+                                    <button
+                                      type="button"
+                                      className="sc-btn-xs danger-outline"
+                                      onClick={() => handleUnban(ip.ip_address)}
+                                      disabled={unbanningIp === ip.ip_address}
+                                    >
+                                      Unban
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
                                     type="button"
-                                    className="sc-btn-xs danger-outline"
-                                    onClick={() => handleUnban(ip.ip_address)}
-                                    disabled={unbanningIp === ip.ip_address}
+                                    className="sc-btn-xs danger"
+                                    onClick={() => openBanModal(ip.ip_address)}
                                   >
-                                    Unban
+                                    <Ban size={12} /> Ban IP
                                   </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="sc-btn-xs danger"
-                                  onClick={() => openBanModal(ip.ip_address)}
-                                >
-                                  <Ban size={12} /> Ban IP
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
 
             <section className="card sc-section sc-table-section">
               <div className="sc-section-header"><h2><Lock size={16} /> Recent Lockouts</h2></div>
               {statsLoading ? <div className="sc-loading">Loading…</div> : (
-                <table className="sc-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th>
-                      <th>IP</th>
-                      <th>Time</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(stats?.recentLockouts || []).length === 0
-                      ? <tr><td colSpan={4} className="sc-empty">No recent lockouts</td></tr>
-                      : stats!.recentLockouts.map(ev => {
-                        const evIp = ev.ip_address;
-                        const isLoop = !evIp || evIp === '127.0.0.1' || evIp === '::1' || evIp === 'localhost';
-                        return (
-                          <tr key={ev.id}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                <span>{ev.username || '—'}</span>
-                                <ActorBadge role={ev.user_role || ((ev.metadata as Record<string, unknown> | null)?.userRole as string)} />
-                              </div>
-                            </td>
-                            <td><code>{ev.ip_address || '—'}</code></td>
-                            <td className="sc-time">{formatTime(ev.created_at)}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              {isLoop ? null : ev.is_banned ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <span className="sc-tag-pill danger">Banned</span>
+                <div className="sc-table-scroll">
+                  <table className="sc-table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>IP</th>
+                        <th>Time</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(stats?.recentLockouts || []).length === 0
+                        ? <tr><td colSpan={4} className="sc-empty">No recent lockouts</td></tr>
+                        : stats!.recentLockouts.map(ev => {
+                          const evIp = ev.ip_address;
+                          const isLoop = !evIp || evIp === '127.0.0.1' || evIp === '::1' || evIp === 'localhost';
+                          return (
+                            <tr key={ev.id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <span>{ev.username || '—'}</span>
+                                  <ActorBadge role={ev.user_role || ((ev.metadata as Record<string, unknown> | null)?.userRole as string)} />
+                                </div>
+                              </td>
+                              <td><code>{ev.ip_address || '—'}</code></td>
+                              <td className="sc-time">{formatTime(ev.created_at)}</td>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                {isLoop ? null : ev.is_banned ? (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                                    <span className="sc-tag-pill danger">Banned</span>
+                                    <button
+                                      type="button"
+                                      className="sc-btn-xs danger-outline"
+                                      onClick={() => handleUnban(evIp!)}
+                                      disabled={unbanningIp === evIp}
+                                    >
+                                      Unban
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
                                     type="button"
-                                    className="sc-btn-xs danger-outline"
-                                    onClick={() => handleUnban(evIp!)}
-                                    disabled={unbanningIp === evIp}
+                                    className="sc-btn-xs danger"
+                                    onClick={() => openBanModal(evIp!)}
                                   >
-                                    Unban
+                                    <Ban size={12} /> Ban IP
                                   </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="sc-btn-xs danger"
-                                  onClick={() => openBanModal(evIp!)}
-                                >
-                                  <Ban size={12} /> Ban IP
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
           </div>
@@ -940,103 +945,105 @@ export default function SecurityCenter() {
       )}
 
       {/* ── Ban IP Modal ─────────────────────────────────────────── */}
-      {banModalOpen && (
-        <div className="sc-modal-backdrop" onClick={() => !banSubmitting && setBanModalOpen(false)}>
-          <div className="sc-modal-dialog" onClick={e => e.stopPropagation()}>
-            <div className="sc-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div className="sc-modal-icon danger">
-                  <ShieldOff size={18} />
-                </div>
-                <h3 className="sc-modal-title">Ban IP Address</h3>
-              </div>
-              <button
-                type="button"
-                className="sc-btn-icon"
-                onClick={() => !banSubmitting && setBanModalOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleBanSubmit}>
-              <div className="sc-modal-body">
-                {banModalError && (
-                  <div className="sc-modal-alert danger">
-                    <AlertCircle size={15} />
-                    <span>{banModalError}</span>
+      <ModalPortal>
+        {banModalOpen && (
+          <div className="sc-modal-backdrop" onClick={() => !banSubmitting && setBanModalOpen(false)}>
+            <div className="sc-modal-dialog" onClick={e => e.stopPropagation()}>
+              <div className="sc-modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div className="sc-modal-icon danger">
+                    <ShieldOff size={18} />
                   </div>
-                )}
-
-                <div className="sc-form-group">
-                  <label htmlFor="ban-ip">IP Address <span className="req">*</span></label>
-                  <input
-                    id="ban-ip"
-                    type="text"
-                    className="sc-input"
-                    placeholder="e.g. 192.168.1.100 or 197.156.x.x"
-                    value={banIpInput}
-                    onChange={e => setBanIpInput(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                  <span className="sc-field-help">IPv4 or IPv6 address. Loopback addresses (127.0.0.1, ::1) cannot be banned.</span>
+                  <h3 className="sc-modal-title">Ban IP Address</h3>
                 </div>
-
-                <div className="sc-form-group">
-                  <label htmlFor="ban-duration">Ban Duration</label>
-                  <select
-                    id="ban-duration"
-                    className="sc-select"
-                    value={banDuration}
-                    onChange={e => setBanDuration(e.target.value)}
-                  >
-                    <option value="1h">1 Hour (Temporary Lockout)</option>
-                    <option value="24h">24 Hours (Standard Quarantine)</option>
-                    <option value="7d">7 Days (Extended Watch)</option>
-                    <option value="30d">30 Days (High Risk)</option>
-                    <option value="permanent">Permanent (Until Manually Lifted)</option>
-                  </select>
-                </div>
-
-                <div className="sc-form-group">
-                  <label htmlFor="ban-reason">Reason</label>
-                  <textarea
-                    id="ban-reason"
-                    className="sc-textarea"
-                    rows={3}
-                    placeholder="Specify the reason for banning this IP (e.g. repeated brute-force login attempts)..."
-                    value={banReasonInput}
-                    onChange={e => setBanReasonInput(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="sc-modal-footer">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={() => setBanModalOpen(false)}
-                  disabled={banSubmitting}
+                  className="sc-btn-icon"
+                  onClick={() => !banSubmitting && setBanModalOpen(false)}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-danger btn-sm"
-                  disabled={banSubmitting || !banIpInput.trim()}
-                >
-                  {banSubmitting ? (
-                    <><RefreshCw size={14} className="sc-spin" /> Banning IP…</>
-                  ) : (
-                    <><Ban size={14} /> Confirm Ban</>
-                  )}
+                  <X size={18} />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleBanSubmit}>
+                <div className="sc-modal-body">
+                  {banModalError && (
+                    <div className="sc-modal-alert danger">
+                      <AlertCircle size={15} />
+                      <span>{banModalError}</span>
+                    </div>
+                  )}
+
+                  <div className="sc-form-group">
+                    <label htmlFor="ban-ip">IP Address <span className="req">*</span></label>
+                    <input
+                      id="ban-ip"
+                      type="text"
+                      className="sc-input"
+                      placeholder="e.g. 192.168.1.100 or 197.156.x.x"
+                      value={banIpInput}
+                      onChange={e => setBanIpInput(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                    <span className="sc-field-help">IPv4 or IPv6 address. Loopback addresses (127.0.0.1, ::1) cannot be banned.</span>
+                  </div>
+
+                  <div className="sc-form-group">
+                    <label htmlFor="ban-duration">Ban Duration</label>
+                    <select
+                      id="ban-duration"
+                      className="sc-select"
+                      value={banDuration}
+                      onChange={e => setBanDuration(e.target.value)}
+                    >
+                      <option value="1h">1 Hour (Temporary Lockout)</option>
+                      <option value="24h">24 Hours (Standard Quarantine)</option>
+                      <option value="7d">7 Days (Extended Watch)</option>
+                      <option value="30d">30 Days (High Risk)</option>
+                      <option value="permanent">Permanent (Until Manually Lifted)</option>
+                    </select>
+                  </div>
+
+                  <div className="sc-form-group">
+                    <label htmlFor="ban-reason">Reason</label>
+                    <textarea
+                      id="ban-reason"
+                      className="sc-textarea"
+                      rows={3}
+                      placeholder="Specify the reason for banning this IP (e.g. repeated brute-force login attempts)..."
+                      value={banReasonInput}
+                      onChange={e => setBanReasonInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="sc-modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => setBanModalOpen(false)}
+                    disabled={banSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-danger btn-sm"
+                    disabled={banSubmitting || !banIpInput.trim()}
+                  >
+                    {banSubmitting ? (
+                      <><RefreshCw size={14} className="sc-spin" /> Banning IP…</>
+                    ) : (
+                      <><Ban size={14} /> Confirm Ban</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }
