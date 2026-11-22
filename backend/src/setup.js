@@ -129,6 +129,29 @@ async function testDatabaseConnection(config) {
     await client.query('SELECT 1');
     return { success: true };
   } catch (err) {
+    // If the database does not exist (code 3D000), attempt to create it automatically
+    if (err.code === '3D000') {
+      let adminClient;
+      try {
+        const { Client } = await import('pg');
+        adminClient = new Client({
+          host: config.dbHost || 'localhost',
+          port: parseInt(config.dbPort || '5432', 10),
+          user: config.dbUser,
+          password: config.dbPassword,
+          database: 'postgres',
+          connectionTimeoutMillis: 5000,
+        });
+        await adminClient.connect();
+        await adminClient.query(`CREATE DATABASE "${(config.dbName || 'bruclinic').replace(/"/g, '""')}"`);
+        await adminClient.end();
+        return { success: true, created: true };
+      } catch (createErr) {
+        // Fall through to return the original error message if auto-create fails
+      } finally {
+        if (adminClient) await adminClient.end().catch(() => {});
+      }
+    }
     return { success: false, error: err.message, code: err.code };
   } finally {
     if (client) await client.end().catch(() => {});
