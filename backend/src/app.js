@@ -206,9 +206,11 @@ export function createApp() {
     const DB_UNAVAILABLE_CODES = [
       'ECONNREFUSED', 'ECONNRESET', 'ECONNABORTED',
       'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'ENETUNREACH',
-      '57P01', '57P03', '08000', '08003', '08006', '28000', '3D000',
+      '57P01', '57P03', '08000', '08003', '08006', '28000', '28P01', '3D000',
+      '42P01', '42703',
     ];
-    const dbUnavailable = DB_UNAVAILABLE_CODES.includes(error.code);
+    const isDbConfigError = error.name === 'DatabaseNotConfiguredError';
+    const dbUnavailable = DB_UNAVAILABLE_CODES.includes(error.code) || isDbConfigError;
     const status = error.statusCode || error.status || (dbUnavailable ? 503 : 500);
 
     if (status >= 500) {
@@ -226,17 +228,26 @@ export function createApp() {
       if (!dbUnavailable) {
         return error.publicMessage || (status >= 500 ? 'Internal server error' : error.message);
       }
+      if (isDbConfigError) {
+        return 'Database configuration is incomplete. Check DB settings in backend/.env';
+      }
       if (error.code === 'ETIMEDOUT' || error.code === 'EHOSTUNREACH' || error.code === 'ENETUNREACH') {
         return `Cannot reach the database server (${env.dbHost}:${env.dbPort}). Check that PostgreSQL is running and verify DB_HOST/DB_PORT in .env`;
       }
       if (error.code === 'ECONNREFUSED') {
         return `PostgreSQL is not accepting connections on ${env.dbHost}:${env.dbPort}. Start the PostgreSQL service.`;
       }
-      if (error.code === '28000') {
-        return 'Database access denied. Check DB_USER and DB_PASSWORD in .env';
+      if (error.code === '28000' || error.code === '28P01') {
+        return 'Database access denied. Check DB_USER and DB_PASSWORD in backend/.env';
       }
       if (error.code === '3D000') {
         return `Database "${env.dbName}" does not exist. Create it and run: npm run db:migrate`;
+      }
+      if (error.code === '42P01') {
+        return 'Database tables are missing. Please run: npm run db:migrate';
+      }
+      if (error.code === '42703') {
+        return 'Database schema is outdated (missing column). Please run: npm run db:migrate';
       }
       return 'The database is unavailable. Ensure PostgreSQL is running and DB settings in .env are correct.';
     })();

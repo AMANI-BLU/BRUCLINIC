@@ -45,8 +45,19 @@ async function main() {
   // 1. Check local PostgreSQL
   process.stdout.write(`  [1/3] Checking local database (localhost:5432)... `);
   const dbRunning = await checkPort(5432);
+  const isWin = process.platform === 'win32';
+  const npmCmd = isWin ? 'npm.cmd' : 'npm';
+
   if (dbRunning) {
     console.log(`${C.green}${C.bold}READY${C.reset}`);
+    process.stdout.write(`        Applying database migrations... `);
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync(`${npmCmd} run db:migrate`, { cwd: path.join(ROOT, 'backend'), stdio: 'pipe' });
+      console.log(`${C.green}${C.bold}UP TO DATE${C.reset}`);
+    } catch (migErr) {
+      console.log(`${C.yellow}CHECK FAILED (${migErr.message?.split('\n')[0] || 'error'})${C.reset}`);
+    }
   } else {
     console.log(`${C.yellow}${C.bold}NOT DETECTED${C.reset}`);
     console.log(`\n  ${C.yellow}⚠ Warning: Local PostgreSQL is not listening on port 5432.${C.reset}`);
@@ -58,8 +69,6 @@ async function main() {
 
   // 2. Start backend
   console.log(`  [2/3] Starting backend API on ${C.cyan}http://localhost:4000${C.reset}...`);
-  const isWin = process.platform === 'win32';
-  const npmCmd = isWin ? 'npm.cmd' : 'npm';
 
   const backend = spawn(npmCmd, ['run', 'start'], {
     cwd: path.join(ROOT, 'backend'),
