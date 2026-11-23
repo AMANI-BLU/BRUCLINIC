@@ -90,13 +90,16 @@ function groupLabOrders(orders: LabOrder[]) {
 }
 
 function formatSecurityTitle(e: SecurityEvent): string {
+  if (e.event_type === 'SECURITY_IP_BANNED' || e.description?.toLowerCase().includes('banned ip')) {
+    return `Banned IP Blocked: ${e.ip_address || 'IP'}`;
+  }
   switch (e.event_type) {
     case 'AUTH_LOGIN_LOCKED':     return `Account Locked: ${e.username ?? 'user'}`;
     case 'ACCOUNT_DELETED':       return `Account Deleted: ${e.username ?? 'user'}`;
     case 'ACCOUNT_DEACTIVATED':   return `Account Deactivated: ${e.username ?? 'user'}`;
     case 'ACCOUNT_UNLOCKED':      return `Account Unlocked: ${e.username ?? 'user'}`;
     case 'ACCOUNT_CREATED':       return `Account Created: ${e.username ?? 'user'}`;
-    case 'AUTHZ_ROLE_ESCALATION':
+    case 'AUTHZ_ROLE_ESCALATION': return `Role Escalation: ${e.username ?? 'user'}`;
     case 'AUTHZ_ACCESS_DENIED':   return `Access Denied: ${e.username ?? 'user'}`;
     default: return e.event_type?.replace(/_/g, ' ') ?? 'Security Event';
   }
@@ -134,6 +137,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       'ACCOUNT_CREATED',
       'AUTHZ_ROLE_ESCALATION',
       'AUTHZ_ACCESS_DENIED',
+      'SECURITY_IP_BANNED',
     ];
 
     const fetchSecurityAlerts = async () => {
@@ -146,10 +150,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const now = Date.now();
         const ONE_DAY_MS = 24 * 60 * 60 * 1000;
         const userCreatedTime = currentUser?.createdAt ? new Date(currentUser.createdAt).getTime() : 0;
+        const seenBannedIps = new Set<string>();
 
         const newAlerts: ClinicAlert[] = events
           .filter(e => {
-            if (!WATCHED_EVENTS.includes(e.event_type ?? '')) return false;
+            const eventType = e.event_type ?? '';
+            if (!WATCHED_EVENTS.includes(eventType)) return false;
             if (e.created_at) {
               const eventTime = new Date(e.created_at).getTime();
               // Live alerts are strictly for recent events within 24 hours
@@ -159,19 +165,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 return false;
               }
             }
+            // Consolidate repeated blocks from the same banned IP into 1 single notification
+            const isBannedIpEvent = eventType === 'SECURITY_IP_BANNED' || e.description?.toLowerCase().includes('banned ip');
+            if (isBannedIpEvent) {
+              const ipKey = e.ip_address || 'unknown';
+              if (seenBannedIps.has(ipKey)) return false;
+              seenBannedIps.add(ipKey);
+            }
             return true;
           })
-          .map(e => ({
-            id: `sec-${e.id || e.event_type || 'event'}`,
-            category: 'security' as const,
-            categoryLabel: 'Security',
-            priority: (e.severity === 'critical' ? 'critical' : e.severity === 'warning' ? 'urgent' : 'normal') as 'critical' | 'urgent' | 'normal',
-            title: formatSecurityTitle(e),
-            message: e.description ?? e.event_type ?? 'Security event',
-            time: e.created_at ? new Date(e.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : undefined,
-            link: '/security',
-            icon: e.event_type === 'AUTH_LOGIN_LOCKED' ? Lock : ShieldAlert,
-          }));
+          .map(e => {
+            const isBannedIpEvent = e.event_type === 'SECURITY_IP_BANNED' || e.description?.toLowerCase().includes('banned ip');
+            return {
+              id: isBannedIpEvent ? `sec-banned-ip-${e.ip_address || e.id || 'unknown'}` : `sec-${e.id || e.event_type || 'event'}`,
+              category: 'security' as const,
+              categoryLabel: 'Security',
+              priority: (e.severity === 'critical' ? 'critical' : e.severity === 'warning' ? 'urgent' : 'normal') as 'critical' | 'urgent' | 'normal',
+              title: formatSecurityTitle(e),
+              message: isBannedIpEvent ? `Blocked connection attempts from banned IP: ${e.ip_address || 'device'}` : (e.description ?? e.event_type ?? 'Security event'),
+              time: e.created_at ? new Date(e.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : undefined,
+              link: '/security',
+              icon: isBannedIpEvent ? ShieldAlert : (e.event_type === 'AUTH_LOGIN_LOCKED' ? Lock : ShieldAlert),
+            };
+          });
         setSecurityAlerts(newAlerts);
       } catch {
         // Silently ignore — security events are supplementary

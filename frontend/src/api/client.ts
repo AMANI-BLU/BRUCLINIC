@@ -55,9 +55,56 @@ async function request<T>(path: string, options: RequestOptions = {}, token?: st
   let payload: any = null;
   try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
   if (!response.ok) {
+    if (response.status === 403) {
+      const isBannedHeader = response.headers.get('x-ip-banned') === 'true';
+      const isBannedCode = payload?.code === 'IP_BANNED';
+      const isBannedMessage = String(payload?.error || payload?.message || '').toLowerCase().includes('banned');
+      if (isBannedHeader || isBannedCode || isBannedMessage) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('bruclinic:ip-banned', {
+              detail: {
+                isBanned: true,
+                ip: payload?.ip || payload?.details?.ip,
+                message: payload?.error || payload?.message,
+              },
+            })
+          );
+        }
+      }
+    }
     throw new ApiError(payload?.error || payload?.message || `Request failed (${response.status})`, response.status);
   }
   return payload as T;
+}
+
+/** Check whether this client's IP address is currently banned. */
+export async function checkIpBanStatus(): Promise<{ banned: boolean; ip?: string; message?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/health`, { method: 'GET', headers: { Accept: 'application/json' } });
+    const text = await res.text();
+    let payload: any = null;
+    try { payload = text ? JSON.parse(text) : null; } catch {}
+    if (
+      res.status === 403 &&
+      (res.headers.get('x-ip-banned') === 'true' ||
+        payload?.code === 'IP_BANNED' ||
+        String(payload?.error || '').toLowerCase().includes('banned'))
+    ) {
+      const ip = payload?.ip || payload?.details?.ip;
+      const message = payload?.error || payload?.message;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bruclinic:ip-banned', { detail: { isBanned: true, ip, message } }));
+      }
+      return { banned: true, ip, message };
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bruclinic:ip-banned', { detail: { isBanned: false } }));
+    }
+    return { banned: false };
+  } catch {
+    return { banned: false };
+  }
 }
 
 export function apiGet<T>(path: string, token?: string | null) {

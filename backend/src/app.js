@@ -67,18 +67,33 @@ export function createApp() {
     next();
   });
 
-  // 4b. Global IP ban check (blocks banned IPs across all incoming requests)
+  // 4b. Global IP ban check (blocks banned IPs across all incoming requests).
+  // Log at most ONE security event per IP per 60 seconds to prevent notification
+  // floods when a banned device keeps retrying (browser auto-refresh, polling, etc.)
+  const ipBanLogThrottle = new Map(); // ip -> lastLoggedAt (ms timestamp)
+  const IP_BAN_LOG_INTERVAL_MS = 60_000;
+
   app.use(async (req, res, next) => {
     try {
       const ip = getClientIp(req);
       if (await isIpBanned(ip)) {
-        writeSecurityEvent({
-          eventType: SECURITY_EVENT.ACCESS_DENIED,
-          ipAddress: ip,
-          requestId: req.requestId,
-          description: `Blocked request from banned IP: ${ip} on ${req.method} ${req.originalUrl || req.url}`,
+        const now = Date.now();
+        const lastLogged = ipBanLogThrottle.get(ip) || 0;
+        if (now - lastLogged >= IP_BAN_LOG_INTERVAL_MS) {
+          ipBanLogThrottle.set(ip, now);
+          writeSecurityEvent({
+            eventType: SECURITY_EVENT.IP_BANNED,
+            ipAddress: ip,
+            requestId: req.requestId,
+            description: `Blocked request from banned IP: ${ip} on ${req.method} ${req.originalUrl || req.url}`,
+          });
+        }
+        res.setHeader('X-IP-Banned', 'true');
+        return sendJson(res, 403, {
+          error: 'Your IP address has been banned by clinic security administration.',
+          code: 'IP_BANNED',
+          ip,
         });
-        return sendError(res, 403, 'Your IP address has been banned by clinic security administration.');
       }
     } catch (_) {}
     next();

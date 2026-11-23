@@ -1,0 +1,204 @@
+.banned-page-container {
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--clr-bg-primary, #0f172a);
+  color: var(--clr-text-primary, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.banned-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.banned-glow-1 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, #ef4444 0%, transparent 70%);
+  top: -100px;
+  left: -100px;
+}
+
+.banned-glow-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #f97316 0%, transparent 70%);
+  bottom: -150px;
+  right: -100px;
+}
+
+.banned-card {
+  max-width: 560px;
+  width: 100%;
+  background: var(--clr-surface, rgba(30, 41, 59, 0.85));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--clr-border, rgba(239, 68, 68, 0.25));
+  border-radius: 1.25rem;
+  padding: 2.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.banned-badge-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.banned-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 2rem;
+}
+
+.banned-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 2px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  animation: pulseBan 3s infinite ease-in-out;
+}
+
+@keyframes pulseBan {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.2);
+  }
+}
+
+.banned-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--clr-text-primary, #ffffff);
+  letter-spacing: -0.02em;
+}
+
+.banned-message {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--clr-text-secondary, #94a3b8);
+  margin-bottom: 1.5rem;
+}
+
+.banned-details-box {
+  background: var(--clr-bg-secondary, rgba(15, 23, 42, 0.6));
+  border: 1px solid var(--clr-border, rgba(255, 255, 255, 0.08));
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  margin-bottom: 1.75rem;
+  font-size: 0.86rem;
+}
+
+.banned-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--clr-border, rgba(255, 255, 255, 0.05));
+}
+
+.banned-detail-row:last-child {
+  border-bottom: none;
+}
+
+.banned-detail-label {
+  color: var(--clr-text-muted, #64748b);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.banned-detail-value {
+  color: var(--clr-text-primary, #f1f5f9);
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.banned-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.banned-btn-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #2563eb;
+  border: none;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.banned-btn-check:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.banned-btn-check:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.banned-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.banned-help-text {
+  font-size: 0.8rem;
+  color: var(--clr-text-muted, #64748b);
+  margin-top: 1.25rem;
+  line-height: 1.45;
+}
+
+.banned-help-text strong {
+  color: var(--clr-text-secondary, #94a3b8);
+}

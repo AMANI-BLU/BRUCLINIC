@@ -34,6 +34,8 @@ import AdminBackup         from './pages/AdminBackup';
 import PasswordChangeForm  from './components/PasswordChangeForm';
 import Messages            from './pages/Messages';
 import Notifications       from './pages/Notifications';
+import BannedPage          from './pages/BannedPage';
+import { checkIpBanStatus } from './api/client';
 import { NotificationProvider } from './context/NotificationContext';
 
 // ── Role permission map ───────────────────────────────────────────
@@ -61,12 +63,51 @@ function AppRoutes() {
   const { token, isAuthenticated, currentUser, authLoading } = useAuth();
   const { enabled: maintenance, message: maintenanceMessage, checking: maintenanceChecking, refresh: refreshMaintenance } = useMaintenance();
   const [adminSignIn, setAdminSignIn] = useState(false);
+  const [bannedInfo, setBannedInfo] = useState<{ isBanned: boolean; ip?: string; message?: string }>(() => {
+    try {
+      const saved = sessionStorage.getItem('bruclinic:banned_ip_state');
+      return saved ? JSON.parse(saved) : { isBanned: false };
+    } catch {
+      return { isBanned: false };
+    }
+  });
   const location = useLocation();
   const isLoginRoute = location.pathname === '/login';
 
   useEffect(() => {
+    // Probe health to check if client IP is currently banned
+    void checkIpBanStatus();
+
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isBanned: boolean; ip?: string; message?: string }>;
+      const detail = customEvent.detail;
+      setBannedInfo(detail);
+      try {
+        if (detail.isBanned) {
+          sessionStorage.setItem('bruclinic:banned_ip_state', JSON.stringify(detail));
+        } else {
+          sessionStorage.removeItem('bruclinic:banned_ip_state');
+        }
+      } catch {}
+    };
+    window.addEventListener('bruclinic:ip-banned', handler);
+    return () => window.removeEventListener('bruclinic:ip-banned', handler);
+  }, []);
+
+  useEffect(() => {
     if (!maintenance) setAdminSignIn(false);
   }, [maintenance]);
+
+  // If this device's IP is banned by security administration, display the banned page takeover
+  if (bannedInfo.isBanned || location.pathname === '/banned') {
+    return (
+      <BannedPage
+        ip={bannedInfo.ip}
+        message={bannedInfo.message}
+        onClear={() => setBannedInfo({ isBanned: false })}
+      />
+    );
+  }
 
   // Only a stored session is worth blocking the app for. Visitors without a
   // token go straight to the login screen, and the login route always gets a
@@ -104,6 +145,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
+      <Route
+        path="/banned"
+        element={<BannedPage ip={bannedInfo.ip} message={bannedInfo.message} onClear={() => setBannedInfo({ isBanned: false })} />}
+      />
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to={landingPage} replace /> : <Login />}
