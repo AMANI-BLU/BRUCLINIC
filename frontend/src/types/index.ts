@@ -477,6 +477,8 @@ export interface SecurityStats {
   };
   activeStaffCount: number;
   bannedIpCount?: number;
+  /** Accounts currently locked in the rate limiter (real-time, not historical). */
+  currentlyLockedCount?: number;
   topFailedLoginIps: Array<{ ip_address: string; count: number; is_banned?: boolean }>;
   recentLockouts: Array<SecurityEvent & { is_banned?: boolean }>;
 }

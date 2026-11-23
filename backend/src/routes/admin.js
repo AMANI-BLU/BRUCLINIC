@@ -27,8 +27,8 @@ import { hashPassword } from '../utils/auth.js';
 import { openSecret, sealSecret } from '../utils/secrets.js';
 import { writeAuditLog, writeSecurityEvent } from '../middleware/auditLogger.js';
 import { AUDIT_ACTION, SECURITY_EVENT } from '../constants/events.js';
-import { checkAdminRateLimit, getClientIp } from '../middleware/rateLimiter.js';
-import { invalidateSystemConfig } from '../services/systemConfig.js';
+import { checkAdminRateLimit, getClientIp, authLimiter } from '../middleware/rateLimiter.js';
+import { invalidateSystemConfig, getConfigNumber } from '../services/systemConfig.js';
 import {
   createBackup, getTableStats, listBackupRuns, recordBackupRun, restoreBackup, validateBackup,
 } from '../services/backup.js';
@@ -467,6 +467,7 @@ router.get('/stats', async (req, res, next) => {
     const [
       totalLogins, failedLogins24h, criticalEvents24h, auditActions24h,
       topFailedIps, recentLockouts, activeUsers, bannedCount,
+      maxAttempts, lockoutMinutes,
     ] = await Promise.all([
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_SUCCESS' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours'`),
@@ -483,7 +484,13 @@ router.get('/stats', async (req, res, next) => {
              WHERE se.event_type = 'AUTH_LOGIN_LOCKED' ORDER BY se.created_at DESC LIMIT 10`),
       query(`SELECT COUNT(*) AS total FROM users WHERE is_active = TRUE`),
       query(`SELECT COUNT(*) AS total FROM banned_ips WHERE expires_at IS NULL OR expires_at > NOW()`),
+      getConfigNumber('max_login_attempts', 8, { min: 3, max: 20 }),
+      getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 }),
     ]);
+
+    // Count accounts that are CURRENTLY locked in the in-memory rate limiter.
+    // This reflects real-time lock state — unlocked accounts are not included.
+    const currentlyLockedCount = authLimiter.getLockedCount(maxAttempts, lockoutMinutes * 60 * 1000);
 
     return sendJson(res, 200, {
       data: {
@@ -495,6 +502,7 @@ router.get('/stats', async (req, res, next) => {
         },
         activeStaffCount: Number(activeUsers.rows[0]?.total || 0),
         bannedIpCount: Number(bannedCount.rows[0]?.total || 0),
+        currentlyLockedCount,
         topFailedLoginIps: topFailedIps.rows,
         recentLockouts: recentLockouts.rows,
       },
@@ -960,6 +968,7 @@ export async function adminHandler(request, response, segments, url) {
     const [
       totalLogins, failedLogins24h, criticalEvents24h, auditActions24h,
       topFailedIps, recentLockouts, activeUsers, bannedCount,
+      maxAttempts, lockoutMinutes,
     ] = await Promise.all([
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_SUCCESS' AND created_at >= NOW() - INTERVAL '24 hours'`),
       query(`SELECT COUNT(*) AS total FROM security_events WHERE event_type = 'AUTH_LOGIN_FAILURE' AND created_at >= NOW() - INTERVAL '24 hours'`),
@@ -976,7 +985,11 @@ export async function adminHandler(request, response, segments, url) {
              WHERE se.event_type = 'AUTH_LOGIN_LOCKED' ORDER BY se.created_at DESC LIMIT 10`),
       query(`SELECT COUNT(*) AS total FROM users WHERE is_active = TRUE`),
       query(`SELECT COUNT(*) AS total FROM banned_ips WHERE expires_at IS NULL OR expires_at > NOW()`),
+      getConfigNumber('max_login_attempts', 8, { min: 3, max: 20 }),
+      getConfigNumber('login_lockout_minutes', 15, { min: 1, max: 60 }),
     ]);
+
+    const currentlyLockedCount = authLimiter.getLockedCount(maxAttempts, lockoutMinutes * 60 * 1000);
 
     return sendJson(response, 200, {
       data: {
@@ -988,6 +1001,7 @@ export async function adminHandler(request, response, segments, url) {
         },
         activeStaffCount: Number(activeUsers.rows[0]?.total || 0),
         bannedIpCount: Number(bannedCount.rows[0]?.total || 0),
+        currentlyLockedCount,
         topFailedLoginIps: topFailedIps.rows,
         recentLockouts: recentLockouts.rows,
       },

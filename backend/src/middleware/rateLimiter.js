@@ -74,6 +74,27 @@ class RateLimiter {
       if (bucket.start < cutoff) this.buckets.delete(key);
     }
   }
+
+  /**
+   * Count how many keys are currently locked (exceeded the limit and still
+   * within their active window). Used for the ICT dashboard "Locked Accounts"
+   * KPI so it reflects the real-time lock state rather than historical events.
+   *
+   * @param {number} max       - Current max attempts policy (from system_config)
+   * @param {number} windowMs  - Current window duration policy (from system_config)
+   * @returns {number}
+   */
+  getLockedCount(max, windowMs) {
+    const now = Date.now();
+    let count = 0;
+    for (const bucket of this.buckets.values()) {
+      const effectiveWindow = bucket.windowMs ?? windowMs;
+      if (bucket.count > max && now - bucket.start <= effectiveWindow) {
+        count += 1;
+      }
+    }
+    return count;
+  }
 }
 
 // Tier 1: Global per-IP limiter — 300 req / 60s

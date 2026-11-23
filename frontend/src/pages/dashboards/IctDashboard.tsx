@@ -106,7 +106,7 @@ export default function IctDashboard() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [backupMeta, setBackupMeta] = useState<BackupMeta>({});
   const [staffCount, setStaffCount] = useState<number | null>(null);
-  const [recentLockoutsCount, setRecentLockoutsCount] = useState<number>(0);
+  const [currentlyLockedCount, setCurrentlyLockedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
@@ -140,11 +140,13 @@ export default function IctDashboard() {
       if (statsRes.status === 'fulfilled') {
         const stats = statsRes.value?.data;
         if (stats) {
-          if (typeof stats.activeStaffCount === 'number' && staffCount === null) {
-            setStaffCount(stats.activeStaffCount);
+          if (typeof stats.activeStaffCount === 'number') {
+            setStaffCount(prev => prev ?? stats.activeStaffCount);
           }
-          if (Array.isArray(stats.recentLockouts)) {
-            setRecentLockoutsCount(stats.recentLockouts.length);
+          // Use the real-time count from the in-memory rate limiter — only
+          // accounts that are CURRENTLY locked, not historical lockout events.
+          if (typeof stats.currentlyLockedCount === 'number') {
+            setCurrentlyLockedCount(stats.currentlyLockedCount);
           }
         }
       }
@@ -165,7 +167,7 @@ export default function IctDashboard() {
       setLoading(false);
       setLastRefresh(new Date());
     }
-  }, [token, staffCount]);
+  }, [token]);
 
   useEffect(() => {
     loadData();
@@ -175,7 +177,9 @@ export default function IctDashboard() {
 
   // ── Derived KPIs ──────────────────────────────────────────────────────────
   const activeDocs   = doctors.filter(d => d.available).length;
-  const lockedCount  = Math.max(recentLockoutsCount, securityEvents.filter(e => e.event_type === 'AUTH_LOGIN_LOCKED').length);
+  // Real-time lock count from the in-memory rate limiter via /admin/stats.
+  // Resets to 0 once a lock expires or an admin manually unlocks the account.
+  const lockedCount  = currentlyLockedCount;
   const criticalEvts = securityEvents.filter(
     e => e.severity === 'critical' || e.severity === 'warning'
   ).length;
