@@ -14,12 +14,17 @@
 
 import { randomUUID } from 'node:crypto';
 import { isDatabaseConfigured } from '../db/pool.js';
+import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { AUDIT_ACTION, EVENT_SEVERITY, SECURITY_EVENT } from '../constants/events.js';
 import { getClientIp } from './rateLimiter.js';
 
 /** Lazy-load the query function to avoid circular dependencies at startup. */
 async function dbQuery(sql, values) {
+  // Regression tests must not write audit data or open database connections.
+  // Production and development requests retain the normal best-effort audit
+  // behavior.
+  if (env.nodeEnv === 'test') return;
   if (!isDatabaseConfigured()) return;
   try {
     const { query } = await import('../db/pool.js');

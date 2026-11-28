@@ -15,6 +15,7 @@
 
 import { sendError } from '../utils/http.js';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 /** @typedef {{ start: number; count: number }} Bucket */
 
@@ -193,10 +194,9 @@ export function normalizeIp(ip) {
 }
 
 /**
- * Get the real client IP, respecting common reverse-proxy and CDN headers.
- * Supports Cloudflare (CF-Connecting-IP), AWS / Nginx (X-Real-IP),
- * Akamai (True-Client-IP), standard load balancers (X-Forwarded-For),
- * Express req.ip (when trust proxy is enabled), and fallback socket address.
+ * Get the real client IP. Forwarded/CDN headers are considered only when
+ * TRUST_PROXY explicitly enables a trusted reverse-proxy deployment;
+ * otherwise the direct socket/Express address is used.
  *
  * @param {import('node:http').IncomingMessage} request
  * @returns {string}
@@ -204,33 +204,26 @@ export function normalizeIp(ip) {
 export function getClientIp(request) {
   if (!request) return 'unknown';
 
-  // 1. Cloudflare provides the actual validated connecting client IP
-  const cfIp = request.headers?.['cf-connecting-ip'];
-  if (cfIp) {
-    const clean = normalizeIp(String(cfIp));
-    if (clean) return clean;
-  }
+  if (env.trustProxy) {
+    // These headers are only meaningful after an explicitly trusted proxy has
+    // sanitized them. Never accept them from an arbitrary direct client.
+    const proxyHeaders = [
+      request.headers?.['cf-connecting-ip'],
+      request.headers?.['x-real-ip'],
+      request.headers?.['true-client-ip'],
+    ];
+    for (const value of proxyHeaders) {
+      if (!value) continue;
+      const clean = normalizeIp(String(value));
+      if (clean) return clean;
+    }
 
-  // 2. Standard X-Real-IP set by Nginx, Caddy, HAProxy, etc.
-  const realIp = request.headers?.['x-real-ip'];
-  if (realIp) {
-    const clean = normalizeIp(String(realIp));
-    if (clean) return clean;
-  }
-
-  // 3. True-Client-IP header (Akamai, Cloudflare Enterprise)
-  const trueClientIp = request.headers?.['true-client-ip'];
-  if (trueClientIp) {
-    const clean = normalizeIp(String(trueClientIp));
-    if (clean) return clean;
-  }
-
-  // 4. Standard X-Forwarded-For header (leftmost IP is the original client)
-  const forwarded = request.headers?.['x-forwarded-for'];
-  if (forwarded) {
-    const first = String(forwarded).split(',')[0].trim();
-    const clean = normalizeIp(first);
-    if (clean) return clean;
+    const forwarded = request.headers?.['x-forwarded-for'];
+    if (forwarded) {
+      const first = String(forwarded).split(',')[0].trim();
+      const clean = normalizeIp(first);
+      if (clean) return clean;
+    }
   }
 
   // 5. Express trusted proxy IP or req.ip

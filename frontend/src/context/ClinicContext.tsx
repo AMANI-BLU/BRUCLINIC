@@ -101,7 +101,7 @@ function notifyActionSuccess(message: string) {
 const ClinicContext = createContext<ClinicContextType | null>(null);
 
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
-  const { token, isAuthenticated, role } = useAuth();
+  const { token, isAuthenticated, role, authLoading } = useAuth();
   const { enabled: maintenance, checking: maintenanceChecking } = useMaintenance();
   const { online } = useNetwork();
   const wasOnline = useRef(online);
@@ -119,7 +119,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!isAuthenticated || !token || maintenance || maintenanceChecking) {
+    if (authLoading || !isAuthenticated || !token || maintenance || maintenanceChecking) {
       setPatients([]); setDoctors([]); setAppointments([]); setRecords([]); setMedicines([]); setQueue([]); setErCases([]); setEmergencyBays([]); setLabOrders([]); setPharmacyOrders([]);
       setLoading(false); setError(null);
       return;
@@ -166,7 +166,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to load clinic data from the database.');
     } finally { if (!silent) setLoading(false); }
-  }, [isAuthenticated, token, maintenance, maintenanceChecking]);
+  }, [authLoading, isAuthenticated, token, maintenance, maintenanceChecking]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -175,21 +175,21 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const reconnected = online && !wasOnline.current;
     wasOnline.current = online;
-    if (reconnected && isAuthenticated && token && !maintenance && !maintenanceChecking) {
+    if (reconnected && !authLoading && isAuthenticated && token && !maintenance && !maintenanceChecking) {
       void refresh({ silent: true });
     }
-  }, [online, isAuthenticated, token, maintenance, maintenanceChecking, refresh]);
+  }, [online, authLoading, isAuthenticated, token, maintenance, maintenanceChecking, refresh]);
 
   // Department workspaces need to see transfers and orders made by another
   // staff session without requiring a manual page reload.
   useEffect(() => {
-    if (!online || !isAuthenticated || !token || maintenance || maintenanceChecking) return;
+    if (!online || authLoading || !isAuthenticated || !token || maintenance || maintenanceChecking) return;
     if (!['opd', 'emergency', 'pharmacy', 'laboratory'].includes(role)) return;
     const interval = window.setInterval(() => {
       if (!document.hidden) void refresh({ silent: true });
     }, 5_000);
     return () => window.clearInterval(interval);
-  }, [online, isAuthenticated, token, role, maintenance, maintenanceChecking, refresh]);
+  }, [online, authLoading, isAuthenticated, token, role, maintenance, maintenanceChecking, refresh]);
 
   const mutate = useCallback(async (operation: () => Promise<void>, successMessage?: string) => {
     setError(null);

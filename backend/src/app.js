@@ -27,8 +27,9 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
 
-  // Trust reverse proxy headers (Cloudflare, Vercel, Render, AWS, Nginx) for real client IPs
-  app.set('trust proxy', true);
+  // Trust reverse-proxy headers only when explicitly enabled in deployment
+  // configuration; otherwise client-supplied forwarding headers are ignored.
+  app.set('trust proxy', env.trustProxy);
 
   // 1. Correlation ID
   app.use((req, res, next) => {
@@ -58,7 +59,7 @@ export function createApp() {
     if (!checkGlobalRateLimit(req, res)) {
       writeSecurityEvent({
         eventType: SECURITY_EVENT.RATE_LIMIT_EXCEEDED,
-        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress,
+        ipAddress: getClientIp(req),
         requestId: req.requestId,
         description: `Global rate limit exceeded on ${req.method} ${req.originalUrl || req.url}`,
       });
@@ -108,7 +109,7 @@ export function createApp() {
       if (!req.user && token) {
         writeSecurityEvent({
           eventType: SECURITY_EVENT.INVALID_TOKEN,
-          ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress,
+          ipAddress: getClientIp(req),
           requestId: req.requestId,
           description: `Invalid or expired JWT on ${req.method} ${req.originalUrl || req.url}`,
         });
@@ -170,9 +171,10 @@ export function createApp() {
     if (!req.user) {
       writeSecurityEvent({
         eventType: SECURITY_EVENT.ACCESS_DENIED,
-        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress,
+        ipAddress: getClientIp(req),
         requestId: req.requestId,
         description: `Unauthenticated request to ${req.method} ${req.originalUrl || req.url}`,
+        metadata: { unauthenticated: true },
       });
       return sendError(res, 401, 'Authentication required');
     }

@@ -33,6 +33,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       HOST: 0.0.0.0
+      TRUST_PROXY: "1"
       DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-bruclinic_secure_pass_2026}@db:5432/${DB_NAME:-bruclinic}
       JWT_SECRET: ${JWT_SECRET:-bruclinic_university_production_jwt_secret_random_64_characters_min}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}

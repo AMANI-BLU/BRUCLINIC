@@ -44,7 +44,8 @@ import { NotificationProvider } from './context/NotificationContext';
 // belongs to that department only; typing its URL must not grant another role
 // access to it.
 const ROLE = {
-  ADMIN_ONLY:      ['admin', 'ict'],
+  ADMIN_ONLY:      ['admin'],
+  SYSTEM_ADMIN:    ['admin', 'ict'],
   RECEPTION_ONLY:  ['receptionist'],
   OPD_ONLY:        ['opd'],
   EMERGENCY_ONLY:  ['emergency'],
@@ -219,7 +220,7 @@ function AppRoutes() {
                 <Route
                   path="/staff-accounts"
                   element={
-                    <ProtectedRoute allowed={[...ROLE.ADMIN_ONLY]}>
+                    <ProtectedRoute allowed={[...ROLE.SYSTEM_ADMIN]}>
                       <StaffAccounts />
                     </ProtectedRoute>
                   }
@@ -231,7 +232,7 @@ function AppRoutes() {
                 <Route
                   path="/security"
                   element={
-                    <ProtectedRoute allowed={[...ROLE.ADMIN_ONLY]}>
+                    <ProtectedRoute allowed={[...ROLE.SYSTEM_ADMIN]}>
                       <SecurityCenter />
                     </ProtectedRoute>
                   }
@@ -239,7 +240,7 @@ function AppRoutes() {
                 <Route
                   path="/backup"
                   element={
-                    <ProtectedRoute allowed={[...ROLE.ADMIN_ONLY]}>
+                    <ProtectedRoute allowed={[...ROLE.SYSTEM_ADMIN]}>
                       <AdminBackup />
                     </ProtectedRoute>
                   }

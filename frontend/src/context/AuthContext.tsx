@@ -58,6 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    const handleSessionExpired = () => clearSession();
+    window.addEventListener('bruclinic:auth-expired', handleSessionExpired);
+    return () => window.removeEventListener('bruclinic:auth-expired', handleSessionExpired);
+  }, [clearSession]);
+
+  useEffect(() => {
     if (!token) {
       setAuthLoading(false);
       return;

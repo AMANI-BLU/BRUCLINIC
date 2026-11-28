@@ -195,6 +195,7 @@ All variables are documented in [`backend/.env.example`](backend/.env.example).
 | `DB_SSL` | – | Set `true` for TLS when the provider's CA is not in Node's trust store |
 | `PORT` | – | API port (default: 4000) |
 | `CORS_ORIGIN` | Yes | Frontend URL (e.g. `http://localhost:5173`) |
+| `TRUST_PROXY` | – | Set `true` only when deployed behind a trusted reverse proxy/CDN |
 | `NODE_ENV` | – | `development` or `production` |
 | `LOG_LEVEL` | – | `debug` / `info` / `warn` / `error` |
 | `SEED_ADMIN_USERNAME` | – | Used by `db:seed` to create initial admin |

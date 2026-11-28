@@ -19,6 +19,14 @@ function reportNetworkState(reachable: boolean) {
   window.dispatchEvent(new CustomEvent('bruclinic:network-state', { detail: reachable }));
 }
 
+function reportSessionExpired(path: string) {
+  if (typeof window === 'undefined') return;
+  // Wrong current-password and unlock-password responses are form errors,
+  // not evidence that the session itself is invalid.
+  if (path === '/auth/login' || path === '/auth/change-password' || path === '/auth/unlock') return;
+  window.dispatchEvent(new CustomEvent('bruclinic:auth-expired', { detail: { path } }));
+}
+
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
 
 // A second click can arrive before React paints the disabled button. Reuse an
@@ -55,6 +63,7 @@ async function request<T>(path: string, options: RequestOptions = {}, token?: st
   let payload: any = null;
   try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
   if (!response.ok) {
+    if (response.status === 401) reportSessionExpired(path);
     if (response.status === 403) {
       const isBannedHeader = response.headers.get('x-ip-banned') === 'true';
       const isBannedCode = payload?.code === 'IP_BANNED';
@@ -164,6 +173,7 @@ export async function apiDownload(path: string, fallbackName: string, token?: st
   }
   reportNetworkState(true);
   if (!response.ok) {
+    if (response.status === 401) reportSessionExpired(path);
     const text = await response.text();
     let payload: any = null;
     try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }

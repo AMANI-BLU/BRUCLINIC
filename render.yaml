@@ -39,6 +39,9 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+      # Render's edge proxy is the first trusted hop for client IP headers.
+      - key: TRUST_PROXY
+        value: "1"
       # ⚠️  Do NOT add PORT here — Render injects it automatically.
       # Manually setting PORT causes ERR_SOCKET_BAD_PORT on deploy.
       - key: LOG_LEVEL

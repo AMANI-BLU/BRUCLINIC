@@ -68,6 +68,15 @@ export const env = Object.freeze({
     return 4000;
   })(),
   host: process.env.HOST || (((process.env.NODE_ENV || 'development') === 'production') ? '0.0.0.0' : 'localhost'),
+  // Only trust forwarded client-IP headers when the deployment is explicitly
+  // behind a known reverse proxy. The safe default prevents IP spoofing on a
+  // directly exposed development or production process.
+  trustProxy: (() => {
+    const raw = String(process.env.TRUST_PROXY ?? '').trim().toLowerCase();
+    if (!raw) return false;
+    if (/^\d+$/.test(raw)) return Number(raw);
+    return ['true', 'yes'].includes(raw);
+  })(),
 
   // Database connection. DATABASE_U  RL (if set) takes precedence over the
   // individual DB_* values — this is what Render Blueprints provide.
@@ -77,7 +86,10 @@ export const env = Object.freeze({
   dbHost: databaseUrl ? (parsedDatabaseUrl?.host || 'localhost') : (process.env.DB_HOST || 'localhost'),
   dbPort: databaseUrl ? (parsedDatabaseUrl?.port || 5432) : integer(process.env.DB_PORT, 5432),
   dbUser: databaseUrl ? (parsedDatabaseUrl?.user || 'postgres') : (process.env.DB_USER || 'postgres'),
-  dbPassword: process.env.DB_PASSWORD || 'admin',
+  // An absent password must not silently become a known default. Local
+  // development may intentionally use an empty password, while deployed
+  // environments should provide DB_PASSWORD or DATABASE_URL explicitly.
+  dbPassword: process.env.DB_PASSWORD || '',
   dbName: databaseUrl ? (parsedDatabaseUrl?.database || 'bruclinic') : (process.env.DB_NAME || 'bruclinic'),
   databasePoolMax: integer(process.env.DATABASE_POOL_MAX, 10),
   // Managed databases reached over the public internet often need TLS.
@@ -140,12 +152,14 @@ export function validateEnv() {
   if (!env.databaseUrl && !(env.dbHost && env.dbName && env.dbUser)) {
     issues.push('Database connection is not configured. Set DATABASE_URL, or DB_HOST/DB_USER/DB_NAME in your .env file.');
   }
+  if (!env.databaseUrl && !env.dbPassword) {
+    warnings.push(
+      'DB_PASSWORD is empty. PostgreSQL installations using the default SCRAM-SHA-256 authentication require a non-empty password; set DB_PASSWORD in backend/.env.',
+    );
+  }
 
   // Production-specific checks
   if (env.isProduction) {
-    if (!env.databaseUrl && !env.dbPassword) {
-      warnings.push('DB_PASSWORD is empty. This is insecure for a production database.');
-    }
     if (env.corsOrigin.includes('localhost')) {
       warnings.push('CORS_ORIGIN includes "localhost" which is unsuitable for a production deployment.');
     }

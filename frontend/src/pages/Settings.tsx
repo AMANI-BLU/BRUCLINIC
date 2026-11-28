@@ -59,7 +59,6 @@ const ROLE_SETTINGS: Record<UserRole, RoleSetting> = {
       { label: 'Staff accounts', to: '/staff-accounts' },
       { label: 'Security center', to: '/security' },
       { label: 'Backup & restore', to: '/backup' },
-      { label: 'Clinic reports', to: '/reports' },
     ],
   },
   receptionist: {

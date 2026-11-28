@@ -106,7 +106,7 @@ function formatSecurityTitle(e: SecurityEvent): string {
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { currentUser, role, token } = useAuth();
+  const { currentUser, role, token, authLoading } = useAuth();
   const { erCases, labOrders, medicines, pharmacyOrders, queue, refresh, loading } = useClinic();
 
   const dismissedStorageKey = `bruclinic:dismissed_alerts_${currentUser?.id || 'guest'}`;
@@ -126,8 +126,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [securityAlerts, setSecurityAlerts] = useState<ClinicAlert[]>([]);
 
   useEffect(() => {
-    if (role !== 'ict' && role !== 'admin') { setSecurityAlerts([]); return; }
-    if (!token) return;
+    if (authLoading || (role !== 'ict' && role !== 'admin') || !token) { setSecurityAlerts([]); return; }
 
     const WATCHED_EVENTS = [
       'AUTH_LOGIN_LOCKED',
@@ -151,11 +150,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const ONE_DAY_MS = 24 * 60 * 60 * 1000;
         const userCreatedTime = currentUser?.createdAt ? new Date(currentUser.createdAt).getTime() : 0;
         const seenBannedIps = new Set<string>();
+        const seenAuthenticatedAccessDenials = new Set<string>();
 
         const newAlerts: ClinicAlert[] = events
           .filter(e => {
             const eventType = e.event_type ?? '';
             if (!WATCHED_EVENTS.includes(eventType)) return false;
+            // Anonymous requests are recorded for the Security Center, but
+            // must not become live staff notifications. During startup,
+            // session restoration, expiry, and background polling it is normal
+            // to see requests without a valid JWT; showing each one as an
+            // "unauthorized URL visit" creates a false alarm for every API
+            // resource the app refreshes.
+            if (eventType === 'AUTHZ_ACCESS_DENIED') {
+              const description = String(e.description || '');
+              const isAnonymous = !e.user_id && !e.username
+                || e.metadata?.unauthenticated === true
+                || /unauthenticated request/i.test(description);
+              if (isAnonymous) return false;
+
+              // Collapse repeated background requests for the same signed-in
+              // user and route while retaining separate security events in the
+              // Security Center audit view.
+              const routeMatch = description.match(/(?:to|on)\s+(?:GET|POST|PATCH|DELETE|PUT)\s+([^\s]+)/i);
+              const denialKey = `${e.user_id || e.username}:${routeMatch?.[1] || description}`;
+              if (seenAuthenticatedAccessDenials.has(denialKey)) return false;
+              seenAuthenticatedAccessDenials.add(denialKey);
+            }
             if (e.created_at) {
               const eventTime = new Date(e.created_at).getTime();
               // Live alerts are strictly for recent events within 24 hours
@@ -177,7 +198,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           .map(e => {
             const isBannedIpEvent = e.event_type === 'SECURITY_IP_BANNED' || e.description?.toLowerCase().includes('banned ip');
             return {
-              id: isBannedIpEvent ? `sec-banned-ip-${e.ip_address || e.id || 'unknown'}` : `sec-${e.id || e.event_type || 'event'}`,
+              id: isBannedIpEvent
+                ? `sec-banned-ip-${e.ip_address || e.id || 'unknown'}`
+                : `sec-${e.id || e.event_type || 'event'}`,
               category: 'security' as const,
               categoryLabel: 'Security',
               priority: (e.severity === 'critical' ? 'critical' : e.severity === 'warning' ? 'urgent' : 'normal') as 'critical' | 'urgent' | 'normal',
@@ -197,7 +220,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     fetchSecurityAlerts();
     const id = window.setInterval(fetchSecurityAlerts, 90_000);
     return () => clearInterval(id);
-  }, [role, token, currentUser?.createdAt]);
+  }, [authLoading, role, token, currentUser?.createdAt]);
 
   // Re-sync storage keys if user account changes or signs in
   useEffect(() => {

@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test": "node --test test/app.smoke.test.js",
     "setup": "node src/setup.js",
     "setup:force": "node src/setup.js --force",
     "db:migrate": "node src/db/migrate.js",

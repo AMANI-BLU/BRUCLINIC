@@ -52,7 +52,11 @@ try {
     row('Database name', version.rows[0].db);
     row('Server time', version.rows[0].ts);
   } catch (err) {
-    fail(`Connection failed: ${err.message} (${err.code})`);
+    const missingPassword = /client password must be (?:a string|a non-empty string)/i.test(err.message || '');
+    const detail = missingPassword
+      ? 'Set DB_PASSWORD in backend/.env; this PostgreSQL server requires SCRAM-SHA-256 credentials.'
+      : `${err.message} (${err.code})`;
+    fail(`Connection failed: ${detail}`);
     process.exit(1);
   }
 
